@@ -288,7 +288,7 @@ Proof: `npx vitest run src/engine/rollover.test.ts -t "histórico da temporada"`
 | textos da meta (3) | «até o Pº» C37 · «não cair» C37 · «subir» C37 | - |
 | vereditos (3) | «Meta cumprida» C38 · «Meta não cumprida» C38 · «Demitido» C38, C39 | - |
 | linhas do veredito (10) | C38, table-driven over all 10 | - |
-| ranking da meta (40 = 20 por divisão) | C36, table-driven over r 1–20 in each division | - |
+| ranking da meta, 20 por divisão (40) | C36, table-driven over all 40 | - |
 | abas do Histórico (3) | Artilharia C44 · Estatísticas C45 · Campeões C46 | - |
 | estados vazios (4) | «Ninguém se aposentou» C17 · «Nenhum contrato encerrado» C17 · «Nenhuma temporada encerrada» C47 · «Nenhum gol ainda» C47 | - |
 | o que a virada renova (6) | clubes C13 · calendário C14 · condição C15 · propostas C16 · juniores C14 · meta C36 | - |

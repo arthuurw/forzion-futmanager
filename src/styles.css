@@ -1819,3 +1819,270 @@ table.compact tbody td {
   padding-top: max(0px, calc(var(--row-pad) - 1px));
   padding-bottom: max(0px, calc(var(--row-pad) - 1px));
 }
+
+/* ---------- mercado e finanças ---------- */
+
+.finance-body {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.market-body {
+  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+}
+
+.money-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: start;
+  gap: clamp(4px, 0.9vh, 9px) 14px;
+  margin: 0;
+}
+
+.money-list dt {
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  align-self: center;
+}
+
+.money-list dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 1.02rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.money-list dd select {
+  min-width: 7.5em;
+}
+
+.neg {
+  color: #ff9d9d;
+}
+
+.money-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.82rem;
+}
+
+.money-table tr.total th,
+.money-table tr.total td {
+  border-top: 1px solid var(--edge);
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 800;
+}
+
+.loan-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.loan-row input {
+  width: 9.5em;
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--edge);
+  background: var(--glass-2);
+  color: var(--text);
+}
+
+.confirm.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: none;
+  padding: 8px 10px;
+}
+
+.confirm.inline p {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.cash {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  color: var(--gold-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  margin: 12px 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.closed-market {
+  align-items: center;
+  justify-content: center;
+}
+
+.closed-market .empty {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+button.link {
+  all: unset;
+  cursor: pointer;
+  color: var(--text);
+}
+
+button.link:hover,
+button.link:focus-visible {
+  color: var(--gold-hi);
+  text-decoration: underline;
+}
+
+tr.selected td {
+  background: rgba(255, 194, 26, 0.16);
+}
+
+.deal-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 1.15rem;
+  margin: 4px 0;
+}
+
+.offers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.offers li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(2, 8, 23, 0.45);
+}
+
+.offers li button {
+  margin-left: 6px;
+}
+
+td.row-actions {
+  white-space: nowrap;
+}
+
+.for-sale {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  font-weight: 700;
+  color: var(--gold);
+  cursor: pointer;
+}
+
+.for-sale input {
+  margin: 0;
+  width: 0.85em;
+  height: 0.85em;
+}
+
+/* Row actions must not make the 22-row squad list taller than the plain rows. */
+td.row-actions > * {
+  vertical-align: middle;
+}
+
+button.mini {
+  padding: 0 5px;
+  min-height: 0;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  margin-left: 4px;
+  border-radius: 5px;
+}
+
+.gate {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+
+.gate b {
+  color: var(--gold-hi);
+}
+
+@media (max-width: 900px) {
+  .finance-body,
+  .market-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .market-body .deal {
+    max-height: 34vh;
+  }
+
+  .market-body .deal.idle {
+    display: none;
+  }
+
+  /* The squad list gained a salary column: the rating keeps its number, loses the bar. */
+  table[aria-label="Elenco"] td.rating-cell .bar {
+    display: none;
+  }
+
+  table[aria-label="Elenco"] th,
+  table[aria-label="Elenco"] td {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+
+  table[aria-label="Elenco"] .pos {
+    min-width: 28px;
+    padding: 0 3px;
+  }
+
+  table[aria-label="Elenco"] .for-sale span {
+    display: none;
+  }
+
+  table[aria-label="Elenco"] .fbar {
+    display: none;
+  }
+
+  table[aria-label="Elenco"] {
+    font-size: 0.8rem;
+  }
+
+  table[aria-label="Elenco"] thead th {
+    font-size: 0.6rem;
+    letter-spacing: 0;
+  }
+
+  table[aria-label="Elenco"] td:first-child {
+    max-width: 17vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

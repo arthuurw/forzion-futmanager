@@ -4,6 +4,7 @@ import { narrate, narrationContext } from "../engine/narration";
 import { findClub, userLeague } from "../engine/season";
 import { useGame, userClub } from "../store";
 import { Flag } from "./Flag";
+import { formatMoney, formatNumber } from "./money";
 import { ScreenTabs } from "./ScreenTabs";
 import { Table } from "./Table";
 
@@ -59,6 +60,11 @@ export function Round() {
               <span>90:00</span>
               <span>Fim de jogo</span>
             </div>
+            {mine.homeId === club.id && club.finance.lastRound && (
+              <p className="gate">
+                Público <b>{formatNumber(club.finance.lastRound.attendance)}</b> · Bilheteria <b>{formatMoney(club.finance.lastRound.tickets)}</b>
+              </p>
+            )}
             <ul className="ticker fill">
               {lastRound.userEvents.map((e, i) => (
                 <li key={i} className={e.type} style={{ "--i": i } as React.CSSProperties}>

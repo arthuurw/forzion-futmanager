@@ -77,4 +77,31 @@ describe("tela Rodada", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Rodada 5");
     expect(screen.getByText("Rodada 6 de 38")).toBeInTheDocument();
   });
+
+  test("público e bilheteria do jogo em casa", () => {
+    const num = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    const seen = { home: false, away: false };
+    for (let clubIndex = 0; clubIndex < 20 && !(seen.home && seen.away); clubIndex++) {
+      const before = seededGame(8, clubIndex);
+      const { state, ...lastRound } = playRound(before);
+      const mine = lastRound.results.find((r) => r.homeId === before.userClubId || r.awayId === before.userClubId)!;
+      const home = mine.homeId === before.userClubId;
+      if (seen[home ? "home" : "away"]) continue;
+      seen[home ? "home" : "away"] = true;
+      useGame.setState({ phase: "round", game: state, lastRound });
+      const { unmount } = render(<Round />);
+      const section = screen.getByRole("region", { name: "Sua partida" });
+      const l = state.leagues[0]!.clubs.find((c) => c.id === before.userClubId)!.finance.lastRound!;
+      if (home) {
+        expect(section).toHaveTextContent(`Público ${num(l.attendance)}`);
+        expect(section).toHaveTextContent(`Bilheteria R$ ${num(l.tickets)}`);
+      } else {
+        expect(within(section).queryByText(/Público/)).not.toBeInTheDocument();
+        expect(within(section).queryByText(/Bilheteria/)).not.toBeInTheDocument();
+      }
+      unmount();
+    }
+    expect(seen).toEqual({ home: true, away: true });
+  });
+
 });

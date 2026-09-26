@@ -138,6 +138,34 @@ describe("fluxo do app", () => {
     expect(viaReload.lastRound!.userEvents).toEqual(direct.userEvents);
   });
 
+  test("reload antes da rodada repete propostas", async () => {
+    const user = userEvent.setup();
+    const afterRound1 = seededGame(9, 4, 1);
+    const league = afterRound1.leagues[0]!;
+    const me = league.clubs.find((c) => c.id === afterRound1.userClubId)!;
+    // Offers need players for sale; AI signings need an AI club under 18.
+    me.forSale = me.players.filter((p) => !me.lineup!.starters.includes(p.id)).map((p) => p.id);
+    const ai = league.clubs.find((c) => c.id !== me.id)!;
+    ai.players = ai.players.slice(0, 16);
+    const direct = playRound(afterRound1);
+    expect(direct.state.market.offers.length).toBeGreaterThan(0);
+    expect(direct.state.leagues[0]!.clubs.find((c) => c.id === ai.id)!.players).toHaveLength(18);
+
+    await saveGame(afterRound1);
+    resetStore();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
+    await screen.findByRole("region", { name: "Sua partida" });
+
+    const viaReload = useGame.getState().game!;
+    expect(viaReload.leagues[0]!.rounds).toEqual(direct.state.leagues[0]!.rounds);
+    expect(viaReload.market).toEqual(direct.state.market);
+    expect(viaReload.leagues[0]!.clubs.find((c) => c.id === ai.id)).toEqual(direct.state.leagues[0]!.clubs.find((c) => c.id === ai.id));
+    expect(viaReload).toEqual(direct.state);
+  });
+
   test("fim da rodada ao vivo grava e mostra resultados", async () => {
     const user = userEvent.setup();
     useGame.setState({ phase: "squad", game: seededGame(8), hasSave: true });

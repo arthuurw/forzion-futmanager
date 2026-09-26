@@ -229,7 +229,7 @@ Quem já tem um jogo salvo continua de onde parou.
 
 | Assumption | Chosen default | Rationale | Confirmed? |
 | --- | --- | --- | --- |
-| valor do patrocínio | ~~50% da folha salarial inicial~~ calibrado no build: folha inicial − bilheteria esperada (meia temporada em casa a R$ 40 com estádio cheio = capacidade × 20), mínimo 0, arredondado para R$ 10.000 | 50% da folha deixava a mediana do caixa final em 3,3× o inicial; com a bilheteria descontada a temporada fecha perto do empate (mín. 0,98×, mediana 1,41×, máx. 2,07×) e o AC 13 passa | y (formato calibrado no build dentro do que o autor aprovou) |
+| valor do patrocínio | ~~50% da folha salarial inicial~~ calibrado no build: folha inicial − bilheteria esperada (meia temporada em casa a R$ 40 com estádio cheio = capacidade × 20), com piso de 3% da folha, arredondado para R$ 10.000 | 50% da folha deixava a mediana do caixa final em 3,3× o inicial; com a bilheteria descontada a temporada fecha perto do empate (mín. 0,98×, mediana 1,55×, máx. 2,19×) e o AC 13 passa; o piso evita clube com patrocínio R$ 0 | y (formato calibrado no build dentro do que o autor aprovou) |
 | lista do mercado com ~420 jogadores | rolagem dentro do painel da lista, sem rolagem de página (AD-010) | 420 linhas não cabem; paginação custa cliques no fluxo mais usado | y |
 | IA sem caixa contratando livres | contrata mesmo que o caixa fique negativo | a IA precisa de 18 para escalar; sem empréstimo para a IA | y |
 | navegação | botões «Mercado» e «Finanças» no topo da tela Elenco, e «Voltar ao elenco» nas duas telas | a tela Elenco já é o ponto de partida da rodada | y |

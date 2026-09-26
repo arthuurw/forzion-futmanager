@@ -13,11 +13,14 @@ import {
   type LiveRound,
   type SubRefusal,
 } from "./engine/live";
+import * as finance from "./engine/finance";
+import * as market from "./engine/market";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
-import type { Club, FormationName, GameState, Posture } from "./engine/types";
+import type { Club, Finance, FormationName, GameState, Posture } from "./engine/types";
 import { isStorageAvailable, loadGame, saveGame } from "./persistence/save";
+import { formatMoney } from "./ui/money";
 
-export type Phase = "loading" | "home" | "chooseClub" | "squad" | "live" | "round" | "end";
+export type Phase = "loading" | "home" | "chooseClub" | "squad" | "market" | "finance" | "live" | "round" | "end";
 export type SaveStatus = "ok" | "failed" | "unavailable";
 export type LastRound = Omit<RoundOutcome, "state">;
 export type Clock = "running" | "paused" | "halftime";
@@ -33,6 +36,39 @@ export const REFUSAL_TEXT: Record<SubRefusal, string> = {
   not_on_bench: "Escolha um reserva disponível",
   no_match: "Seu time não joga nesta rodada",
 };
+
+type Refusal = market.MarketRefusal | finance.FinanceRefusal;
+type ActionResult = { ok: true; state: GameState } | { ok: false; reason: Refusal; amount?: number };
+
+/** What the screens say when the engine refuses a market or finance action. */
+export function refusalText(reason: Refusal, amount = 0): string {
+  switch (reason) {
+    case "price":
+      return `Recusado: pedem ${formatMoney(amount)}`;
+    case "cash":
+      return "Caixa insuficiente";
+    case "squad_full":
+      return `Elenco cheio (${market.SQUAD_MAX})`;
+    case "seller_min":
+      return "O clube não vende: elenco no mínimo";
+    case "user_min":
+      return `Elenco no mínimo (${market.SQUAD_MIN})`;
+    case "closed":
+      return "Mercado fechado";
+    case "not_found":
+      return "Jogador não encontrado";
+    case "works":
+      return "Já há uma obra em andamento";
+    case "max_capacity":
+      return "Capacidade máxima: 80.000";
+    case "loan_limit":
+      return `Limite de empréstimo: ${formatMoney(amount)}`;
+    case "over_debt":
+      return "Valor maior que a dívida";
+    case "invalid":
+      return "Valor inválido";
+  }
+}
 
 export interface GameStore {
   phase: Phase;
@@ -51,6 +87,10 @@ export interface GameStore {
   liveMessage: string | null;
   /** The round reached 90' and is being saved. */
   finishing: boolean;
+  /** Why the last market or finance action was refused, if it was. */
+  marketMessage: string | null;
+  /** A market or finance action is being saved; further actions wait. */
+  saving: boolean;
   init(): Promise<void>;
   newGame(seed?: number): void;
   chooseClub(clubId: string): Promise<void>;
@@ -67,6 +107,20 @@ export interface GameStore {
   substitute(slot: number, inId: string): void;
   changeLiveFormation(formation: FormationName): void;
   changeLivePosture(posture: Posture): void;
+  goToMarket(): void;
+  goToFinance(): void;
+  /** Market and finance actions (AC 15): each saves before the screen shows the new state. Resolve to accepted or not. */
+  buyPlayer(playerId: string, offer: number): Promise<boolean>;
+  acceptOffer(offerId: string): Promise<boolean>;
+  rejectOffer(offerId: string): Promise<boolean>;
+  toggleForSale(playerId: string): Promise<boolean>;
+  releasePlayer(playerId: string): Promise<boolean>;
+  signFreeAgent(playerId: string): Promise<boolean>;
+  promoteJunior(playerId: string): Promise<boolean>;
+  setTicketPrice(price: number): Promise<boolean>;
+  expandStadium(): Promise<boolean>;
+  takeLoan(amount: number): Promise<boolean>;
+  repayLoan(amount: number): Promise<boolean>;
   continueGame(): void;
   goToSquad(): void;
   goHome(): void;
@@ -99,7 +153,31 @@ export function userClub(game: GameState): Club | null {
   return game.userClubId ? findClub(userLeague(game), game.userClubId) : null;
 }
 
+/** Applies a finance action to the user's club. */
+function withUserFinance(game: GameState, apply: (f: Finance) => finance.FinanceResult): ActionResult {
+  const club = userClub(game);
+  if (!club) return { ok: false, reason: "not_found" };
+  const r = apply(club.finance);
+  if (!r.ok) return r;
+  return { ok: true, state: editUserClub(game, (c) => ({ ...c, finance: r.finance })) };
+}
+
 export const useGame = create<GameStore>()((set, get) => {
+  /** AC 15: the save is written first; only then does the game state (and the screen) change. */
+  async function commit(action: (game: GameState) => ActionResult): Promise<boolean> {
+    const { game, saving } = get();
+    if (!game || saving) return false;
+    const r = action(game);
+    if (!r.ok) {
+      set({ marketMessage: refusalText(r.reason, r.amount) });
+      return false;
+    }
+    set({ saving: true });
+    await persist(r.state, set);
+    set({ game: r.state, marketMessage: null, saving: false });
+    return true;
+  }
+
   /** Closes the live round at 90': results, condition, save, then the results screen. */
   async function finishLive(): Promise<void> {
     const { game, live, finishing } = get();
@@ -132,6 +210,8 @@ export const useGame = create<GameStore>()((set, get) => {
     speed: 1,
     liveMessage: null,
     finishing: false,
+    marketMessage: null,
+    saving: false,
 
     async init() {
       // Only the first mount reads storage; StrictMode's second effect run is a no-op.
@@ -235,6 +315,26 @@ export const useGame = create<GameStore>()((set, get) => {
       decide((live, clubId) => changePosture(live, clubId, posture));
     },
 
+    goToMarket() {
+      set({ phase: "market", marketMessage: null });
+    },
+
+    goToFinance() {
+      set({ phase: "finance", marketMessage: null });
+    },
+
+    buyPlayer: (playerId, offer) => commit((g) => market.buyPlayer(g, playerId, offer)),
+    acceptOffer: (offerId) => commit((g) => market.acceptOffer(g, offerId)),
+    rejectOffer: (offerId) => commit((g) => market.rejectOffer(g, offerId)),
+    toggleForSale: (playerId) => commit((g) => market.toggleForSale(g, playerId)),
+    releasePlayer: (playerId) => commit((g) => market.releasePlayer(g, playerId)),
+    signFreeAgent: (playerId) => commit((g) => market.signFreeAgent(g, playerId)),
+    promoteJunior: (playerId) => commit((g) => market.promoteJunior(g, playerId)),
+    setTicketPrice: (price) => commit((g) => withUserFinance(g, (f) => finance.setTicketPrice(f, price))),
+    expandStadium: () => commit((g) => withUserFinance(g, (f) => finance.expandStadium(f))),
+    takeLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.takeLoan(f, amount))),
+    repayLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.repayLoan(f, amount))),
+
     continueGame() {
       const game = get().game;
       if (!game) return;
@@ -242,7 +342,7 @@ export const useGame = create<GameStore>()((set, get) => {
     },
 
     goToSquad() {
-      set({ phase: "squad" });
+      set({ phase: "squad", marketMessage: null });
     },
 
     goHome() {

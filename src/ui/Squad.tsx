@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { isMarketOpen, releaseCost } from "../engine/market";
 import { formationSlots, isAvailable, validateLineup } from "../engine/lineup";
 import { userLeague } from "../engine/season";
 import { FORMATION_NAMES, POSITIONS, POSTURES, type FormationName, type Position, type Posture } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { FitnessBar, MoraleArrow, StatusBadge } from "./Condition";
+import { formatMoney } from "./money";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
 import { ScreenTabs } from "./ScreenTabs";
@@ -42,7 +44,13 @@ export function Squad() {
   const setPosture = useGame((s) => s.setPosture);
   const assignStarter = useGame((s) => s.assignStarter);
   const playRound = useGame((s) => s.playRound);
+  const toggleForSale = useGame((s) => s.toggleForSale);
+  const releasePlayer = useGame((s) => s.releasePlayer);
+  const goToMarket = useGame((s) => s.goToMarket);
+  const goToFinance = useGame((s) => s.goToFinance);
+  const message = useGame((s) => s.marketMessage);
   const [tab, setTab] = useState<SquadTab>("pitch");
+  const [releasing, setReleasing] = useState<string | null>(null);
   if (!game) return null;
   const club = userClub(game);
   if (!club) return null;
@@ -52,6 +60,8 @@ export function Squad() {
   const slots = lineup ? formationSlots(lineup.formation) : [];
   const coords = slotCoordinates(slots);
   const starterIds = new Set(lineup?.starters.filter((id): id is string => !!id));
+  const marketOpen = isMarketOpen(game);
+  const toRelease = club.players.find((p) => p.id === releasing) ?? null;
 
   // AC 9: by position, then rating descending.
   const roster = [...club.players].sort(
@@ -163,6 +173,7 @@ export function Squad() {
                   <th>Pos</th>
                   <th className="num">Idade</th>
                   <th className="num">Força</th>
+                  <th className="num">Salário</th>
                   <th className="num">Cond</th>
                   <th>Moral</th>
                   <th />
@@ -180,14 +191,31 @@ export function Squad() {
                       <RatingBar rating={p.rating} />
                       {p.rating}
                     </td>
+                    <td className="num">{formatMoney(p.salary)}</td>
                     <td className="num">
                       <FitnessBar value={p.fitness} />
                     </td>
                     <td>
                       <MoraleArrow value={p.morale} />
                     </td>
-                    <td>
+                    <td className="row-actions">
                       <StatusBadge player={p} />
+                      {marketOpen && (
+                        <>
+                          <label className="for-sale" title="À venda">
+                            <input
+                              type="checkbox"
+                              aria-label={`À venda: ${p.name}`}
+                              checked={club.forSale.includes(p.id)}
+                              onChange={() => void toggleForSale(p.id)}
+                            />
+                            <span aria-hidden="true">$</span>
+                          </label>
+                          <button className="mini" aria-label={`Dispensar ${p.name}`} title="Dispensar" onClick={() => setReleasing(p.id)}>
+                            ✕
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -204,10 +232,36 @@ export function Squad() {
         </section>
       </div>
 
+      {toRelease && (
+        <div role="alertdialog" aria-label="Confirmar dispensa" className="panel confirm inline">
+          <p>
+            Dispensar {toRelease.name} custa {formatMoney(releaseCost(toRelease))}. Confirmar?
+          </p>
+          <button
+            className="primary"
+            onClick={() => {
+              setReleasing(null);
+              void releasePlayer(toRelease.id);
+            }}
+          >
+            Confirmar
+          </button>
+          <button onClick={() => setReleasing(null)}>Cancelar</button>
+        </div>
+      )}
+
       <div className="action-bar">
         <span className="matchday">
           Rodada {league.currentRound + 1} de {league.rounds.length}
         </span>
+        <span className="cash">{formatMoney(club.finance.cash)}</span>
+        <button onClick={goToMarket}>Mercado</button>
+        <button onClick={goToFinance}>Finanças</button>
+        {message && (
+          <p role="status" className="missing">
+            {message}
+          </p>
+        )}
         {!validation.ok && (
           <p role="status" className="missing">
             Faltam {validation.missing} titulares

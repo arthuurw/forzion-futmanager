@@ -8,6 +8,9 @@ import { resetAll, seededGame } from "./test-utils";
 
 beforeEach(resetAll);
 
+/** Written out here, not imported (L-004). */
+const brl = (n: number) => `${n < 0 ? "-" : ""}R$ ${String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+
 describe("tela Elenco", () => {
   test("22 jogadores ordenados por posição e força", () => {
     const game = seededGame(4, 2);
@@ -144,6 +147,64 @@ describe("tela Elenco", () => {
     expect(fwSlot.closest(".token")).toHaveClass("oop");
     expect(screen.getByText("fora de posição")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
+  });
+
+  test("coluna salário", () => {
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    const table = screen.getByRole("table", { name: "Elenco" });
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+    const col = headers.indexOf("Salário");
+    expect(col).toBeGreaterThan(-1);
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(22);
+    for (const row of rows) {
+      const cells = within(row).getAllByRole("cell");
+      const player = club.players.find((p) => p.name === cells[0]!.textContent)!;
+      expect(cells[col]!.textContent, player.name).toBe(brl(player.salary));
+    }
+  });
+
+  test("marcar à venda", async () => {
+    const user = userEvent.setup();
+    const game = seededGame(4, 2);
+    const player = userClub(game)!.players[7]!;
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<Squad />);
+    await user.click(screen.getByRole("checkbox", { name: `À venda: ${player.name}` }));
+    await vi.waitFor(() => expect(userClub(useGame.getState().game!)!.forSale).toEqual([player.id]));
+    expect(screen.getByRole("checkbox", { name: `À venda: ${player.name}` })).toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: `À venda: ${player.name}` }));
+    await vi.waitFor(() => expect(userClub(useGame.getState().game!)!.forSale).toEqual([]));
+  });
+
+  test("marcar à venda só com mercado aberto", () => {
+    useGame.setState({ phase: "squad", game: seededGame(4, 2, 5), hasSave: true });
+    render(<Squad />);
+    expect(screen.queryAllByRole("checkbox", { name: /^À venda/ })).toHaveLength(0);
+    expect(screen.queryAllByRole("button", { name: /^Dispensar/ })).toHaveLength(0);
+  });
+
+  test("dispensar com confirmação", async () => {
+    const user = userEvent.setup();
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    const player = club.players.find((p) => !club.lineup!.starters.includes(p.id))!;
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<Squad />);
+    await user.click(screen.getByRole("button", { name: `Dispensar ${player.name}` }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(`Dispensar ${player.name} custa ${brl(4 * player.salary)}. Confirmar?`);
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(useGame.getState().game).toBe(game);
+    await user.click(screen.getByRole("button", { name: `Dispensar ${player.name}` }));
+    await user.click(screen.getByRole("button", { name: "Confirmar" }));
+    await vi.waitFor(() => expect(useGame.getState().game).not.toBe(game));
+    const after = useGame.getState().game!;
+    expect(userClub(after)!.finance.cash).toBe(club.finance.cash - 4 * player.salary);
+    expect(userClub(after)!.players.map((p) => p.id)).not.toContain(player.id);
+    expect(after.market.freeAgents.map((p) => p.id)).toContain(player.id);
   });
 
 });

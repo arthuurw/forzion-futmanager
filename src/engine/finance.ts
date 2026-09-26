@@ -13,6 +13,8 @@ export const LOAN_STEP = 500_000;
 const INTEREST_RATE = 0.015;
 /** Sponsorship tops the expected home gate up to this share of the payroll (AC 13). */
 const SPONSORSHIP_TARGET = 1.0;
+/** Every club has some sponsor, however full its stadium. */
+const SPONSORSHIP_FLOOR = 0.03;
 const INITIAL_CASH_ROUNDS = 10;
 const MAX_DEMAND = 1.3;
 const DEMAND_ELASTICITY = 1.5;
@@ -47,7 +49,7 @@ export function capacityFor(fans: number): number {
  */
 export function sponsorshipFor(wages: number, capacity: number): number {
   const expectedGate = (capacity * DEFAULT_TICKET_PRICE) / 2;
-  return Math.max(0, roundTo(wages * SPONSORSHIP_TARGET - expectedGate, 10_000));
+  return Math.max(roundTo(wages * SPONSORSHIP_FLOOR, 10_000), roundTo(wages * SPONSORSHIP_TARGET - expectedGate, 10_000));
 }
 
 /** A new club's money, from its squad (AC 3, AC 4). Also used by the save migration. */

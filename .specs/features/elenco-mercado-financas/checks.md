@@ -249,3 +249,11 @@ O plano aprovado muda contratos que partida-ao-vivo provou. Os testes abaixo mud
 - Código novo (`engine/finance`, `engine/market`, `ui/Market`, `ui/Finance`, `ui/money`, testes) ≈ 70 KB → ~18k
 - S1 ≈ 18k; S2 com S3 entram em `engine/market` e na tela Mercado: 36k acumulado; S4 a S7: 55k acumulado
 - Total ≈ 55k, abaixo do budget de 150k - one builder
+
+- **Boundary:** C1–C57 closed across `c528f9a` (engine) and the `feat(ui)` commit that follows it
+- **Settled mid-build:**
+  - Nothing new was asked.
+  - Sponsorship was calibrated for C13 within the approved assumption, and the reason is in the plan's `Assumptions`. Sponsorship = payroll − expected gate, with a floor of 3% of payroll; 50% of payroll left the median at 3,3×.
+  - Doors 5 and 6 were recorded in `Landing` before their code.
+  - The C46 test takes the largest multiple of R$ 500.000 under the limit, because the limit (2 × initial cash) is not always a multiple.
+- **Abandoned:** drawing the market from the leagues' `Rng` - it would have changed every seed's matches (door 6)

@@ -175,3 +175,7 @@ Proof: `npx vitest run src/deps.test.ts -t "dependências de runtime"`
 - S2 ≈ 10 arquivos (`engine/lineup`, `engine/match`, `engine/table`, `engine/narration`, 2 telas), ~40 KB → ~10k
 - S3 ≈ 4 arquivos (tela «Fim», versão do save, fluxo do app), ~12 KB → ~3k
 - Total ≈ 24k, abaixo do budget de 150k - one builder
+
+- **Boundary:** C1–C40 closed in the single `feat(core)` commit that lands the engine, persistence, store and screens
+- **Settled mid-build:** nothing asked; `init()` reads storage only while the phase is `loading` so StrictMode's double effect and pre-seeded tests do not reload; `Continuar` lands on «Elenco» (round events are not persisted, door 7)
+- **Abandoned:** `structuredClone` in the engine - not in `lib: ES2022` (door 3); replaced by a JSON round-trip since the save is plain JSON

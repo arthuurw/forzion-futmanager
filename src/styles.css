@@ -1,0 +1,84 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1a1a1a;
+  background: #f4f4f0;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 12px;
+}
+h2 {
+  font-size: 1.15rem;
+  margin: 20px 0 8px;
+}
+button {
+  font: inherit;
+  padding: 6px 14px;
+  margin: 4px 8px 4px 0;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+th,
+td {
+  border-bottom: 1px solid #ccc;
+  padding: 4px 6px;
+  text-align: left;
+}
+td.num,
+th.num {
+  text-align: right;
+}
+.banner {
+  background: #fff3cd;
+  border: 1px solid #e0c060;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+.banner.error {
+  background: #f8d7da;
+  border-color: #d9534f;
+}
+.club-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+.narration li {
+  list-style: none;
+  padding: 2px 0;
+}
+.narration li.goal {
+  font-weight: bold;
+}
+.slots label {
+  display: block;
+  margin: 2px 0;
+}
+.slots select {
+  font: inherit;
+  margin-left: 6px;
+}
+.row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.row > * {
+  flex: 1 1 320px;
+}

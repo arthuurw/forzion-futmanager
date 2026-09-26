@@ -16,9 +16,9 @@
 ## Handoff
 
 **Feature**: nucleo-liga-partida
-**Where**: plan.md escrito, aguardando revisão humana - checks.md não existe
+**Where**: C1–C40 built, 42 testes verdes, build OK - aguardando verification.md do Verifier
 **In progress**: nada
-**Next step**: usuário revisa `.specs/features/nucleo-liga-partida/plan.md`; depois derivar checks.md
+**Next step**: Verifier independente escreve verification.md; `validate_verification.py` deve sair 0
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

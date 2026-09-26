@@ -72,6 +72,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C9 / src/ui/Finance.test.tsx (tests)
 - last seen: 2026-09-26T22:12:06Z
 
+### L-011 - When a fix adds a test to strengthen a check, add it as a Proof line on that check too, or the check's proof never runs it.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: elenco-mercado-financas
+- evidence: C7 / checks.md:35 (checks)
+- last seen: 2026-09-26T22:19:36Z
+
+### L-012 - When one piece of state feeds several screens, prove it renders on each screen that can trigger it.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `ui` · harmful: 0
+- features: elenco-mercado-financas
+- evidence: C23 / src/ui/Squad.tsx:260 (ui)
+- last seen: 2026-09-26T22:19:36Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

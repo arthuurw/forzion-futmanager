@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 11,
+  "next_id": 13,
   "lessons": [
     {
       "id": "L-001",
@@ -188,6 +188,42 @@
       ],
       "created": "2026-09-26T22:12:06Z",
       "last_seen": "2026-09-26T22:12:06Z"
+    },
+    {
+      "id": "L-011",
+      "key": "spec_precision_gap::when a fix adds a test to strengthen a check add it as a proof line on that check too or the check s proof never runs it",
+      "text": "When a fix adds a test to strengthen a check, add it as a Proof line on that check too, or the check's proof never runs it.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "elenco-mercado-financas"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C7 / checks.md:35 (checks)"
+      ],
+      "created": "2026-09-26T22:19:36Z",
+      "last_seen": "2026-09-26T22:19:36Z"
+    },
+    {
+      "id": "L-012",
+      "key": "spec_precision_gap::when one piece of state feeds several screens prove it renders on each screen that can trigger it",
+      "text": "When one piece of state feeds several screens, prove it renders on each screen that can trigger it.",
+      "signal": "spec_precision_gap",
+      "scope": "ui",
+      "status": "candidate",
+      "features": [
+        "elenco-mercado-financas"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C23 / src/ui/Squad.tsx:260 (ui)"
+      ],
+      "created": "2026-09-26T22:19:36Z",
+      "last_seen": "2026-09-26T22:19:36Z"
     }
   ]
 }

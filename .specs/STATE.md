@@ -17,10 +17,10 @@
 
 ## Handoff
 
-**Feature**: partida-ao-vivo
-**Where**: partida-ao-vivo concluída - C1–C48 PASS (round 2 scoped, `validate_verification.py` 0). Desgaste renegociado (0,15/0,2 por minuto) e IA poupa abaixo de 60
+**Feature**: elenco-mercado-financas
+**Where**: concluída - C1–C59 PASS (round 2 scoped, `validate_verification.py` 0). Save v3 com finanças e mercado
 **In progress**: nada
-**Next step**: sub-projeto 2 (elenco, mercado e finanças) via tlc-spec-lean; opcional: apertar C48 (quem assume a vaga, fallback sem reserva) e check para «Sem reservas disponíveis»
+**Next step**: aval do autor para as portas 5 e 6 e para a fórmula do patrocínio (plan.md); depois sub-projeto 3 (múltiplas temporadas). Opcional: C7 ganhar a prova `público da rodada usa a fase antes da rodada`; mensagem de recusa na tela Elenco sem teste de tela
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

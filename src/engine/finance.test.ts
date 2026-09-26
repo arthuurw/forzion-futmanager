@@ -295,3 +295,48 @@ describe("finanças (engine)", () => {
     }
   });
 });
+
+describe("finanças com duas divisões", () => {
+  const all = (s: GameState) => s.leagues.flatMap((l) => l.clubs);
+  const byId = (s: GameState, id: string) => all(s).find((c) => c.id === id)!;
+
+  /** Cash change of the round as the ledger explains it, plus what the market spent after the close. */
+  function explained(before: GameState, after: GameState, id: string): { delta: number; ledger: number } {
+    const f = byId(after, id).finance;
+    const l = f.lastRound!;
+    return {
+      delta: f.cash - byId(before, id).finance.cash,
+      ledger: l.tickets + l.sponsorship - l.salaries - l.interest + (l.prize ?? 0) - f.pendingOut,
+    };
+  }
+
+  test("série B recebe 60% do patrocínio", () => {
+    const before = game(14);
+    const after = playRound(before).state;
+    expect(after.leagues[1]!.clubs).toHaveLength(20);
+    for (const [division, share] of [[0, 1], [1, 0.6]] as const) {
+      for (const c of after.leagues[division]!.clubs) {
+        expect(c.finance.lastRound!.sponsorship, c.id).toBe(Math.round(c.finance.sponsorship * share));
+        const { delta, ledger } = explained(before, after, c.id);
+        expect(delta, c.id).toBe(ledger);
+      }
+    }
+  });
+
+  test("prêmio por posição na rodada 38", () => {
+    let state = game(15);
+    for (let r = 0; r < 37; r++) state = playRound(state).state;
+    for (const c of all(state)) expect(c.finance.lastRound!.prize, `${c.id} rodada 37`).toBeUndefined();
+    const after = playRound(state).state;
+    for (const [division, perPlace] of [[0, 250_000], [1, 62_500]] as const) {
+      const table = computeTable(after.leagues[division]!);
+      expect(table).toHaveLength(20);
+      table.forEach((row, i) => {
+        const prize = (21 - (i + 1)) * perPlace;
+        expect(byId(after, row.clubId).finance.lastRound!.prize, row.clubId).toBe(prize);
+        const { delta, ledger } = explained(state, after, row.clubId);
+        expect(delta, row.clubId).toBe(ledger);
+      });
+    }
+  }, 60_000);
+});

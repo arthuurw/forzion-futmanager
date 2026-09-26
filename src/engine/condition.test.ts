@@ -2,6 +2,7 @@ import { playerAfterRound } from "./condition";
 import { newGame } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
 import { makeSide, runToEnd, startRound, type LiveSide } from "./live";
+import { finishRound } from "./season";
 import { FRESH_CONDITION, ZERO_STATS, type Player } from "./types";
 
 const base: Player = { id: "p", name: "p", position: "MF", age: 25, rating: 70, ...FRESH_CONDITION, ...ZERO_STATS, salary: 0, contractSeasons: 1 };
@@ -92,5 +93,36 @@ describe("pós-rodada", () => {
     // An injured player sitting out is not "idle".
     const hurt = playerAfterRound({ ...base, idleRounds: 2, injuryRounds: 2 }, side({ played: false }), "draw");
     expect(hurt).toMatchObject({ idleRounds: 2, morale: 0 });
+  });
+});
+
+describe("números da temporada", () => {
+  test("jogos e gols da temporada", () => {
+    const state = newGame(18);
+    const me = state.leagues[1]!.clubs[2]!;
+    state.userClubId = me.id;
+    me.lineup = autoLineup(me, AI_FORMATION);
+    // Earlier numbers, so an overwrite cannot pass for a sum.
+    for (const league of state.leagues) for (const c of league.clubs) for (const p of c.players) Object.assign(p, { seasonGames: 3, seasonGoals: 1 });
+    const live = runToEnd(startRound(state));
+    const after = finishRound(state, live).state;
+    const played = new Set(live.matches.flatMap((m) => [...m.home.played, ...m.away.played]));
+    const goals = new Map<string, number>();
+    for (const m of live.matches) for (const g of m.goals) goals.set(g.playerId, (goals.get(g.playerId) ?? 0) + 1);
+    let benched = 0;
+    let scorers = 0;
+    for (const league of after.leagues) {
+      for (const c of league.clubs) {
+        for (const p of c.players) {
+          expect(p.seasonGames, p.id).toBe(3 + (played.has(p.id) ? 1 : 0));
+          expect(p.seasonGoals, p.id).toBe(1 + (goals.get(p.id) ?? 0));
+          if (!played.has(p.id)) benched++;
+          if (goals.has(p.id)) scorers++;
+        }
+      }
+    }
+    expect(benched).toBeGreaterThan(0);
+    expect(scorers).toBeGreaterThan(0);
+    expect(live.matches.some((m) => m.leagueId === "l2" && m.goals.length > 0)).toBe(true);
   });
 });

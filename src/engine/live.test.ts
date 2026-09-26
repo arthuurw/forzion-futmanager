@@ -13,6 +13,7 @@ import {
   type LiveSide,
 } from "./live";
 import { narrate, narrationContext } from "./narration";
+import { mix32 } from "./rng";
 import { finishRound, playRound } from "./season";
 import { effectiveRating } from "./strength";
 import { MATCH_EVENT_TYPES, type GameState, type MatchEventType, type Player } from "./types";
@@ -320,4 +321,44 @@ describe("rodada ao vivo (engine)", () => {
     expect([...seen.keys()].sort()).toEqual([...MATCH_EVENT_TYPES].sort());
     expect(new Set(seen.values()).size).toBe(10);
   });
+});
+
+describe("duas divisões na rodada", () => {
+  test("sementes das partidas das duas divisões", () => {
+    let state = game(12);
+    state = playRound(state).state;
+    const live = startRound(state);
+    expect(live.matches).toHaveLength(20);
+    const [a, b] = state.leagues;
+    const n = 2;
+    a!.rounds[1]!.matches.forEach((m, i) => {
+      const lm = live.matches[i]!;
+      expect([lm.leagueId, lm.matchId, lm.home.clubId, lm.away.clubId]).toEqual(["l1", m.id, m.homeId, m.awayId]);
+      expect(lm.rngState).toBe(mix32(state.rngState, n * 16 + i));
+    });
+    b!.rounds[1]!.matches.forEach((m, i) => {
+      const lm = live.matches[10 + i]!;
+      expect([lm.leagueId, lm.matchId, lm.home.clubId, lm.away.clubId]).toEqual(["l2", m.id, m.homeId, m.awayId]);
+      expect(lm.rngState).toBe(mix32(mix32(state.rngState, 0xb), n * 16 + i));
+    });
+  });
+
+  test("temporada inteira nas duas divisões", () => {
+    const state0 = newGame(13);
+    const club = state0.leagues[1]!.clubs[4]!;
+    state0.userClubId = club.id;
+    club.lineup = autoLineup(club, AI_FORMATION);
+    let state = state0;
+    for (let r = 1; r <= 38; r++) {
+      const out = playRound(state);
+      state = out.state;
+      // The results shown are the user's division only.
+      expect(out.results.map((x) => x.matchId)).toEqual(state.leagues[1]!.rounds[r - 1]!.matches.map((m) => m.id));
+      for (const league of state.leagues) expect(league.currentRound, `${league.id} rodada ${r}`).toBe(r);
+    }
+    for (const league of state.leagues) {
+      const played = league.rounds.flatMap((r) => r.matches).filter((m) => m.result !== null);
+      expect(played, league.id).toHaveLength(380);
+    }
+  }, 60_000);
 });

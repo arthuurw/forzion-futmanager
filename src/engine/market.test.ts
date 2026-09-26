@@ -334,3 +334,39 @@ describe("mercado (engine)", () => {
     for (const p of newGame(19).market.juniors) expect(p.id).toMatch(/^jr-1-1-\d+$/);
   });
 });
+
+describe("mercado com duas divisões e contratos", () => {
+  test("compra de clube da outra divisão", () => {
+    const state = newGame(16);
+    const me = state.leagues[1]!.clubs[0]!;
+    state.userClubId = me.id;
+    me.lineup = autoLineup(me, AI_FORMATION);
+    me.finance.cash = 100_000_000;
+    const seller = state.leagues[0]!.clubs[5]!;
+    const target = reserveGk(seller);
+    const after = ok(buyPlayer(state, target.id, askingPrice(seller, target)));
+    expect(after.leagues[1]!.clubs.find((c) => c.id === me.id)!.players.map((p) => p.id)).toContain(target.id);
+    expect(after.leagues[0]!.clubs.find((c) => c.id === seller.id)!.players.map((p) => p.id)).not.toContain(target.id);
+  });
+
+  test("contrato ao chegar", () => {
+    let state = game(17);
+    user(state).finance.cash = 100_000_000;
+    const seller = clubs(state)[3]!;
+    const bought = reserveGk(seller);
+    state = ok(buyPlayer(state, bought.id, askingPrice(seller, bought)));
+    const free = state.market.freeAgents[0]!;
+    state = ok(signFreeAgent(state, free.id));
+    const junior = state.market.juniors[0]!;
+    state = ok(promoteJunior(state, junior.id));
+    const contract = (id: string) => user(state).players.find((p) => p.id === id)!.contractSeasons;
+    expect([contract(bought.id), contract(free.id), contract(junior.id)]).toEqual([3, 2, 3]);
+
+    // Sold to the AI: 3 seasons at the new club.
+    const sold = user(state).players.find((p) => p.contractSeasons !== 3)!;
+    const buyer = clubs(state)[6]!;
+    state.market.offers = [{ id: "o-test", buyerId: buyer.id, playerId: sold.id, amount: 1_000_000 }];
+    state = ok(acceptOffer(state, "o-test"));
+    expect(clubById(state, buyer.id).players.find((p) => p.id === sold.id)!.contractSeasons).toBe(3);
+  });
+});

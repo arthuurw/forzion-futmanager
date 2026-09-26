@@ -80,6 +80,7 @@ One-way constraints: os campos de condição vivem no próprio `Player` do save 
 | 4. Rodada ao vivo só em memória | nada é gravado entre o minuto 0 e o 90; recarregar recomeça do minuto 0 com as mesmas seeds | gravar o `LiveRound` a cada minuto - 90 escritas por rodada e um segundo formato de save |
 | 5. Regras de disciplina | 3 amarelos acumulados = 1 rodada de suspensão e zera a contagem; 2º amarelo no mesmo jogo = vermelho; vermelho = 1 rodada de suspensão; expulso não pode ser substituído | suspensão configurável - ninguém pediu e vira tela de opções |
 | 6. Efeito da condição na força | força efetiva = `rating × (0,7 + 0,3 × fitness/100) × (1 + 0,03 × morale) × (fora de posição ? 0,75 : 1)`; lesionado sai de campo na hora | atributos separados de fôlego e ânimo - quebra a AD-005 (um número só) |
+| 7. Contador de rodadas sem jogar (achado ao derivar os checks) | `Player.idleRounds` inteiro ≥ 0, zera quando o jogador entra em campo; migração v1 grava 0 | recalcular do histórico de partidas - o save guarda só os gols (door 7 do núcleo), não quem jogou |
 
 - Nada mais aqui é difícil de reverter: velocidade do relógio, taxas de cartão e lesão, recuperação entre rodadas e textos de narração são ajuste.
 
@@ -201,8 +202,8 @@ Product capabilities only.
 
 | Assumption | Chosen default | Rationale | Confirmed? |
 | --- | --- | --- | --- |
-| Limite de substituições | 5 por jogo, sem janelas | regra atual do futebol; o Brasfoot clássico usava 3 | n |
-| Jogador fora de posição | permitido com 75% da força (AC 23), substituindo o AC 16 do núcleo | sem isso, mudar formação no jogo e cobrir expulsão travam | n |
+| Limite de substituições | 5 por jogo, sem janelas | autor escolheu 5 em 26/09/2026 | y |
+| Jogador fora de posição | permitido com 75% da força (AC 23), substituindo o AC 16 do núcleo | autor aprovou em 26/09/2026 | y |
 | Velocidade do relógio | 300 ms por minuto (90' em 27 s), com 2x e 4x | rápido o bastante pra 38 rodadas, lento o bastante pra ler | n |
 | Pausa automática | só no intervalo | pausar a cada gol cansa em 38 rodadas; o gol pisca (AC 4) | n |
 | Recarregar no meio da rodada | recomeça a rodada do 0' (door 4) | salvar ao vivo custa um segundo formato de save | n |

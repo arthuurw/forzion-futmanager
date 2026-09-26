@@ -17,10 +17,10 @@
 
 ## Handoff
 
-**Feature**: nucleo-liga-partida
-**Where**: nucleo-liga-partida PASS - verification.md gate exit 0; 4 lessons recorded as candidates
+**Feature**: partida-ao-vivo
+**Where**: plan.md escrito e validado, aguardando revisão humana - checks.md não existe
 **In progress**: nada
-**Next step**: próxima fatia do sub-projeto 1 (substituições, cartões) ou sub-projeto 2 (mercado + finanças)
+**Next step**: autor revisa `.specs/features/partida-ao-vivo/plan.md` e responde limite de substituições e fora de posição; depois derivar checks.md
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

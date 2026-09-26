@@ -11,19 +11,23 @@ export function End() {
   const league = userLeague(game);
   const champion = computeTable(league)[0];
   return (
-    <>
-      <section className="panel champion-card">
-        <h1>Fim da temporada</h1>
-        <div className="trophy" aria-hidden="true" />
-        {champion && <p className="champion">Campeão: {champion.name}</p>}
-      </section>
-      <section className="panel">
-        <h2 className="title-bar">Classificação final</h2>
-        <Table league={league} highlightClubId={game.userClubId} />
-      </section>
-      <div className="action-bar">
-        <NewGameButton primary />
+    <div className="screen">
+      <div className="screen-body end-body">
+        <section className="panel champion-card" style={{ "--i": 0 } as React.CSSProperties}>
+          <h1>Fim da temporada</h1>
+          <div className="trophy" aria-hidden="true" />
+          {champion && <p className="champion">Campeão: {champion.name}</p>}
+          <div className="champion-actions">
+            <NewGameButton primary />
+          </div>
+        </section>
+        <section className="panel" style={{ "--i": 1 } as React.CSSProperties}>
+          <h2 className="title-bar">Classificação final</h2>
+          <div className="fill">
+            <Table league={league} highlightClubId={game.userClubId} />
+          </div>
+        </section>
       </div>
-    </>
+    </div>
   );
 }

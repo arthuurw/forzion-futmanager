@@ -18,21 +18,23 @@ export function App() {
   const onTitle = phase === "loading" || phase === "home";
 
   return (
-    <main>
+    <main className={`app${onTitle ? " on-title" : ""}`}>
       {!onTitle && (
         <div className="top-strip">
           <span className="logo" aria-hidden="true">
             Brasfoot
           </span>
-          {season !== undefined && <span className="season">TEMPORADA {season}</span>}
+          {season !== undefined && <span className="season">Temporada {season}</span>}
         </div>
       )}
       <Banner />
-      {onTitle && <Home />}
-      {phase === "chooseClub" && <ChooseClub />}
-      {phase === "squad" && <Squad />}
-      {phase === "round" && <Round />}
-      {phase === "end" && <End />}
+      <div className="stage" key={onTitle ? "title" : phase}>
+        {onTitle && <Home />}
+        {phase === "chooseClub" && <ChooseClub />}
+        {phase === "squad" && <Squad />}
+        {phase === "round" && <Round />}
+        {phase === "end" && <End />}
+      </div>
     </main>
   );
 }

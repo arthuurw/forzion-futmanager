@@ -1,11 +1,10 @@
+import { clubIdentity, type FlagPattern } from "../engine/names";
+
 /**
- * Club "flag": 2-3 colour bands derived from the club id. UI-only - nothing is persisted,
- * so the save format (door 1) is untouched.
+ * Club flag drawn from the club identity's colours (engine/names). A name with no identity
+ * falls back to colours hashed from the id. UI-only: nothing here is persisted.
  */
-const PALETTE = [
-  "#e5322b", "#f5c400", "#19b347", "#2f7bff", "#ffffff", "#111111",
-  "#7a1fa2", "#ff7a00", "#0b2a8a", "#8b0000", "#00a3a3", "#6b6b6b",
-];
+const PALETTE = ["#d7141a", "#f5c400", "#0b6e2c", "#1446b8", "#ffffff", "#111111", "#7a1fa2", "#ff7a00"];
 
 function hash(text: string): number {
   let h = 2166136261;
@@ -16,61 +15,73 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
-export interface ClubColors {
-  primary: string;
-  secondary: string;
-  third: string;
-  pattern: "vertical" | "horizontal" | "diagonal" | "cross";
-}
-
-export function clubColors(clubId: string): ClubColors {
+function look(clubId: string, name: string): { colors: string[]; pattern: FlagPattern } {
+  const identity = clubIdentity(name);
+  if (identity) return { colors: [...identity.colors], pattern: identity.pattern };
   const h = hash(clubId);
-  const primary = PALETTE[h % PALETTE.length]!;
-  let secondary = PALETTE[(h >>> 4) % PALETTE.length]!;
-  if (secondary === primary) secondary = primary === "#ffffff" ? "#111111" : "#ffffff";
-  let third = PALETTE[(h >>> 8) % PALETTE.length]!;
-  if (third === primary || third === secondary) third = secondary;
-  const patterns: ClubColors["pattern"][] = ["vertical", "horizontal", "diagonal", "cross"];
-  return { primary, secondary, third, pattern: patterns[(h >>> 12) % patterns.length]! };
+  const a = PALETTE[h % PALETTE.length]!;
+  let b = PALETTE[(h >>> 4) % PALETTE.length]!;
+  if (b === a) b = a === "#ffffff" ? "#111111" : "#ffffff";
+  return { colors: [a, b], pattern: "vertical" };
 }
 
-export function Flag({ clubId, size = 24 }: { clubId: string; size?: number }) {
-  const c = clubColors(clubId);
+export function Flag({ clubId, name, size = 24 }: { clubId: string; name: string; size?: number }) {
+  const { colors, pattern } = look(clubId, name);
+  const [c1, c2 = c1, c3 = c2] = colors as [string, string?, string?];
   const w = 30;
   const h = 20;
   let bands;
-  switch (c.pattern) {
+  switch (pattern) {
     case "vertical":
-      bands = (
-        <>
-          <rect width={10} height={h} fill={c.primary} />
-          <rect x={10} width={10} height={h} fill={c.secondary} />
-          <rect x={20} width={10} height={h} fill={c.third} />
-        </>
-      );
+      bands =
+        colors.length >= 3 ? (
+          <>
+            <rect width={10} height={h} fill={c1} />
+            <rect x={10} width={10} height={h} fill={c2} />
+            <rect x={20} width={10} height={h} fill={c3} />
+          </>
+        ) : (
+          <>
+            <rect width={w} height={h} fill={c1} />
+            <rect x={6} width={6} height={h} fill={c2} />
+            <rect x={18} width={6} height={h} fill={c2} />
+          </>
+        );
       break;
     case "horizontal":
       bands = (
         <>
-          <rect width={w} height={h} fill={c.primary} />
-          <rect y={7} width={w} height={6} fill={c.secondary} />
+          <rect width={w} height={h} fill={c1} />
+          <rect y={6.5} width={w} height={7} fill={c2} />
+          {colors.length >= 3 && <rect y={13.5} width={w} height={6.5} fill={c3} />}
+        </>
+      );
+      break;
+    case "hoops":
+      bands = (
+        <>
+          <rect width={w} height={h} fill={c1} />
+          <rect y={4} width={w} height={4} fill={c2} />
+          <rect y={12} width={w} height={4} fill={c2} />
+          {colors.length >= 3 && <rect y={9} width={w} height={2} fill={c3} />}
         </>
       );
       break;
     case "diagonal":
       bands = (
         <>
-          <rect width={w} height={h} fill={c.primary} />
-          <polygon points={`0,${h} ${w},0 ${w},7 7,${h}`} fill={c.secondary} />
+          <rect width={w} height={h} fill={c1} />
+          <polygon points={`0,${h} ${w},0 ${w},7 7,${h}`} fill={c2} />
+          {colors.length >= 3 && <polygon points={`0,${h - 3} ${w - 3},0 ${w},0 3,${h}`} fill={c3} />}
         </>
       );
       break;
     case "cross":
       bands = (
         <>
-          <rect width={w} height={h} fill={c.primary} />
-          <rect x={9} width={5} height={h} fill={c.secondary} />
-          <rect y={7.5} width={w} height={5} fill={c.secondary} />
+          <rect width={w} height={h} fill={c1} />
+          <rect x={9} width={5} height={h} fill={c2} />
+          <rect y={7.5} width={w} height={5} fill={c2} />
         </>
       );
       break;
@@ -78,8 +89,8 @@ export function Flag({ clubId, size = 24 }: { clubId: string; size?: number }) {
   return (
     <svg className="flag" viewBox={`0 0 ${w} ${h}`} width={size * 1.5} height={size} aria-hidden="true" focusable="false">
       {bands}
-      <rect width={w} height={h} fill="none" stroke="rgba(0,0,0,.6)" strokeWidth={1.5} />
-      <rect width={w} height={h / 2} fill="rgba(255,255,255,.18)" />
+      <rect width={w} height={h} fill="none" stroke="rgba(0,0,0,.55)" strokeWidth={1.2} />
+      <rect width={w} height={h / 2} fill="rgba(255,255,255,.16)" />
     </svg>
   );
 }

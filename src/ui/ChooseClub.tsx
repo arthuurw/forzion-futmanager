@@ -11,15 +11,17 @@ export function ChooseClub() {
   if (!game) return null;
   const clubs = [...userLeague(game).clubs].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   return (
-    <>
-      <h1 className="title-bar">Escolher clube</h1>
+    <div className="screen">
+      <div className="screen-head">
+        <h1 className="title-bar">Escolher clube</h1>
+      </div>
       <div className="club-grid">
-        {clubs.map((club) => {
+        {clubs.map((club, i) => {
           const strength = bestElevenMean(club);
           return (
-            <button key={club.id} className="club-card" onClick={() => void chooseClub(club.id)}>
-              <Flag clubId={club.id} size={26} />
-              <span>{club.name}</span>
+            <button key={club.id} className="club-card" style={{ "--i": i } as React.CSSProperties} onClick={() => void chooseClub(club.id)}>
+              <Flag clubId={club.id} name={club.name} size={24} />
+              <span className="club-name">{club.name}</span>
               <span className="strength">
                 <RatingBar rating={strength} />
                 <span>força {strength.toFixed(1)}</span>
@@ -28,6 +30,6 @@ export function ChooseClub() {
           );
         })}
       </div>
-    </>
+    </div>
   );
 }

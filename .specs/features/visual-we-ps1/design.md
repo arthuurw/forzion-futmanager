@@ -47,3 +47,18 @@ Pesquisa na web rendeu pouco material textual sobre a interface. Único dado con
 - `npx vitest run` - 42 verdes, nenhum teste alterado
 - `npx tsc`, `npx eslint src`, `npx vite build` limpos
 - Screenshots de todas as telas via Edge headless em 1280×800 e 390×844, inspecionados antes de entregar
+
+## Revisão 2 - estilo PS2 (26/09/2026)
+
+O autor aprovou o visual PS1 e pediu: telas que caibam no navegador sem barra de rolagem, e um visual "mais moderno e fluido, estilo PS2".
+
+| Tema | Escolha |
+| --- | --- |
+| Referência | menus de Winning Eleven 9 / PES 5: painéis de vidro translúcido, botões com brilho dividido ao meio, títulos em itálico, halo ciano no foco |
+| Fonte de título | Exo 2 800 itálico (OFL, local); Impact/Anton e VT323 saíram |
+| Movimento | entrada de tela e painéis em cascata, brilho que atravessa o botão no hover, barras de força que crescem, luz de estádio girando no fundo; tudo desligado com `prefers-reduced-motion` |
+| Caber na janela | casca em `100dvh` com grade de 3 linhas fixas; tabelas com altura de linha em `vh`; campo dimensionado por container query; listas longas rolam dentro do painel, nunca a página |
+| Celular (≤ 900 px) | um painel por vez com abas (`role="tab"`), barra de ação fixa embaixo |
+| Nomes dos clubes | 20 identidades fixas inspiradas na Série A (AD-009), bandeira com as cores de cada uma |
+
+Verificado com screenshots do Edge headless em 1280×800 e 390×844: altura e largura da página iguais à janela em todas as telas.

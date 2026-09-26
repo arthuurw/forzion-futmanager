@@ -5,6 +5,7 @@ import { FORMATION_NAMES, POSITIONS, type FormationName, type Position } from ".
 import { useGame, userClub } from "../store";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
+import { ScreenTabs } from "./ScreenTabs";
 import { Table } from "./Table";
 
 export const POSITION_LABEL: Record<Position, string> = { GK: "GOL", DF: "ZAG", MF: "MEI", FW: "ATA" };
@@ -30,12 +31,14 @@ function slotCoordinates(slots: Position[]): { x: number; y: number; w: number }
   return coords;
 }
 
+type SquadTab = "pitch" | "roster" | "table";
+
 export function Squad() {
   const game = useGame((s) => s.game);
   const setFormation = useGame((s) => s.setFormation);
   const assignStarter = useGame((s) => s.assignStarter);
   const playRound = useGame((s) => s.playRound);
-  const [showTable, setShowTable] = useState(false);
+  const [tab, setTab] = useState<SquadTab>("pitch");
   if (!game) return null;
   const club = userClub(game);
   if (!club) return null;
@@ -51,80 +54,85 @@ export function Squad() {
     (a, b) => POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position) || b.rating - a.rating || a.name.localeCompare(b.name),
   );
 
+  // Narrow screens show one panel (the active tab). Wide screens always show the pitch,
+  // plus the squad list or the table in the right column.
+  const panelClass = (id: SquadTab) =>
+    ["panel", tab === id ? "m-active" : "", id === "roster" && tab === "table" ? "d-hidden" : "", id === "table" && tab !== "table" ? "d-hidden" : ""]
+      .filter(Boolean)
+      .join(" ");
+
   return (
-    <>
-      <div className="squad-head">
-        <h1>
-          <Flag clubId={club.id} size={30} />
+    <div className="screen">
+      <div className="screen-head">
+        <h1 className="club-title">
+          <Flag clubId={club.id} name={club.name} size={26} />
           {club.name}
         </h1>
-        <span className="matchday">
-          Rodada {league.currentRound + 1} de {league.rounds.length}
-        </span>
+        <ScreenTabs
+          active={tab}
+          onChange={setTab}
+          tabs={[
+            { id: "pitch", label: "Campo", mobileOnly: true },
+            { id: "roster", label: "Elenco" },
+            { id: "table", label: "Classificação" },
+          ]}
+        />
       </div>
 
-      <div className="grid-2">
-        <section className="panel">
-          <h2 className="title-bar">Escalação</h2>
-          <label className="formation-row">
-            Formação
-            <select aria-label="Formação" value={lineup?.formation ?? ""} onChange={(e) => setFormation(e.target.value as FormationName)}>
-              {FORMATION_NAMES.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="pitch">
-            <div className="line halfway" />
-            <div className="line circle" />
-            <div className="line box" />
-            <div className="line small-box" />
-            {slots.map((position, i) => {
-              const current = lineup?.starters[i] ?? "";
-              const options = club.players.filter((p) => p.position === position);
-              const at = coords[i] ?? { x: 50, y: 50, w: 26 };
-              return (
-                <div
-                  key={i}
-                  className={`token pos-${position}${current ? "" : " empty"}`}
-                  style={{ left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%` }}
-                >
-                  <span className="num" aria-hidden="true">
-                    {i + 1}
-                  </span>
-                  <select aria-label={`Titular ${i + 1} (${POSITION_LABEL[position]})`} value={current} onChange={(e) => assignStarter(i, e.target.value)}>
-                    {current === "" && <option value="">—</option>}
-                    {options.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.rating})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            })}
+      <div className="screen-body squad-body tabbed">
+        <section className={`${panelClass("pitch")} pitch-panel`} style={{ "--i": 0 } as React.CSSProperties}>
+          <div className="panel-head">
+            <h2 className="title-bar">Escalação</h2>
+            <label className="formation-row">
+              Formação
+              <select aria-label="Formação" value={lineup?.formation ?? ""} onChange={(e) => setFormation(e.target.value as FormationName)}>
+                {FORMATION_NAMES.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          {!validation.ok && (
-            <p role="status" className="missing">
-              Faltam {validation.missing} titulares
-            </p>
-          )}
-          <div className="action-bar">
-            <button className="primary" disabled={!validation.ok} onClick={() => void playRound()}>
-              Jogar rodada
-            </button>
-            <button onClick={() => setShowTable((v) => !v)}>{showTable ? "Ocultar tabela" : "Ver tabela"}</button>
+          <div className="pitch-wrap">
+            <div className="pitch">
+              <div className="line halfway" />
+              <div className="line circle" />
+              <div className="line box" />
+              <div className="line small-box" />
+              {slots.map((position, i) => {
+                const current = lineup?.starters[i] ?? "";
+                const options = club.players.filter((p) => p.position === position);
+                const at = coords[i] ?? { x: 50, y: 50, w: 26 };
+                return (
+                  <div
+                    key={i}
+                    className={`token pos-${position}${current ? "" : " empty"}`}
+                    style={{ left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%` }}
+                  >
+                    <span className="num" aria-hidden="true">
+                      {i + 1}
+                    </span>
+                    <select aria-label={`Titular ${i + 1} (${POSITION_LABEL[position]})`} value={current} onChange={(e) => assignStarter(i, e.target.value)}>
+                      {current === "" && <option value="">—</option>}
+                      {options.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.rating})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
-        <section className="panel">
+        <section className={panelClass("roster")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Elenco</h2>
-          <div className="table-wrap">
-            <table aria-label="Elenco">
+          <div className="fill">
+            <table aria-label="Elenco" className="compact">
               <thead>
                 <tr>
                   <th>Nome</th>
@@ -151,14 +159,28 @@ export function Squad() {
             </table>
           </div>
         </section>
+
+        <section className={panelClass("table")} style={{ "--i": 1 } as React.CSSProperties}>
+          <h2 className="title-bar">Classificação</h2>
+          <div className="fill">
+            <Table league={league} highlightClubId={club.id} />
+          </div>
+        </section>
       </div>
 
-      {showTable && (
-        <section className="panel">
-          <h2 className="title-bar">Classificação</h2>
-          <Table league={league} highlightClubId={club.id} />
-        </section>
-      )}
-    </>
+      <div className="action-bar">
+        <span className="matchday">
+          Rodada {league.currentRound + 1} de {league.rounds.length}
+        </span>
+        {!validation.ok && (
+          <p role="status" className="missing">
+            Faltam {validation.missing} titulares
+          </p>
+        )}
+        <button className="primary" disabled={!validation.ok} onClick={() => void playRound()}>
+          Jogar rodada
+        </button>
+      </div>
+    </div>
   );
 }

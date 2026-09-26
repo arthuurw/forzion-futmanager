@@ -31,8 +31,8 @@ export function Table({ league, highlightClubId }: { league: League; highlightCl
                 </td>
                 <td className="club-cell">
                   <span className="club-inline">
-                    <Flag clubId={row.clubId} size={14} />
-                    {row.name}
+                    <Flag clubId={row.clubId} name={row.name} size={14} />
+                    <span className="club-name-text">{row.name}</span>
                   </span>
                 </td>
                 {COLUMNS.map((c) => (

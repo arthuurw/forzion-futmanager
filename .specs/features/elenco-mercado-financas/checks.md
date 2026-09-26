@@ -5,7 +5,7 @@ Plan: `.specs/features/elenco-mercado-financas/plan.md`
 
 ## Intent
 
-57 checks in 7 slices · 4 one-way doors · 0 open
+59 checks in 7 slices · 6 one-way doors · 0 open
 
 Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`). Telas usam `@testing-library/react` em jsdom. Todo valor esperado nos testes é literal ou calculado no próprio teste, nunca pela função de produção (L-004). Quem diz «todo», «cada» ou «todas» é provado por tabela sobre o conjunto inteiro.
 
@@ -84,12 +84,15 @@ Proof: `npx vitest run src/ui/Market.test.tsx -t "oferta abaixo do preço recusa
 
 **C23** - Cada um dos 5 gastos (compra, luvas, rescisão, ampliação e pagamento de empréstimo) acima do caixa é recusado com «Caixa insuficiente», e nada muda no save (AC 23)
 Proof: `npx vitest run src/engine/market.test.ts -t "gasto acima do caixa recusado"`
+Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 **C24** - Com 30 jogadores, compra, contratação de livre e promoção de júnior são recusadas com «Elenco cheio (30)» (AC 24)
 Proof: `npx vitest run src/engine/market.test.ts -t "elenco cheio recusa"`
+Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 **C25** - Comprar de um clube com 18 jogadores é recusado com «O clube não vende: elenco no mínimo» (AC 25)
 Proof: `npx vitest run src/engine/market.test.ts -t "vendedor no mínimo recusa"`
+Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 **C26** - Um jogador lesionado com moral −1 e 2 amarelos, comprado, chega com o mesmo id, salário, condição, moral, amarelos, lesão e suspensão, e fora da escalação (AC 26)
 Proof: `npx vitest run src/engine/market.test.ts -t "transferência mantém o jogador"`
@@ -113,6 +116,7 @@ Proof: `npx vitest run src/ui/Market.test.tsx -t "aceitar proposta com confirma�
 
 **C32** - Com 18 jogadores, aceitar uma proposta e dispensar são recusados com «Elenco no mínimo (18)» (AC 32)
 Proof: `npx vitest run src/engine/market.test.ts -t "usuário no mínimo recusa"`
+Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 **C33** - Uma proposta não respondida some quando a rodada seguinte termina (AC 33)
 Proof: `npx vitest run src/engine/market.test.ts -t "proposta expira na rodada seguinte"`
@@ -158,6 +162,7 @@ Proof: `npx vitest run src/ui/Finance.test.tsx -t "obra em andamento"`
 
 **C45** - Com capacidade 76.000, ampliar é recusado com «Capacidade máxima: 80.000»; com 75.000 é aceito (AC 45)
 Proof: `npx vitest run src/engine/finance.test.ts -t "capacidade máxima 80000"`
+Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 ### S6 - Empréstimo · ~2 files · ~15 KB · ~4k
 
@@ -166,6 +171,7 @@ Proof: `npx vitest run src/engine/finance.test.ts -t "empréstimo em múltiplos 
 
 **C47** - Um pedido que passa do limite é recusado com «Limite de empréstimo: R$ X», com X o que ainda cabe (AC 47)
 Proof: `npx vitest run src/engine/finance.test.ts -t "empréstimo acima do limite"`
+Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 **C48** - Com saldo devedor de R$ 1.000.000, a rodada cobra R$ 15.000 de juros; com R$ 1.234.567 cobra R$ 18.500 (AC 48)
 Proof: `npx vitest run src/engine/finance.test.ts -t "juros de 1,5% por rodada"`
@@ -175,6 +181,7 @@ Proof: `npx vitest run src/engine/finance.test.ts -t "pagar empréstimo"`
 
 **C50** - Com caixa negativo, compra, luvas, rescisão e ampliação são recusadas com «Caixa insuficiente», e a rodada seguinte ainda paga os salários (AC 50)
 Proof: `npx vitest run src/engine/finance.test.ts -t "caixa negativo bloqueia gastos e paga salários"`
+Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 ### S7 - Save compatível · ~4 files · ~20 KB · ~5k
 
@@ -196,6 +203,12 @@ Proof: `npx vitest run src/engine/finance.test.ts -t "salário guardado não seg
 **C56** - Com e sem uma compra antes da rodada, as partidas que não envolvem o usuário nem o vendedor têm os mesmos resultados (plano Landing, door 3)
 Proof: `npx vitest run src/engine/market.test.ts -t "compra não muda o sorteio das partidas"`
 
+**C58** - Compras e vendas feitas entre duas rodadas aparecem em «Compras» e «Vendas» do registro da rodada seguinte, do usuário e da outra ponta, e na rodada depois voltam a 0 (plano Landing, door 5; AC 9)
+Proof: `npx vitest run src/engine/finance.test.ts -t "transferências entram no registro da rodada seguinte"`
+
+**C59** - Para as seeds 1, 7 e 123456, a liga e o `rngState` do jogo novo são idênticos aos de gerar só a liga com `createRng(seed)`: o mercado não consome o `Rng` das ligas (plano Landing, door 6)
+Proof: `npx vitest run src/engine/finance.test.ts -t "mercado do jogo novo não muda a liga"`
+
 **C57** - Depois de uma temporada com compras, vendas, dispensas, contratações e promoções, todo id de jogador do save (elencos, livres e juniores) é único, e os livres e juniores usam `fa-` e `jr-` (plano Landing, door 4)
 Proof: `npx vitest run src/engine/market.test.ts -t "ids de jogador únicos no save"`
 
@@ -215,7 +228,8 @@ Proof: `npx vitest run src/engine/market.test.ts -t "ids de jogador únicos no s
 | estados vazios (4) | mercado fechado C17 · sem propostas C30 · base vazia C39 · filtro sem jogador C18 | - |
 | confirmações (3) | vender C31 · dispensar C34 · ampliar C43 | - |
 | versões de save (4) | v1 C51 · v2 C51 · v3 C54 · v4 C52 | - |
-| portas de mão única (4) | door 1 C54 · door 2 C55 · door 3 C56 · door 4 C57 | - |
+| portas de mão única (6) | door 1 C54 · door 2 C55 · door 3 C56 · door 4 C57 · door 5 C58 · door 6 C59 | - |
+| mensagens de recusa citadas (7 textos) | «Recusado: pedem R$ X» C22 · «Caixa insuficiente» C23, C50 · «Elenco cheio (30)» C24 · «O clube não vende: elenco no mínimo» C25 · «Elenco no mínimo (18)» C32 · «Capacidade máxima: 80.000» C45 · «Limite de empréstimo: R$ X» C47; `mensagens de recusa exatas` table-driven over 17 cases, «Já há uma obra em andamento» C44 | - |
 | entidades de `Relations` (6) | Market C35 · Finance C3 · Offer C28 · Player.salary C2 · Club.forSale C27 · Player (18 a 30) C24, C32 | - |
 
 - `Surface` do plano é `None`; nenhuma rota.
@@ -257,3 +271,13 @@ O plano aprovado muda contratos que partida-ao-vivo provou. Os testes abaixo mud
   - Doors 5 and 6 were recorded in `Landing` before their code.
   - The C46 test takes the largest multiple of R$ 500.000 under the limit, because the limit (2 × initial cash) is not always a multiple.
 - **Abandoned:** drawing the market from the leagues' `Rng` - it would have changed every seed's matches (door 6)
+
+### Round 1 fixes (after `31e71c1`, verdict FAIL)
+
+- **C23, C24, C25, C32, C45, C47, C50:** each gained a second `Proof:` line. The new line is `mensagens de recusa exatas`, which goes through the store and asserts the exact on-screen text for 17 cases. The claims are unchanged; the old proofs only asserted the engine reason code.
+- **C58 and C59 (new):** the checks that doors 5 and 6 owed. They were added to Landing during the build without a check.
+- **Stronger fixtures, same claims:**
+  - C7: new test `público da rodada usa a fase antes da rodada`, which checks the wiring through the round close.
+  - C9: every line of the round is non-zero.
+  - C28: poor clubs and a club with a full squad are never the buyer.
+  - C40: the sign-on fees leave the cash.

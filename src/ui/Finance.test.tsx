@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { AI_FORMATION, autoLineup } from "../engine/lineup";
+import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Finance } from "./Finance";
@@ -37,8 +39,21 @@ describe("tela Finanças", () => {
   });
 
   test("linhas da última rodada", () => {
-    const game = seededGame(4, 0, 1);
+    // Every line non-zero, so a miswired field cannot pass by showing 0: a loan, a purchase and a sale before the round.
+    let before = seededGame(4, 0, 1);
+    const me = userClub(before)!;
+    Object.assign(me.finance, { loan: 1_000_000, pendingOut: 2_340_000, pendingIn: 560_000 });
+    let round = playRound(before).state;
+    while (userClub(round)!.finance.lastRound!.attendance === 0) {
+      // Play on until the user's club has a home game with this setup.
+      before = round;
+      Object.assign(userClub(before)!.finance, { pendingOut: 2_340_000, pendingIn: 560_000 });
+      userClub(before)!.lineup = autoLineup(userClub(before)!, AI_FORMATION);
+      round = playRound(before).state;
+    }
+    const game = round;
     const l = userClub(game)!.finance.lastRound!;
+    for (const [k, v] of Object.entries(l)) expect(v, k).not.toBe(0);
     show(game);
     const rows = within(screen.getByRole("table", { name: "Registro da rodada" })).getAllByRole("row");
     const expected: [string, string][] = [

@@ -8,7 +8,17 @@
 
 Corroborated across multiple features. Safe to apply as guidance.
 
-_none_
+### L-003 - Assert the caller wiring of a helper through its entry point, not only the helper in isolation
+- signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `engine` · harmful: 0
+- features: nucleo-liga-partida, elenco-mercado-financas
+- evidence: C27 / src/engine/season.ts:34 (engine) (+1 more)
+- last seen: 2026-09-26T22:12:06Z
+
+### L-007 - When a check says available, the fixture must include an unavailable member so exclusion is actually exercised.
+- signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `tests` · harmful: 0
+- features: partida-ao-vivo, elenco-mercado-financas
+- evidence: checks.md C14 (tests) (+1 more)
+- last seen: 2026-09-26T22:12:05Z
 
 ## Candidates (under observation - do NOT load as guidance yet)
 
@@ -24,12 +34,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `ui` · harmful: 0
 - features: nucleo-liga-partida
 - evidence: C28 / src/ui/Table.tsx:4 (ui)
-- last seen: 2026-09-26T19:16:04Z
-
-### L-003 - Assert the caller wiring of a helper through its entry point, not only the helper in isolation
-- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `engine` · harmful: 0
-- features: nucleo-liga-partida
-- evidence: C27 / src/engine/season.ts:34 (engine)
 - last seen: 2026-09-26T19:16:04Z
 
 ### L-004 - Compute expected values in tests independently of the production helper under test
@@ -50,11 +54,23 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: checks.md C48 (checks)
 - last seen: 2026-09-26T20:54:53Z
 
-### L-007 - When a check says available, the fixture must include an unavailable member so exclusion is actually exercised.
+### L-008 - When a check quotes a user-facing message, assert the exact text where it is rendered or mapped, not only the engine reason code.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `ui` · harmful: 0
+- features: elenco-mercado-financas
+- evidence: C23 / src/store.ts:49 (ui)
+- last seen: 2026-09-26T22:12:06Z
+
+### L-009 - A one-way door added during the build needs its own check before the build closes.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: elenco-mercado-financas
+- evidence: plan.md Landing door 5 / src/engine/finance.ts:121 (checks)
+- last seen: 2026-09-26T22:12:06Z
+
+### L-010 - Give every displayed value a non-zero fixture so a miswired field cannot pass by showing zero.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
-- features: partida-ao-vivo
-- evidence: checks.md C14 (tests)
-- last seen: 2026-09-26T20:54:53Z
+- features: elenco-mercado-financas
+- evidence: C9 / src/ui/Finance.test.tsx (tests)
+- last seen: 2026-09-26T22:12:06Z
 
 ## Quarantined (failed when applied - ignore)
 

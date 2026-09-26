@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 8,
+  "next_id": 11,
   "lessons": [
     {
       "id": "L-001",
@@ -47,17 +47,19 @@
       "text": "Assert the caller wiring of a helper through its entry point, not only the helper in isolation",
       "signal": "spec_precision_gap",
       "scope": "engine",
-      "status": "candidate",
+      "status": "confirmed",
       "features": [
-        "nucleo-liga-partida"
+        "nucleo-liga-partida",
+        "elenco-mercado-financas"
       ],
-      "recurrence": 1,
+      "recurrence": 2,
       "harmful": 0,
       "evidence": [
-        "C27 / src/engine/season.ts:34 (engine)"
+        "C27 / src/engine/season.ts:34 (engine)",
+        "C7 / src/engine/finance.ts:114 (engine)"
       ],
       "created": "2026-09-26T19:16:04Z",
-      "last_seen": "2026-09-26T19:16:04Z"
+      "last_seen": "2026-09-26T22:12:06Z"
     },
     {
       "id": "L-004",
@@ -119,17 +121,73 @@
       "text": "When a check says available, the fixture must include an unavailable member so exclusion is actually exercised.",
       "signal": "spec_precision_gap",
       "scope": "tests",
+      "status": "confirmed",
+      "features": [
+        "partida-ao-vivo",
+        "elenco-mercado-financas"
+      ],
+      "recurrence": 2,
+      "harmful": 0,
+      "evidence": [
+        "checks.md C14 (tests)",
+        "checks.md C28 / src/engine/market.test.ts (tests)"
+      ],
+      "created": "2026-09-26T20:54:53Z",
+      "last_seen": "2026-09-26T22:12:05Z"
+    },
+    {
+      "id": "L-008",
+      "key": "ac_gap::when a check quotes a user facing message assert the exact text where it is rendered or mapped not only the engine reason code",
+      "text": "When a check quotes a user-facing message, assert the exact text where it is rendered or mapped, not only the engine reason code.",
+      "signal": "ac_gap",
+      "scope": "ui",
       "status": "candidate",
       "features": [
-        "partida-ao-vivo"
+        "elenco-mercado-financas"
       ],
       "recurrence": 1,
       "harmful": 0,
       "evidence": [
-        "checks.md C14 (tests)"
+        "C23 / src/store.ts:49 (ui)"
       ],
-      "created": "2026-09-26T20:54:53Z",
-      "last_seen": "2026-09-26T20:54:53Z"
+      "created": "2026-09-26T22:12:06Z",
+      "last_seen": "2026-09-26T22:12:06Z"
+    },
+    {
+      "id": "L-009",
+      "key": "ac_gap::a one way door added during the build needs its own check before the build closes",
+      "text": "A one-way door added during the build needs its own check before the build closes.",
+      "signal": "ac_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "elenco-mercado-financas"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "plan.md Landing door 5 / src/engine/finance.ts:121 (checks)"
+      ],
+      "created": "2026-09-26T22:12:06Z",
+      "last_seen": "2026-09-26T22:12:06Z"
+    },
+    {
+      "id": "L-010",
+      "key": "spec_precision_gap::give every displayed value a non zero fixture so a miswired field cannot pass by showing zero",
+      "text": "Give every displayed value a non-zero fixture so a miswired field cannot pass by showing zero.",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "elenco-mercado-financas"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C9 / src/ui/Finance.test.tsx (tests)"
+      ],
+      "created": "2026-09-26T22:12:06Z",
+      "last_seen": "2026-09-26T22:12:06Z"
     }
   ]
 }

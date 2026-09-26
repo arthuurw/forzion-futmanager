@@ -151,6 +151,12 @@ describe("mercado (engine)", () => {
     const listed = [...me.players].sort((a, b) => expectedValue(a) - expectedValue(b))[0]!;
     me.forSale = [listed.id];
     const value = expectedValue(listed);
+    // Half the AI clubs cannot afford the player: they must never be the buyer.
+    const poor = new Set(clubs(base).filter((c) => c.id !== me.id).slice(0, 9).map((c) => c.id));
+    for (const c of clubs(base)) if (poor.has(c.id)) c.finance.cash = value / 2;
+    // A club with a full squad cannot buy either.
+    const full = clubs(base).find((c) => c.id !== me.id && !poor.has(c.id))!;
+    pad(full, 30);
     let got = 0;
     const trials = 2000;
     for (let i = 1; i <= trials; i++) {
@@ -163,6 +169,8 @@ describe("mercado (engine)", () => {
         expect(o.amount).toBeGreaterThanOrEqual(Math.round((value * 0.8) / 10_000) * 10_000);
         expect(o.amount).toBeLessThanOrEqual(Math.round((value * 1.1) / 10_000) * 10_000);
         expect(buyer.id).not.toBe(me.id);
+        expect(poor.has(buyer.id)).toBe(false);
+        expect(buyer.id).not.toBe(full.id);
         expect(buyer.finance.cash).toBeGreaterThanOrEqual(o.amount);
         expect(buyer.players.length).toBeLessThan(30);
       }
@@ -290,6 +298,9 @@ describe("mercado (engine)", () => {
     expect(club.players).toHaveLength(18);
     expect(club.players.map((p) => p.id)).toEqual(expect.arrayContaining(bestFw.map((p) => p.id)));
     expect(club.finance.pendingOut).toBe(fees);
+    // The fees left the cash on top of the round's own money.
+    const l = club.finance.lastRound!;
+    expect(club.finance.cash).toBe(ai.finance.cash + l.sponsorship + l.tickets - l.salaries - l.interest - fees);
     for (const p of bestFw) expect(after.market.freeAgents.map((x) => x.id)).not.toContain(p.id);
   });
 

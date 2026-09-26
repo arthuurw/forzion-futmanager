@@ -10,11 +10,13 @@ import {
   salaryFor,
   takeLoan,
 } from "./finance";
-import { newGame } from "./generate";
+import { generateLeague, newGame } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
-import { buyPlayer, releasePlayer, signFreeAgent } from "./market";
+import { acceptOffer, buyPlayer, releasePlayer, signFreeAgent } from "./market";
 import { migrateSave } from "./migrate";
+import { createRng } from "./rng";
 import { playRound } from "./season";
+import { computeTable } from "./table";
 import { busySeason } from "./test-fixtures";
 import type { Club, GameState } from "./types";
 
@@ -231,5 +233,65 @@ describe("finanças (engine)", () => {
     const reread = migrateSave(JSON.parse(JSON.stringify(after)));
     if (reread.kind !== "ok") throw new Error("reread failed");
     expect(user(reread.state).players.find((x) => x.id === p.id)!.salary).toBe(salary);
+  });
+
+  test("público da rodada usa a fase antes da rodada", () => {
+    // Wiring of AC 7 through the round close: round 2 uses the table after round 1.
+    let state = game(20);
+    state = playRound(state).state;
+    const league = state.leagues[0]!;
+    const table = computeTable(league);
+    const round = league.rounds[league.currentRound]!;
+    user(state).lineup = autoLineup(user(state), AI_FORMATION);
+    const after = playRound(state).state;
+    for (const m of round.matches) {
+      const f = clubById(state, m.homeId).finance;
+      const pos = table.findIndex((r) => r.clubId === m.homeId) + 1;
+      const form = 1.2 - (0.4 * (pos - 1)) / 19;
+      const expected = Math.min(f.capacity, Math.floor(f.fans * Math.min(1.3, (40 / f.ticketPrice) ** 1.5) * form + 1e-6));
+      expect(clubById(after, m.homeId).finance.lastRound!.attendance, m.id).toBe(expected);
+    }
+  });
+
+  test("transferências entram no registro da rodada seguinte", () => {
+    let state = game(22);
+    const seller = clubById(state, state.leagues[0]!.clubs[3]!.id);
+    const target = seller.players.filter((p) => p.position === "GK").sort((a, b) => a.rating - b.rating)[0]!;
+    const price = Math.round((target.salary * 50 * (target.age <= 21 ? 1.5 : target.age <= 27 ? 1.2 : target.age <= 30 ? 1 : target.age <= 33 ? 0.6 : 0.3)) / 10_000) * 10_000;
+    const bought = buyPlayer(state, target.id, price);
+    if (!bought.ok) throw new Error(bought.reason);
+    state = bought.state;
+    const buyer = state.leagues[0]!.clubs[1]!;
+    state.market.offers = [{ id: "o0-1", buyerId: buyer.id, playerId: user(state).players[20]!.id, amount: 700_000 }];
+    const sold = acceptOffer(state, "o0-1");
+    if (!sold.ok) throw new Error(sold.reason);
+    state = sold.state;
+    expect(user(state).finance.pendingOut).toBe(price);
+    expect(user(state).finance.pendingIn).toBe(700_000);
+
+    user(state).lineup = autoLineup(user(state), AI_FORMATION);
+    state = playRound(state).state;
+    const l = user(state).finance.lastRound!;
+    expect(l.transfersOut).toBe(price);
+    expect(l.transfersIn).toBe(700_000);
+    expect(clubById(state, seller.id).finance.lastRound!.transfersIn).toBe(price);
+    expect(clubById(state, buyer.id).finance.lastRound!.transfersOut).toBe(700_000);
+    expect(user(state).finance.pendingIn).toBe(0);
+    expect(user(state).finance.pendingOut).toBe(0);
+
+    user(state).lineup = autoLineup(user(state), AI_FORMATION);
+    state = playRound(state).state;
+    expect(user(state).finance.lastRound!.transfersIn).toBe(0);
+    expect(user(state).finance.lastRound!.transfersOut).toBe(0);
+  });
+
+  test("mercado do jogo novo não muda a liga", () => {
+    for (const seed of [1, 7, 123456]) {
+      const rng = createRng(seed);
+      const league = generateLeague(rng, "l1", "Campeonato Nacional");
+      const state = newGame(seed);
+      expect(state.leagues[0], `seed ${seed}`).toEqual(league);
+      expect(state.rngState, `seed ${seed}`).toBe(rng.getState());
+    }
   });
 });

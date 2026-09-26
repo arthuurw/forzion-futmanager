@@ -77,3 +77,67 @@ describe("store: ações de mercado e finanças", () => {
     }
   });
 });
+
+describe("store: mensagens de recusa", () => {
+  test("mensagens de recusa exatas", async () => {
+    const reserve = (g: GameState, i: number) => g.leagues[0]!.clubs[i]!.players.filter((p) => p.position === "GK").sort((a, b) => a.rating - b.rating)[0]!;
+    const pad = (g: GameState, to: number) => {
+      const me = userClub(g)!;
+      const extra = g.leagues[0]!.clubs[9]!.players;
+      while (me.players.length < to) me.players.push({ ...extra[me.players.length % extra.length]!, id: `pad-${me.players.length}` });
+    };
+    const cases: [string, (g: GameState) => void, (s: GameStore, g: GameState) => Promise<boolean>, string][] = [
+      // C23: every spend above the cash.
+      ["compra acima do caixa", (g) => (userClub(g)!.finance.cash = 1000), (s, g) => s.buyPlayer(reserve(g, 5).id, 50_000_000), "Caixa insuficiente"],
+      ["luvas acima do caixa", (g) => (userClub(g)!.finance.cash = 1000), (s, g) => s.signFreeAgent(g.market.freeAgents[0]!.id), "Caixa insuficiente"],
+      ["rescisão acima do caixa", (g) => (userClub(g)!.finance.cash = 1000), (s, g) => s.releasePlayer(userClub(g)!.players[21]!.id), "Caixa insuficiente"],
+      ["ampliação acima do caixa", (g) => (userClub(g)!.finance.cash = 1000), (s) => s.expandStadium(), "Caixa insuficiente"],
+      ["pagamento acima do caixa", (g) => Object.assign(userClub(g)!.finance, { cash: 1000, loan: 1_000_000 }), (s) => s.repayLoan(500_000), "Caixa insuficiente"],
+      // C50: negative cash.
+      ["compra com caixa negativo", (g) => (userClub(g)!.finance.cash = -100_000), (s, g) => s.buyPlayer(reserve(g, 5).id, 50_000_000), "Caixa insuficiente"],
+      ["luvas com caixa negativo", (g) => (userClub(g)!.finance.cash = -100_000), (s, g) => s.signFreeAgent(g.market.freeAgents[0]!.id), "Caixa insuficiente"],
+      ["rescisão com caixa negativo", (g) => (userClub(g)!.finance.cash = -100_000), (s, g) => s.releasePlayer(userClub(g)!.players[21]!.id), "Caixa insuficiente"],
+      ["ampliação com caixa negativo", (g) => (userClub(g)!.finance.cash = -100_000), (s) => s.expandStadium(), "Caixa insuficiente"],
+      // C24.
+      ["compra com 30", (g) => pad(g, 30), (s, g) => s.buyPlayer(reserve(g, 5).id, 50_000_000), "Elenco cheio (30)"],
+      ["livre com 30", (g) => pad(g, 30), (s, g) => s.signFreeAgent(g.market.freeAgents[0]!.id), "Elenco cheio (30)"],
+      ["júnior com 30", (g) => pad(g, 30), (s, g) => s.promoteJunior(g.market.juniors[0]!.id), "Elenco cheio (30)"],
+      // C25.
+      [
+        "vendedor com 18",
+        (g) => {
+          const seller = g.leagues[0]!.clubs[5]!;
+          const target = reserve(g, 5);
+          seller.players = [target, ...seller.players.filter((p) => p.id !== target.id).slice(0, 17)];
+        },
+        (s, g) => s.buyPlayer(reserve(g, 5).id, 50_000_000),
+        "O clube não vende: elenco no mínimo",
+      ],
+      // C32.
+      [
+        "aceitar com 18",
+        (g) => {
+          const me = userClub(g)!;
+          const offered = me.players[19]!;
+          me.players = [offered, ...me.players.filter((p) => p.id !== offered.id).slice(0, 17)];
+        },
+        (s) => s.acceptOffer("o1-2"),
+        "Elenco no mínimo (18)",
+      ],
+      ["dispensar com 18", (g) => (userClub(g)!.players = userClub(g)!.players.slice(0, 18)), (s, g) => s.releasePlayer(userClub(g)!.players[0]!.id), "Elenco no mínimo (18)"],
+      // C45.
+      ["capacidade acima de 80.000", (g) => (userClub(g)!.finance.capacity = 76_000), (s) => s.expandStadium(), "Capacidade máxima: 80.000"],
+      // C47: X is what can still be borrowed.
+      ["empréstimo acima do limite", (g) => Object.assign(userClub(g)!.finance, { loanLimit: 3_000_000, loan: 2_000_000 }), (s) => s.takeLoan(1_500_000), "Limite de empréstimo: R$ 1.000.000"],
+    ];
+    expect(cases).toHaveLength(17);
+    for (const [name, prepare, act, text] of cases) {
+      const game = stage();
+      prepare(game);
+      useGame.setState({ phase: "market", game, hasSave: true, saving: false, marketMessage: null });
+      expect(await act(useGame.getState(), game), name).toBe(false);
+      expect(useGame.getState().marketMessage, name).toBe(text);
+      expect(useGame.getState().game, name).toBe(game);
+    }
+  });
+});

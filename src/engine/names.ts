@@ -36,22 +36,46 @@ export function generatePlayerName(rng: Rng): string {
   return `${pick(rng, FIRST_NAMES)} ${generateSurname(rng)}`;
 }
 
-const CITIES = [
-  "Vila Serrana", "Porto Azul", "Campo Real", "Alto Verde", "Ribeira", "Santa Cruz do Norte", "Boa Vista do Sul",
-  "Cachoeira", "Pedra Branca", "Lagoa Dourada", "Monte Claro", "Três Rios", "Vale do Sol", "Barra Nova",
-  "São Cosme", "Itaperuna", "Guaratiba", "Jacarandá", "Palmares", "Ouro Fino", "Serra Negra", "Cabo Frio do Vale",
-  "Águas Claras", "Floresta", "Piratini", "Coqueiral", "Mangueira", "Sertãozinho", "Bela Aurora", "Nova Esperança",
-  "Cruzeiro do Vale", "Ipê Amarelo", "Corumbá Novo", "Taquari", "Baía Grande", "Aracatu", "Jequitibá", "Morro Alto",
-  "Lençóis", "Passo Fundo do Oeste",
+export type FlagPattern = "vertical" | "horizontal" | "diagonal" | "cross" | "hoops";
+
+export interface ClubIdentity {
+  name: string;
+  /** Up to three kit colours, main first. */
+  colors: readonly string[];
+  pattern: FlagPattern;
+}
+
+/**
+ * The 20 clubs of the league: fictional names in the spirit of the Brazilian Série A - a
+ * nickname plus the city or state, and the colours it evokes. No real club name or crest (AD-008).
+ */
+export const CLUB_IDENTITIES: readonly ClubIdentity[] = [
+  { name: "Rubro-Negro Carioca", colors: ["#d7141a", "#111111"], pattern: "hoops" },
+  { name: "Alviverde Paulistano", colors: ["#0b6e2c", "#ffffff"], pattern: "vertical" },
+  { name: "Alvinegro do Parque", colors: ["#111111", "#ffffff"], pattern: "horizontal" },
+  { name: "Tricolor do Morumbi", colors: ["#ffffff", "#d7141a", "#111111"], pattern: "horizontal" },
+  { name: "Peixe Praiano", colors: ["#ffffff", "#111111"], pattern: "vertical" },
+  { name: "Tricolor das Laranjeiras", colors: ["#7a0f2b", "#0b6e2c", "#ffffff"], pattern: "vertical" },
+  { name: "Estrela Solitária", colors: ["#111111", "#ffffff"], pattern: "vertical" },
+  { name: "Cruzmaltino da Colina", colors: ["#111111", "#ffffff", "#d7141a"], pattern: "diagonal" },
+  { name: "Tricolor Gaúcho", colors: ["#1b8fd8", "#111111", "#ffffff"], pattern: "vertical" },
+  { name: "Colorado do Sul", colors: ["#d7141a", "#ffffff"], pattern: "horizontal" },
+  { name: "Galo Mineiro", colors: ["#111111", "#ffffff"], pattern: "vertical" },
+  { name: "Raposa Celeste", colors: ["#1446b8", "#ffffff"], pattern: "cross" },
+  { name: "Esquadrão de Aço", colors: ["#1446b8", "#d7141a", "#ffffff"], pattern: "horizontal" },
+  { name: "Leão da Barra", colors: ["#d7141a", "#111111"], pattern: "horizontal" },
+  { name: "Leão do Pici", colors: ["#1446b8", "#d7141a", "#ffffff"], pattern: "horizontal" },
+  { name: "Vozão Alvinegro", colors: ["#111111", "#ffffff"], pattern: "diagonal" },
+  { name: "Leão da Ilha", colors: ["#d7141a", "#111111", "#f5c400"], pattern: "hoops" },
+  { name: "Massa Bruta Paulista", colors: ["#ffffff", "#d7141a"], pattern: "diagonal" },
+  { name: "Furacão Paranaense", colors: ["#d7141a", "#111111"], pattern: "diagonal" },
+  { name: "Coxa Alviverde", colors: ["#0b6e2c", "#ffffff"], pattern: "hoops" },
 ];
 
-const CLUB_STYLES = [
-  "Atlético {c}", "{c} FC", "Esporte Clube {c}", "{c} Esporte Clube", "Grêmio {c}", "União {c}",
-  "Nacional de {c}", "{c} Futebol Clube", "Sport {c}", "Associação {c}", "Clube {c}", "Operário de {c}",
-];
+const IDENTITY_BY_NAME = new Map(CLUB_IDENTITIES.map((c) => [c.name, c]));
 
-export function generateClubName(rng: Rng): string {
-  return pick(rng, CLUB_STYLES).replace("{c}", pick(rng, CITIES));
+export function clubIdentity(name: string): ClubIdentity | undefined {
+  return IDENTITY_BY_NAME.get(name);
 }
 
 /** Draw until a name not yet in `taken`; adds it to `taken`. */

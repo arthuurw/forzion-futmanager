@@ -52,10 +52,12 @@ describe("tela Elenco", () => {
     expect(screen.getByText("Faltam 1 titulares")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
 
-    // Selecting another DF for the empty slot makes it valid again.
+    // Selecting a bench DF (not starting anywhere) for the empty slot makes it valid again.
     const empty = screen.getByLabelText("Titular 2 (ZAG)") as HTMLSelectElement;
     expect(empty.value).toBe("");
-    const spare = [...empty.options].map((o) => o.value).find((v) => v && v !== slot3.value)!;
+    const starting = new Set(userClub(useGame.getState().game!)!.lineup!.starters);
+    const spare = [...empty.options].map((o) => o.value).find((v) => v && !starting.has(v))!;
+    expect(spare).toBeTruthy();
     await user.selectOptions(empty, spare);
     expect(screen.queryByText(/Faltam/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();

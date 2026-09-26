@@ -1,4 +1,4 @@
-import { generateClubName, generatePlayerName, uniqueName } from "./names";
+import { CLUB_IDENTITIES, generatePlayerName, uniqueName } from "./names";
 import { bell, createRng, randInt, shuffle, type Rng } from "./rng";
 import {
   AGE_MAX,
@@ -48,7 +48,7 @@ function generatePlayer(rng: Rng, id: string, position: Position, base: number, 
   };
 }
 
-function generateClub(rng: Rng, index: number, base: number, takenClubs: Set<string>, takenPlayers: Set<string>): Club {
+function generateClub(rng: Rng, index: number, name: string, base: number, takenPlayers: Set<string>): Club {
   const id = `c${index + 1}`;
   const players: Player[] = [];
   let n = 0;
@@ -57,7 +57,7 @@ function generateClub(rng: Rng, index: number, base: number, takenClubs: Set<str
       players.push(generatePlayer(rng, `${id}-p${++n}`, shape.position, base, takenPlayers));
     }
   }
-  return { id, name: uniqueName(rng, takenClubs, generateClubName), players, lineup: null };
+  return { id, name, players, lineup: null };
 }
 
 /**
@@ -95,14 +95,15 @@ export function generateSchedule(clubIds: readonly string[]): Round[] {
 }
 
 export function generateLeague(rng: Rng, id: string, name: string): League {
-  const takenClubs = new Set<string>();
   const takenPlayers = new Set<string>();
   // Club strength spread evenly across the range, then shuffled so ids do not encode strength.
   const bases = shuffle(
     rng,
     Array.from({ length: CLUBS_PER_LEAGUE }, (_, i) => CLUB_BASE_MIN + ((CLUB_BASE_MAX - CLUB_BASE_MIN) * i) / (CLUBS_PER_LEAGUE - 1)),
   );
-  const clubs = bases.map((base, i) => generateClub(rng, i, base, takenClubs, takenPlayers));
+  // Every league has the same 20 identities (like the real Série A); order and strength vary by seed.
+  const names = shuffle(rng, CLUB_IDENTITIES.map((c) => c.name));
+  const clubs = bases.map((base, i) => generateClub(rng, i, names[i] as string, base, takenPlayers));
   const order = shuffle(rng, clubs.map((c) => c.id));
   return { id, name, clubs, rounds: generateSchedule(order), currentRound: 0 };
 }

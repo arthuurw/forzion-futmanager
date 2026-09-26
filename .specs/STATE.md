@@ -12,6 +12,8 @@
 | AD-006 | Dinheiro em inteiro de reais, nunca float | default proposto no brainstorm, sem objeção; entra em uso no sub-projeto 2 | active | 2026-09-26 |
 | AD-007 | Simulação de partida por eventos minuto a minuto (90 ticks): posse por meio-campo, chance por ataque vs defesa, gol por finalização vs goleiro; cada evento vira linha de narração | fiel ao Brasfoot; substituição e cartão entram sem mudar o modelo | active | 2026-09-26 |
 | AD-008 | Times e jogadores fictícios, gerados por seed; nenhum nome real | lançar publicamente sem risco de licença (CBF, clubes, FIFPro) | active | 2026-09-26 |
+| AD-009 | A liga tem 20 identidades fixas inspiradas na Série A (apelido + cidade/estado + cores), definidas em `CLUB_IDENTITIES`; a seed só embaralha ordem e força | pedido do autor por nomes fiéis à Série A, mantendo AD-008 (nenhum nome ou escudo real) | active | 2026-09-26 |
+| AD-010 | Toda tela cabe na janela sem rolagem de página; em telas estreitas (≤ 900 px) um painel por vez via abas | pedido do autor; visual estilo PS2 | active | 2026-09-26 |
 
 ## Handoff
 

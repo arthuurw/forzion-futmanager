@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { computeTable } from "../engine/table";
 import { App } from "../App";
 import { useGame } from "../store";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, skipLive } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -16,6 +16,7 @@ describe("tela Fim", () => {
     render(<App />);
     expect(screen.getByText("Rodada 38 de 38")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
 
     expect(await screen.findByText("Fim da temporada")).toBeInTheDocument();
     const final = useGame.getState().game!.leagues[0]!;

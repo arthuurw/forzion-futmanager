@@ -18,9 +18,9 @@
 ## Handoff
 
 **Feature**: partida-ao-vivo
-**Where**: plan.md escrito e validado, aguardando revisão humana - checks.md não existe
+**Where**: C1–C47 built, 93 testes verdes, build OK - aguardando verification.md do Verifier
 **In progress**: nada
-**Next step**: autor revisa `.specs/features/partida-ao-vivo/plan.md` e responde limite de substituições e fora de posição; depois derivar checks.md
+**Next step**: Verifier independente escreve verification.md; `validate_verification.py` deve sair 0
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

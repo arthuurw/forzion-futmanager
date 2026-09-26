@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { loadGame, saveGame } from "../persistence/save";
+import { openDB } from "idb";
+import { DB_NAME, DB_VERSION, SLOT, STORE, loadGame, saveGame } from "../persistence/save";
 import { useGame } from "../store";
 import { Home } from "./Home";
 import { resetAll, seededGame } from "./test-utils";
@@ -59,4 +60,15 @@ describe("tela Início", () => {
     expect(screen.getByText("Jogo salvo incompatível (versão 7)")).toBeInTheDocument();
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Novo jogo"]);
   });
+
+  test("save de versão futura incompatível", async () => {
+    const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+    await db.put(STORE, { schemaVersion: 3 }, SLOT);
+    db.close();
+    await useGame.getState().init();
+    render(<Home />);
+    expect(screen.getByText("Jogo salvo incompatível (versão 3)")).toBeInTheDocument();
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Novo jogo"]);
+  });
+
 });

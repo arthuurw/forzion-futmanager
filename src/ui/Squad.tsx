@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { formationSlots, validateLineup } from "../engine/lineup";
+import { formationSlots, isAvailable, validateLineup } from "../engine/lineup";
 import { userLeague } from "../engine/season";
-import { FORMATION_NAMES, POSITIONS, type FormationName, type Position } from "../engine/types";
+import { FORMATION_NAMES, POSITIONS, POSTURES, type FormationName, type Position, type Posture } from "../engine/types";
 import { useGame, userClub } from "../store";
+import { FitnessBar, MoraleArrow, StatusBadge } from "./Condition";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
 import { ScreenTabs } from "./ScreenTabs";
@@ -33,9 +34,12 @@ function slotCoordinates(slots: Position[]): { x: number; y: number; w: number }
 
 type SquadTab = "pitch" | "roster" | "table";
 
+const POSTURE_LABEL: Record<Posture, string> = { defensive: "Defensiva", balanced: "Equilibrada", attacking: "Ofensiva" };
+
 export function Squad() {
   const game = useGame((s) => s.game);
   const setFormation = useGame((s) => s.setFormation);
+  const setPosture = useGame((s) => s.setPosture);
   const assignStarter = useGame((s) => s.assignStarter);
   const playRound = useGame((s) => s.playRound);
   const [tab, setTab] = useState<SquadTab>("pitch");
@@ -83,16 +87,28 @@ export function Squad() {
         <section className={`${panelClass("pitch")} pitch-panel`} style={{ "--i": 0 } as React.CSSProperties}>
           <div className="panel-head">
             <h2 className="title-bar">Escalação</h2>
-            <label className="formation-row">
-              Formação
-              <select aria-label="Formação" value={lineup?.formation ?? ""} onChange={(e) => setFormation(e.target.value as FormationName)}>
-                {FORMATION_NAMES.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="formation-controls">
+              <label className="formation-row">
+                Formação
+                <select aria-label="Formação" value={lineup?.formation ?? ""} onChange={(e) => setFormation(e.target.value as FormationName)}>
+                  {FORMATION_NAMES.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="formation-row">
+                Postura
+                <select aria-label="Postura" value={lineup?.posture ?? "balanced"} onChange={(e) => setPosture(e.target.value as Posture)}>
+                  {POSTURES.map((p) => (
+                    <option key={p} value={p}>
+                      {POSTURE_LABEL[p]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="pitch-wrap">
@@ -103,12 +119,18 @@ export function Squad() {
               <div className="line small-box" />
               {slots.map((position, i) => {
                 const current = lineup?.starters[i] ?? "";
-                const options = club.players.filter((p) => p.position === position);
+                const currentPlayer = club.players.find((p) => p.id === current);
+                // Same position first, then everyone else available (out of position, AC 23).
+                const options = club.players
+                  .filter((p) => isAvailable(p) || p.id === current)
+                  .sort((a, b) => Number(b.position === position) - Number(a.position === position) || POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position) || b.rating - a.rating);
+                const oop = !!currentPlayer && currentPlayer.position !== position;
+                const unavailable = !!currentPlayer && !isAvailable(currentPlayer);
                 const at = coords[i] ?? { x: 50, y: 50, w: 26 };
                 return (
                   <div
                     key={i}
-                    className={`token pos-${position}${current ? "" : " empty"}`}
+                    className={`token pos-${position}${current ? "" : " empty"}${oop ? " oop" : ""}${unavailable ? " unavailable" : ""}`}
                     style={{ left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%` }}
                   >
                     <span className="num" aria-hidden="true">
@@ -117,11 +139,13 @@ export function Squad() {
                     <select aria-label={`Titular ${i + 1} (${POSITION_LABEL[position]})`} value={current} onChange={(e) => assignStarter(i, e.target.value)}>
                       {current === "" && <option value="">—</option>}
                       {options.map((p) => (
-                        <option key={p.id} value={p.id}>
+                        <option key={p.id} value={p.id} disabled={!isAvailable(p)}>
+                          {p.position === position ? "" : `${POSITION_LABEL[p.position]} · `}
                           {p.name} ({p.rating})
                         </option>
                       ))}
                     </select>
+                    {oop && <span className="sr-only">fora de posição</span>}
                   </div>
                 );
               })}
@@ -139,11 +163,14 @@ export function Squad() {
                   <th>Pos</th>
                   <th className="num">Idade</th>
                   <th className="num">Força</th>
+                  <th className="num">Cond</th>
+                  <th>Moral</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
                 {roster.map((p) => (
-                  <tr key={p.id} className={starterIds.has(p.id) ? "starter" : undefined}>
+                  <tr key={p.id} className={[starterIds.has(p.id) ? "starter" : "", isAvailable(p) ? "" : "out"].filter(Boolean).join(" ") || undefined}>
                     <td>{p.name}</td>
                     <td>
                       <span className={`pos pos-${p.position}`}>{POSITION_LABEL[p.position]}</span>
@@ -152,6 +179,15 @@ export function Squad() {
                     <td className="num rating-cell">
                       <RatingBar rating={p.rating} />
                       {p.rating}
+                    </td>
+                    <td className="num">
+                      <FitnessBar value={p.fitness} />
+                    </td>
+                    <td>
+                      <MoraleArrow value={p.morale} />
+                    </td>
+                    <td>
+                      <StatusBadge player={p} />
                     </td>
                   </tr>
                 ))}

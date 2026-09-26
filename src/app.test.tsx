@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { playRound } from "./engine/season";
 import { computeTable } from "./engine/table";
 import { loadGame, saveGame } from "./persistence/save";
 import { useGame, userClub } from "./store";
 import { App } from "./App";
-import { resetAll, resetStore, seededGame } from "./ui/test-utils";
+import { resetAll, resetStore, seededGame, skipLive } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can observe the order of save and render. */
 const ctl = vi.hoisted(() => ({ gate: null as Promise<void> | null }));
@@ -63,6 +63,7 @@ describe("fluxo do app", () => {
     const gate = deferred();
     ctl.gate = gate.promise;
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
     expect(vi.mocked(saveGame)).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("region", { name: "Sua partida" })).not.toBeInTheDocument();
     expect(await loadGame()).toEqual({ kind: "none" });
@@ -80,6 +81,7 @@ describe("fluxo do app", () => {
     render(<App />);
     await user.selectOptions(screen.getByLabelText("Formação"), "4-3-3");
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
     await screen.findByRole("region", { name: "Sua partida" });
     const before = useGame.getState().game!;
     expect(before.leagues[0]!.currentRound).toBe(3);
@@ -109,6 +111,7 @@ describe("fluxo do app", () => {
     await user.click(await screen.findByRole("button", { name: "Novo jogo" }));
     await user.click((await screen.findAllByRole("button"))[0]!);
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
     expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
     expect(screen.getByText("Salvamento indisponível neste navegador")).toBeInTheDocument();
     expect(useGame.getState().game!.leagues[0]!.currentRound).toBe(1);
@@ -126,6 +129,7 @@ describe("fluxo do app", () => {
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Continuar" }));
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
     await screen.findByRole("region", { name: "Sua partida" });
 
     const viaReload = useGame.getState();
@@ -133,4 +137,47 @@ describe("fluxo do app", () => {
     expect(viaReload.lastRound!.results).toEqual(direct.results);
     expect(viaReload.lastRound!.userEvents).toEqual(direct.userEvents);
   });
+
+  test("fim da rodada ao vivo grava e mostra resultados", async () => {
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game: seededGame(8), hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    // Let the clock run to 90' on its own, at 4x.
+    await user.click(await screen.findByRole("button", { name: "4x" }));
+    // The clock stops at half-time (AC 6); resume it.
+    await screen.findByText("Intervalo", {}, { timeout: 8000 });
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByRole("region", { name: "Sua partida" }, { timeout: 8000 })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Outros resultados" })).getAllByRole("listitem")).toHaveLength(9);
+    expect(within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row")).toHaveLength(21);
+    const saved = await loadGame();
+    expect(saved.kind).toBe("ok");
+    if (saved.kind === "ok") {
+      expect(saved.state.leagues[0]!.currentRound).toBe(1);
+      expect(saved.state.leagues[0]!.rounds[0]!.matches.every((m) => m.result !== null)).toBe(true);
+    }
+  }, 30000);
+
+  test("recarregar no meio da rodada volta ao elenco com save intacto", async () => {
+    const user = userEvent.setup();
+    const before = seededGame(12);
+    await saveGame(before);
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
+    await screen.findByRole("timer", { name: "Relógio" });
+    await new Promise((r) => setTimeout(r, 700));
+    expect(useGame.getState().live!.minute).toBeGreaterThanOrEqual(2);
+
+    // Reload mid-round: fresh store, same storage.
+    cleanup();
+    resetStore();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+    expect(await screen.findByText("Rodada 1 de 38")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Elenco" })).toBeInTheDocument();
+    expect(await loadGame()).toEqual({ kind: "ok", state: before });
+  });
+
 });

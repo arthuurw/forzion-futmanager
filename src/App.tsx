@@ -4,6 +4,7 @@ import { Banner } from "./ui/Banner";
 import { ChooseClub } from "./ui/ChooseClub";
 import { End } from "./ui/End";
 import { Home } from "./ui/Home";
+import { Live } from "./ui/Live";
 import { Round } from "./ui/Round";
 import { Squad } from "./ui/Squad";
 
@@ -32,6 +33,7 @@ export function App() {
         {onTitle && <Home />}
         {phase === "chooseClub" && <ChooseClub />}
         {phase === "squad" && <Squad />}
+        {phase === "live" && <Live />}
         {phase === "round" && <Round />}
         {phase === "end" && <End />}
       </div>

@@ -1,0 +1,246 @@
+// @vitest-environment jsdom
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
+import { userMatch, type LiveSide } from "../engine/live";
+import { narrate, narrationContext } from "../engine/narration";
+import { App } from "../App";
+import { useGame } from "../store";
+import { resetAll, seededGame } from "./test-utils";
+
+const scrollIntoView = vi.fn();
+
+beforeEach(() => {
+  resetAll();
+  scrollIntoView.mockClear();
+  Element.prototype.scrollIntoView = scrollIntoView;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** Renders the squad screen and clicks «Jogar rodada», with real timers. */
+async function startLive(seed = 3): Promise<UserEvent> {
+  const user = userEvent.setup();
+  useGame.setState({ phase: "squad", game: seededGame(seed), hasSave: true });
+  render(<App />);
+  await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+  return user;
+}
+
+/**
+ * Same, on fake timers. Clicks use fireEvent: userEvent waits on a setTimeout(0) after each
+ * action, which never fires while timers are fake.
+ */
+function startLiveFake(seed = 3): void {
+  vi.useFakeTimers();
+  useGame.setState({ phase: "squad", game: seededGame(seed), hasSave: true });
+  render(<App />);
+  fireEvent.click(screen.getByRole("button", { name: "Jogar rodada" }));
+}
+
+const press = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
+
+const advance = (ms: number) =>
+  act(() => {
+    vi.advanceTimersByTime(ms);
+  });
+const clockText = () => screen.getByRole("timer", { name: "Relógio" }).textContent;
+const liveMinute = () => useGame.getState().live!.minute;
+
+function mySide(): LiveSide {
+  const live = useGame.getState().live!;
+  const m = userMatch(live)!;
+  return m.home.clubId === live.userClubId ? m.home : m.away;
+}
+
+async function pauseNow(user: UserEvent) {
+  await user.click(screen.getByRole("button", { name: "Pausar" }));
+}
+
+describe("tela Ao vivo", () => {
+  test("abre ao vivo em 0 com 10 jogos 0 x 0", async () => {
+    startLiveFake();
+    expect(useGame.getState().phase).toBe("live");
+    expect(clockText()).toBe("0'");
+    const games = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem");
+    expect(games).toHaveLength(10);
+    for (const g of games) expect(g.querySelector("b")!.textContent).toBe("0 x 0");
+  });
+
+  test("relógio avança 1 minuto a cada 300 ms", async () => {
+    startLiveFake();
+    advance(900);
+    expect(clockText()).toBe("3'");
+    advance(299);
+    expect(clockText()).toBe("3'");
+    advance(1);
+    expect(clockText()).toBe("4'");
+  });
+
+  test("narração acrescenta eventos do minuto com o último visível", async () => {
+    startLiveFake();
+    const league = useGame.getState().game!.leagues[0]!;
+    const ctx = narrationContext(league.clubs);
+    let before = 0;
+    for (let i = 0; i < 90 && useGame.getState().clock === "running"; i++) {
+      advance(300);
+      const events = userMatch(useGame.getState().live!)!.events;
+      const lines = within(screen.getByRole("list", { name: "Narração" })).getAllByRole("listitem");
+      // Every event up to this minute is on screen, in order, the newest last.
+      expect(lines).toHaveLength(events.length);
+      expect(events.every((e) => e.minute <= liveMinute())).toBe(true);
+      if (events.length > before && events.length > 1) {
+        const last = events.at(-1)!;
+        expect(lines.at(-1)!.textContent).toBe(`${last.minute}' ${narrate(last, ctx)}`);
+        expect(scrollIntoView.mock.contexts.at(-1)).toBe(lines.at(-1));
+        return;
+      }
+      before = events.length;
+    }
+    throw new Error("no event after kick-off in the first half");
+  });
+
+  test("gol muda placar no mesmo tick e pisca 2 s", async () => {
+    startLiveFake();
+    for (let i = 0; i < 44; i++) {
+      advance(300);
+      const scored = useGame.getState().live!.matches.find((m) => m.homeGoals + m.awayGoals > 0);
+      if (!scored) continue;
+      const row = screen.getByRole("region", { name: "Jogos da rodada" }).querySelector(`[data-match="${scored.matchId}"]`)!;
+      expect(row.querySelector("b")!.textContent).toBe(`${scored.homeGoals} x ${scored.awayGoals}`);
+      expect(row).toHaveClass("flash");
+      act(() => useGame.getState().pause());
+      advance(1999);
+      expect(row).toHaveClass("flash");
+      advance(1);
+      expect(row).not.toHaveClass("flash");
+      return;
+    }
+    throw new Error("no goal in the first half");
+  });
+
+  test("pausar para e continuar retoma", async () => {
+    startLiveFake();
+    advance(600);
+    expect(clockText()).toBe("2'");
+    press("Pausar");
+    advance(3000);
+    expect(clockText()).toBe("2'");
+    press("Continuar");
+    advance(300);
+    expect(clockText()).toBe("3'");
+  });
+
+  test("intervalo pausa no 45", async () => {
+    startLiveFake();
+    advance(45 * 300);
+    expect(clockText()).toBe("45'");
+    expect(screen.getByText("Intervalo")).toBeInTheDocument();
+    advance(3000);
+    expect(clockText()).toBe("45'");
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeInTheDocument();
+  });
+
+  test("velocidades 2x e 4x", async () => {
+    startLiveFake();
+    press("2x");
+    advance(300);
+    expect(clockText()).toBe("2'");
+    press("4x");
+    advance(300);
+    expect(clockText()).toBe("6'");
+    expect(screen.getByRole("button", { name: "4x" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("pular para o fim vai ao 90", async () => {
+    const user = await startLive();
+    const started = Date.now();
+    await user.click(screen.getByRole("button", { name: "Pular para o fim" }));
+    expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
+    // Far less than the 27 s the clock would take.
+    expect(Date.now() - started).toBeLessThan(5000);
+    const last = useGame.getState().lastRound!;
+    expect(last.userEvents.at(-1)).toMatchObject({ minute: 90, type: "fulltime" });
+    expect(last.results).toHaveLength(10);
+  });
+
+  test("pausado mostra em campo e banco com condição e moral", async () => {
+    const user = await startLive();
+    // Running: decisions are locked.
+    expect(screen.getByRole("button", { name: "Substituir" })).toBeDisabled();
+    expect(screen.getByLabelText("Sai")).toBeDisabled();
+    expect(screen.getByText("Pause para mexer no time")).toBeInTheDocument();
+    await pauseNow(user);
+    const team = screen.getByRole("region", { name: "Seu time" });
+    const onPitch = within(within(team).getByRole("table", { name: "Em campo" })).getAllByRole("row");
+    const bench = within(within(team).getByRole("table", { name: "Banco" })).getAllByRole("row");
+    expect(onPitch).toHaveLength(11);
+    expect(bench).toHaveLength(mySide().bench.length);
+    expect(bench.length).toBeGreaterThan(0);
+    for (const row of [...onPitch, ...bench]) {
+      expect(row.querySelector(".fnum")!.textContent).toMatch(/^\d+$/);
+      expect(row.querySelector(".morale")!.textContent).toMatch(/^[↓↘→↗↑]$/);
+    }
+    expect(screen.getByRole("button", { name: "Substituir" })).toBeEnabled();
+  });
+
+  test("substituir pela tela", async () => {
+    const user = await startLive();
+    await pauseNow(user);
+    const inId = mySide().bench[0]!;
+    const inName = useGame.getState().live!.players[inId]!.name;
+    await user.selectOptions(screen.getByLabelText("Sai"), "10");
+    await user.selectOptions(screen.getByLabelText("Entra"), inId);
+    await user.click(screen.getByRole("button", { name: "Substituir" }));
+    const rows = within(screen.getByRole("table", { name: "Em campo" })).getAllByRole("row");
+    expect(rows[10]).toHaveTextContent(inName);
+    expect(screen.getByText("Substituições: 1/5")).toBeInTheDocument();
+    const lines = within(screen.getByRole("list", { name: "Narração" })).getAllByRole("listitem");
+    expect(lines.at(-1)!.textContent).toContain(`entra ${inName}.`);
+  });
+
+  test("mensagem limite de 5", async () => {
+    const user = await startLive();
+    await pauseNow(user);
+    for (let i = 0; i < 5; i++) {
+      await user.selectOptions(screen.getByLabelText("Sai"), String(10 - i));
+      await user.click(screen.getByRole("button", { name: "Substituir" }));
+    }
+    expect(screen.getByText("Substituições: 5/5")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Sai"), "1");
+    await user.click(screen.getByRole("button", { name: "Substituir" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Limite de 5 substituições");
+    expect(screen.getByText("Substituições: 5/5")).toBeInTheDocument();
+  });
+
+  test("mensagem expulso", async () => {
+    const user = await startLive();
+    await pauseNow(user);
+    act(() => {
+      const live = structuredClone(useGame.getState().live!);
+      const m = userMatch(live)!;
+      const side = m.home.clubId === live.userClubId ? m.home : m.away;
+      const id = side.slots[4]!;
+      side.slots[4] = null;
+      side.vacancy[4] = { why: "red", playerId: id };
+      side.sentOff.push(id);
+      useGame.setState({ live });
+    });
+    const sai = screen.getByLabelText("Sai") as HTMLSelectElement;
+    expect(sai.options[4]!.textContent).toContain("(expulso)");
+    await user.selectOptions(sai, "4");
+    await user.click(screen.getByRole("button", { name: "Substituir" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Jogador expulso não pode ser substituído");
+  });
+
+  test("formação marca fora de posição", async () => {
+    const user = await startLive();
+    await pauseNow(user);
+    const team = screen.getByRole("region", { name: "Seu time" });
+    expect(within(team).queryByText("fora de posição")).not.toBeInTheDocument();
+    await user.selectOptions(within(team).getByLabelText("Formação"), "3-5-2");
+    expect(within(team).getAllByText("fora de posição")).toHaveLength(1);
+    expect(within(within(team).getByRole("table", { name: "Em campo" })).getAllByRole("row")).toHaveLength(11);
+  });
+});

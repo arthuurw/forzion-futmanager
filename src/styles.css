@@ -1497,3 +1497,325 @@ td.rating-cell .bar {
     white-space: normal;
   }
 }
+
+/* ---------- condition: fitness, morale, status (partida-ao-vivo) ---------- */
+
+.fitness {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.fbar {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.fbar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  transition: width 0.3s var(--ease);
+}
+
+.fbar.f-ok > span {
+  background: linear-gradient(180deg, #a8ff9a, #1fc257);
+}
+.fbar.f-tired > span {
+  background: linear-gradient(180deg, #fff09a, #ffb000);
+}
+.fbar.f-spent > span {
+  background: linear-gradient(180deg, #ffb0a0, #ff3b3b);
+}
+
+.fnum {
+  min-width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+/* PES condition arrows */
+.morale {
+  display: inline-grid;
+  place-items: center;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.85em;
+  line-height: 1;
+  vertical-align: middle;
+  color: var(--ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.morale.mn2 {
+  background: #ff3b3b;
+  color: #fff;
+}
+.morale.mn1 {
+  background: #ff8a00;
+}
+.morale.mp0 {
+  background: #ffd23f;
+}
+.morale.mp1 {
+  background: #9dff7a;
+}
+.morale.mp2 {
+  background: #1fc257;
+  color: #fff;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  font-size: 0.75em;
+  white-space: nowrap;
+}
+.badge.les {
+  background: #ff3b3b;
+  color: #fff;
+}
+.badge.sus {
+  background: #111;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+
+tbody tr.out td {
+  opacity: 0.55;
+}
+
+.formation-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* out of position / unavailable on the pitch */
+.token.oop .num {
+  outline: 2px solid #ff3b3b;
+  outline-offset: 2px;
+}
+
+.token.unavailable .num {
+  filter: grayscale(1);
+  outline: 2px dashed #ff3b3b;
+  outline-offset: 2px;
+}
+
+.token.unavailable select {
+  border-color: #ff3b3b;
+}
+
+/* ---------- live screen ---------- */
+
+.clock.running span:first-child::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  box-shadow: 0 0 8px #ff3b3b;
+  animation: pulse 1s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+.clock span[role="timer"] {
+  font-size: 1.1rem;
+}
+
+.scorebug .score.flash,
+.live-results li.flash b {
+  animation: goal-flash 0.5s ease-in-out 4;
+}
+
+@keyframes goal-flash {
+  50% {
+    background: var(--gold);
+    color: var(--ink);
+    box-shadow: 0 0 18px rgba(255, 194, 26, 0.9);
+    transform: scale(1.12);
+  }
+}
+
+.live-results li.mine {
+  box-shadow: inset 3px 0 0 var(--gold);
+  background: linear-gradient(90deg, rgba(255, 210, 60, 0.28), rgba(255, 210, 60, 0.05));
+}
+
+.live-results li.flash {
+  background: linear-gradient(90deg, rgba(255, 194, 26, 0.45), rgba(255, 138, 0, 0.1));
+}
+
+.team-panel .panel-head .subs-count {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.team-panel table.compact {
+  font-size: clamp(0.68rem, 1.45vh, 0.88rem);
+}
+
+.team-panel table.compact td {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.team-panel .pos {
+  min-width: 32px;
+  font-size: 0.7rem;
+}
+
+.team-panel table.bench {
+  margin-top: 6px;
+  border-top: 1px dashed var(--edge);
+}
+
+.team-panel table.bench td {
+  color: var(--muted);
+}
+
+.team-panel tr.vacant td {
+  color: #ffb0a0;
+  font-style: italic;
+}
+
+.team-panel tr.oop td:first-child {
+  box-shadow: inset 3px 0 0 #ff3b3b;
+}
+
+.oop-tag {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.7em;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(255, 59, 59, 0.25);
+  color: #ffb0a0;
+}
+
+.card-yellow {
+  display: inline-block;
+  width: 7px;
+  height: 10px;
+  margin-left: 6px;
+  border-radius: 1px;
+  background: #ffd400;
+  vertical-align: middle;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.decisions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--edge);
+}
+
+.decision-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.decision-row select {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+}
+
+.decision-row button {
+  padding: 5px 12px;
+  font-size: 0.85rem;
+}
+
+.decisions .hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.decisions .missing {
+  animation: none;
+}
+
+.speeds {
+  display: flex;
+  gap: 4px;
+}
+
+.speeds button.speed {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  background: rgba(2, 8, 23, 0.6);
+  box-shadow: none;
+}
+
+.speeds button.speed.is-on {
+  background: linear-gradient(180deg, #6aa6ff 0%, #2f74ff 48%, #1a55db 52%, #2a6cf5 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.ticker li.yellow .min {
+  background: #ffd400;
+  color: var(--ink);
+}
+
+.ticker li.red {
+  color: #ffb0a0;
+  font-weight: 700;
+}
+
+.ticker li.red .min {
+  background: #ff3b3b;
+  color: #fff;
+}
+
+.ticker li.injury {
+  color: #ffb0a0;
+}
+
+.ticker li.substitution {
+  color: var(--cyan);
+}
+
+@media (max-width: 900px) {
+  .fbar {
+    width: 28px;
+  }
+  .speeds button.speed {
+    padding: 5px 8px;
+  }
+  .formation-controls {
+    gap: 6px;
+  }
+}
+
+/* The squad list has 22 rows plus condition columns: one pixel less per row keeps it in the panel. */
+table.compact tbody td {
+  padding-top: max(0px, calc(var(--row-pad) - 1px));
+  padding-bottom: max(0px, calc(var(--row-pad) - 1px));
+}

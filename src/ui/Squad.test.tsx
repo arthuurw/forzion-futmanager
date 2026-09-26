@@ -62,4 +62,81 @@ describe("tela Elenco", () => {
     expect(screen.queryByText(/Faltam/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
   });
+
+  test("suspenso fica fora com selo SUS", () => {
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    const benchDf = club.players.find((p) => p.position === "DF" && !club.lineup!.starters.includes(p.id))!;
+    benchDf.suspendedRounds = 1;
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    const row = within(screen.getByRole("table", { name: "Elenco" })).getByText(benchDf.name).closest("tr")!;
+    expect(within(row).getByText("SUS")).toBeInTheDocument();
+    const slot = screen.getByLabelText("Titular 2 (ZAG)") as HTMLSelectElement;
+    expect([...slot.options].map((o) => o.value)).not.toContain(benchDf.id);
+  });
+
+  test("lesionado fica fora com selo LES e rodadas", () => {
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    const benchMf = club.players.find((p) => p.position === "MF" && !club.lineup!.starters.includes(p.id))!;
+    benchMf.injuryRounds = 3;
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    const row = within(screen.getByRole("table", { name: "Elenco" })).getByText(benchMf.name).closest("tr")!;
+    expect(within(row).getByText("LES 3")).toBeInTheDocument();
+    for (const select of screen.getAllByLabelText(/^Titular /) as HTMLSelectElement[]) {
+      expect([...select.options].map((o) => o.value)).not.toContain(benchMf.id);
+    }
+  });
+
+  test("escalação com indisponível desabilita", () => {
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    const starter = club.players.find((p) => p.id === club.lineup!.starters[1])!;
+    starter.injuryRounds = 2;
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    expect(screen.getByText("Faltam 1 titulares")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
+  });
+
+  test("setas de moral em 5 níveis", () => {
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    const levels: [number, string, string][] = [
+      [-2, "↓", "mn2"],
+      [-1, "↘", "mn1"],
+      [0, "→", "mp0"],
+      [1, "↗", "mp1"],
+      [2, "↑", "mp2"],
+    ];
+    levels.forEach(([morale], i) => (club.players[i]!.morale = morale));
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    const table = screen.getByRole("table", { name: "Elenco" });
+    levels.forEach(([, arrow, cls], i) => {
+      const row = within(table).getByText(club.players[i]!.name).closest("tr")!;
+      const el = row.querySelector(".morale")!;
+      expect(el.textContent).toBe(arrow);
+      expect(el).toHaveClass(cls);
+    });
+  });
+
+  test("slot aceita outra posição e marca fora de posição", async () => {
+    const user = userEvent.setup();
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    const benchDf = club.players.find((p) => p.position === "DF" && !club.lineup!.starters.includes(p.id))!;
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    expect(screen.queryByText("fora de posição")).not.toBeInTheDocument();
+    const fwSlot = screen.getByLabelText("Titular 11 (ATA)") as HTMLSelectElement;
+    expect([...fwSlot.options].map((o) => o.value)).toContain(benchDf.id);
+    await user.selectOptions(fwSlot, benchDf.id);
+    expect(fwSlot.closest(".token")).toHaveClass("oop");
+    expect(screen.getByText("fora de posição")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
+  });
+
 });

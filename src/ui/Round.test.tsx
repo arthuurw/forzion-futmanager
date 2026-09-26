@@ -5,7 +5,7 @@ import { playRound } from "../engine/season";
 import { useGame } from "../store";
 import { App } from "../App";
 import { Round } from "./Round";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, skipLive } from "./test-utils";
 
 const ctl = vi.hoisted(() => ({ fail: false }));
 vi.mock("../persistence/save", async (importOriginal) => {
@@ -59,6 +59,7 @@ describe("tela Rodada", () => {
     useGame.setState({ phase: "squad", game: seededGame(2), hasSave: true });
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
     expect(await screen.findByText("Não foi possível salvar")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Sua partida" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Outros resultados" })).toBeInTheDocument();
@@ -71,6 +72,7 @@ describe("tela Rodada", () => {
     render(<App />);
     expect(screen.getByText("Rodada 5 de 38")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
     await screen.findByRole("region", { name: "Sua partida" });
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Rodada 5");
     expect(screen.getByText("Rodada 6 de 38")).toBeInTheDocument();

@@ -223,3 +223,7 @@ O plano aprovado muda contratos que o núcleo provou. Os testes abaixo mudam jun
 - S3 + S4 ≈ 6 arquivos, ~30 KB → ~8k (28k acumulado)
 - S5 + S6 ≈ 5 arquivos, ~20 KB → ~6k (34k acumulado)
 - Total ≈ 34k, abaixo do budget de 150k - one builder
+
+- **Boundary:** C1–C47 closed across `bd7340b` (engine) and the `feat(ui)` commit that follows it
+- **Settled mid-build:** nothing asked. Tunables recalibrated over 2000 matches (home midfield bonus 1.25 → 1.2, booked-player caution 0.3 → 0.2) to keep the core's home-win ceiling of 52%. The goal-flash un-highlight timer lives per match, not per minute, or a 300 ms tick would cancel it. Clock tests click with `fireEvent`, since `userEvent` waits on a timeout that fake timers never fire
+- **Abandoned:** copying the whole live round on every minute of `runToEnd` - one copy per round instead; importing a fixture from a test file - it re-registered that file's tests, moved to `src/engine/test-fixtures.ts`

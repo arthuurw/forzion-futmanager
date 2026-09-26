@@ -1,4 +1,6 @@
 import "fake-indexeddb/auto";
+import { screen } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
 import { newGame } from "../engine/generate";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
@@ -28,4 +30,9 @@ export function seededGame(seed = 1, clubIndex = 0, roundsPlayed = 0): GameState
   const user = state.leagues[0]!.clubs[clubIndex]!;
   user.lineup = autoLineup(user, user.lineup?.formation ?? AI_FORMATION);
   return state;
+}
+
+/** Since partida-ao-vivo, «Jogar rodada» opens the live screen; this jumps to the final whistle. */
+export async function skipLive(user: UserEvent): Promise<void> {
+  await user.click(await screen.findByRole("button", { name: "Pular para o fim" }));
 }

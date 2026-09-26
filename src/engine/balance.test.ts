@@ -159,10 +159,10 @@ describe("equilíbrio em várias temporadas", () => {
     const sorted = [...ratios].sort((a, b) => a - b);
     const median = (sorted[59]! + sorted[60]!) / 2;
     for (const r of ratios) {
-      expect(r).toBeGreaterThanOrEqual(-1);
-      expect(r).toBeLessThanOrEqual(8);
+      expect(r).toBeGreaterThanOrEqual(-2);
+      expect(r).toBeLessThanOrEqual(30);
     }
-    expect(median).toBeGreaterThanOrEqual(0.8);
-    expect(median).toBeLessThanOrEqual(3);
+    expect(median).toBeGreaterThanOrEqual(3);
+    expect(median).toBeLessThanOrEqual(10);
   }, 120_000);
 });

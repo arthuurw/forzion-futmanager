@@ -24,7 +24,7 @@ const CAPACITY_SHARE = 0.8;
 /** AC 7 (multiplas-temporadas): a Série B club gets this share of its sponsorship. */
 export const SERIE_B_SPONSORSHIP_SHARE = 0.6;
 /** AC 29: prize per place above the 21st, by division. */
-const PRIZE_PER_PLACE = [1_000_000, 250_000] as const;
+const PRIZE_PER_PLACE = [250_000, 62_500] as const;
 
 const roundTo = (n: number, step: number) => Math.round(n / step) * step;
 
@@ -106,7 +106,7 @@ export function sponsorshipPaid(f: Pick<Finance, "sponsorship">, divisionIndex: 
   return divisionIndex === 0 ? f.sponsorship : Math.round(f.sponsorship * SERIE_B_SPONSORSHIP_SHARE);
 }
 
-/** AC 29: (21 − position) × R$ 1.000.000 in the Série A, × R$ 250.000 in the Série B. */
+/** AC 29: (21 − position) × R$ 250.000 in the Série A, × R$ 62.500 in the Série B. */
 export function prizeFor(divisionIndex: number, position: number): number {
   return (21 - position) * (PRIZE_PER_PLACE[divisionIndex] ?? PRIZE_PER_PLACE[1]);
 }

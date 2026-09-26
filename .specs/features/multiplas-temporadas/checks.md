@@ -172,7 +172,7 @@ Proof: `npx vitest run src/engine/rollover.test.ts -t "IA renova até 32 anos"`
 
 ### S5 - Premiação e diretoria · ~6 files · ~60 KB · ~15k
 
-**C34** - Ao fechar a rodada 38, cada um dos 40 clubes recebe no caixa, além do registro normal, o prêmio (21 − posição) × R$ 1.000.000 na A e (21 − posição) × R$ 250.000 na B. O prêmio fica em `lastRound.prize`. Na rodada 37 não há prêmio (AC 29)
+**C34** - Ao fechar a rodada 38, cada um dos 40 clubes recebe no caixa, além do registro normal, o prêmio (21 − posição) × R$ 250.000 na A e (21 − posição) × R$ 62.500 na B. O prêmio fica em `lastRound.prize`. Na rodada 37 não há prêmio (AC 29)
 Proof: `npx vitest run src/engine/finance.test.ts -t "prêmio por posição na rodada 38"`
 
 **C35** - Depois da rodada 38, a tela Finanças mostra a linha «Prêmio» com o valor do registro, e o «Saldo» a inclui. Antes, a linha não aparece (AC 29, assumption «prêmio»)
@@ -268,7 +268,7 @@ Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVers
 Proof: `npx vitest run src/engine/generate.test.ts -t "série B tem stream próprio"`
 Proof: `npx vitest run src/engine/migrate.test.ts -t "série B migrada vem da seed"`
 
-**C53** - Em 3 seeds e 5 temporadas sem usuário, o caixa final de cada clube fica entre −1× e 8× o inicial, e a mediana entre 0,8× e 3× (AC 43)
+**C53** - Em 3 seeds e 5 temporadas sem usuário, o caixa final de cada clube fica entre −2× e 30× o inicial, e a mediana entre 3× e 10× (AC 43)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
 
 **C54** - A lista de livres guarda contrato 0, e todo jogador de clube tem `contractSeasons` ≥ 1 depois de uma temporada inteira com compras, vendas, livres, juniores, dispensas e uma virada (Relations, door 1)
@@ -335,3 +335,5 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 - Código novo (`engine/rollover`, `engine/board`, telas `NewSeason` e `History`, testes) ≈ 80 KB → ~20k
 - Soma por fatia: S1 ≈ 48k, entrando em quase todo o engine e em 5 telas. S2 fica em 68k acumulado, S3 em 81k, S4 em 97k, S5 em 112k, S6 em 126k e S7 em 137k
 - Total ≈ 137k, abaixo do budget de 150k: one builder
+
+- **Renegotiated mid-build (visible):** C34 and C53, after the author's answer on 26/09/2026. Measured over 5 seasons in 3 seeds (final cash ÷ initial, min / median / max): with no prize −2,1 / 4,3 / 23,5; with the planned prize 4,7 / 11,3 / 25,9; with a quarter of it −0,4 / 6,1 / 24,0. The author chose a quarter: R$ 250.000 per place in the A and R$ 62.500 in the B. The band became −2× to 30×, with a median of 3× to 10×. The plan's AC 29 and AC 43 carry the same change.

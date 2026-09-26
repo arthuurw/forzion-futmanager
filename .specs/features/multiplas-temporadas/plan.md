@@ -164,7 +164,7 @@ A posição rende dinheiro, e a diretoria cobra uma meta.
 
 **Acceptance Criteria**
 
-29. WHEN a rodada 38 termina THEN cada clube SHALL receber prêmio de (21 − posição) × R$ 1.000.000 na Série A e (21 − posição) × R$ 250.000 na Série B
+29. WHEN a rodada 38 termina THEN cada clube SHALL receber prêmio de (21 − posição) × R$ 250.000 na Série A e (21 − posição) × R$ 62.500 na Série B (renegociado em 26/09/2026: era R$ 1.000.000 e R$ 250.000)
 30. WHEN uma temporada começa THEN a meta do usuário SHALL ser, pela posição r do clube no ranking de força (média dos 11 melhores) da própria divisão:
     - Série A: terminar até a posição mín(16, r + 3), e 16 aparece como «Não cair»;
     - Série B: «Subir» (até a 4ª) se r ≤ 4, senão até a posição mín(20, r + 3).
@@ -207,7 +207,7 @@ Quem já tem um jogo salvo continua de onde parou.
     - meta da diretoria calculada;
     - Série A, finanças e mercado intactos.
 42. IF o save lido tem `schemaVersion` maior que 4 THEN a tela Início SHALL mostrar «Jogo salvo incompatível (versão X)» e oferecer apenas «Novo jogo»
-43. WHEN 5 temporadas são jogadas em 3 seeds sem ação do usuário THEN o caixa final de cada clube SHALL ficar entre −1× e 8× o inicial, e a mediana entre 0,8× e 3×
+43. WHEN 5 temporadas são jogadas em 3 seeds sem ação do usuário THEN o caixa final de cada clube SHALL ficar entre −2× e 30× o inicial, e a mediana entre 3× e 10× (renegociado em 26/09/2026: a faixa −1× a 8× com mediana de 0,8× a 3× não fecha nem sem prêmio, porque a IA não gasta e a calibração do sub-projeto 2 rende cerca de +0,55× por temporada)
 
 **Independent test:** abrir um save v3 do sub-projeto 2 e ver a Série B no seletor da classificação, com a mesma rodada da A.
 
@@ -263,4 +263,5 @@ Quem já tem um jogo salvo continua de onde parou.
   - Série B agora;
   - diretoria: meta com folga, demissão só no fim, 3 propostas de clubes mais fracos;
   - início na Série A ou B.
+- Renegociação em 26/09/2026, durante a construção: prêmio ÷4 e nova faixa de caixa (AC 29, AC 43), escolhidos pelo autor sobre medições de 5 temporadas em 3 seeds.
 - `.specs/STATE.md`: AD-003, AD-006, AD-008, AD-009 e AD-010.

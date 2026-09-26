@@ -20,7 +20,7 @@
 **Feature**: elenco-mercado-financas
 **Where**: concluída - C1–C59 PASS (round 2 scoped, `validate_verification.py` 0). Save v3 com finanças e mercado
 **In progress**: nada
-**Next step**: aval do autor para as portas 5 e 6 e para a fórmula do patrocínio (plan.md); depois sub-projeto 3 (múltiplas temporadas). Opcional: C7 ganhar a prova `público da rodada usa a fase antes da rodada`; mensagem de recusa na tela Elenco sem teste de tela
+**Next step**: sub-projeto 3 (múltiplas temporadas). Opcional: C7 ganhar a prova `público da rodada usa a fase antes da rodada`; mensagem de recusa na tela Elenco sem teste de tela
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

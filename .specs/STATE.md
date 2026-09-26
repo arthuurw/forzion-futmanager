@@ -16,9 +16,9 @@
 ## Handoff
 
 **Feature**: nucleo-liga-partida
-**Where**: C1–C40 built, 42 testes verdes, build OK - aguardando verification.md do Verifier
+**Where**: nucleo-liga-partida PASS - verification.md gate exit 0; 4 lessons recorded as candidates
 **In progress**: nada
-**Next step**: Verifier independente escreve verification.md; `validate_verification.py` deve sair 0
+**Next step**: próxima fatia do sub-projeto 1 (substituições, cartões) ou sub-projeto 2 (mercado + finanças)
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

@@ -47,3 +47,11 @@ export function shuffle<T>(rng: Rng, items: readonly T[]): T[] {
 export function bell(rng: Rng): number {
   return (rng.next() + rng.next() + rng.next()) / 1.5 - 1;
 }
+
+/** Deterministic 32-bit mix of two integers (door 2: one seed per match, derived from the save's state). */
+export function mix32(a: number, b: number): number {
+  let h = (a ^ Math.imul((b + 0x9e3779b9) >>> 0, 0x85ebca6b)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}

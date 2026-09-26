@@ -1,5 +1,6 @@
 import { openDB, type IDBPDatabase } from "idb";
-import { SCHEMA_VERSION, type GameState } from "../engine/types";
+import { migrateSave } from "../engine/migrate";
+import type { GameState } from "../engine/types";
 
 // Door 1: one document, one slot.
 export const DB_NAME = "brasfoot";
@@ -41,9 +42,7 @@ export async function loadGame(): Promise<LoadResult> {
   try {
     const doc: unknown = await db.get(STORE, SLOT);
     if (doc === undefined) return { kind: "none" };
-    const version = typeof doc === "object" && doc !== null ? (doc as { schemaVersion?: unknown }).schemaVersion : undefined;
-    if (version !== SCHEMA_VERSION) return { kind: "incompatible", version };
-    return { kind: "ok", state: doc as GameState };
+    return migrateSave(doc);
   } finally {
     db.close();
   }

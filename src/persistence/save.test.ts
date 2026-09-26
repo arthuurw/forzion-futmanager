@@ -2,8 +2,10 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { openDB } from "idb";
 import { newGame } from "../engine/generate";
+import { autoLineup } from "../engine/lineup";
 import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
+import { v1Document } from "../engine/test-fixtures";
 import { DB_NAME, DB_VERSION, SLOT, STORE, loadGame, saveGame } from "./save";
 
 function fixture(): GameState {
@@ -17,15 +19,27 @@ beforeEach(() => {
 });
 
 describe("save (door 1, door 7)", () => {
-  test("documento tem schemaVersion 1 e leagues array", async () => {
-    await saveGame(fixture());
+  // Supersedes nucleo C15 (schemaVersion 1): partida-ao-vivo door 1 moves the save to v2.
+  test("documento tem schemaVersion 2 com condição", async () => {
+    const state = fixture();
+    const club = state.leagues[0]!.clubs[0]!;
+    club.lineup = autoLineup(club, "4-4-2");
+    await saveGame(state);
     const db = await openDB(DB_NAME, DB_VERSION);
     const doc = await db.get(STORE, SLOT);
     db.close();
     expect(DB_NAME).toBe("brasfoot");
     expect(STORE).toBe("saves");
     expect(SLOT).toBe("slot-1");
-    expect(doc.schemaVersion).toBe(1);
+    expect(doc.schemaVersion).toBe(2);
+    for (const club of doc.leagues[0].clubs) {
+      for (const p of club.players) {
+        for (const k of ["fitness", "morale", "injuryRounds", "suspendedRounds", "yellowCards", "idleRounds"]) {
+          expect(Number.isInteger(p[k])).toBe(true);
+        }
+      }
+    }
+    expect(doc.leagues[0].clubs[0].lineup.posture).toBe("balanced");
     expect(typeof doc.seed).toBe("number");
     expect(typeof doc.rngState).toBe("number");
     expect(doc.season).toBe(1);
@@ -64,5 +78,16 @@ describe("save (door 1, door 7)", () => {
     await db.put(STORE, { schemaVersion: 7 }, SLOT);
     db.close();
     expect(await loadGame()).toEqual({ kind: "incompatible", version: 7 });
+  });
+
+  test("carrega save v1 migrado", async () => {
+    const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+    await db.put(STORE, v1Document(), SLOT);
+    db.close();
+    const loaded = await loadGame();
+    expect(loaded.kind).toBe("ok");
+    if (loaded.kind !== "ok") return;
+    expect(loaded.state.schemaVersion).toBe(2);
+    expect(loaded.state.leagues[0]!.clubs[0]!.players[0]).toMatchObject({ fitness: 100, morale: 0, idleRounds: 0 });
   });
 });

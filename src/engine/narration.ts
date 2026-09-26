@@ -15,10 +15,11 @@ export function narrationContext(clubs: readonly Club[]): NarrationContext {
   return { clubs: c, players: p };
 }
 
-/** One PT-BR line per event type (C33). */
+/** One PT-BR line per event type (C46 of partida-ao-vivo). */
 export function narrate(event: MatchEvent, ctx: NarrationContext): string {
   const club = ctx.clubs.get(event.clubId)?.name ?? event.clubId;
-  const player = event.playerId ? (ctx.players.get(event.playerId)?.name ?? event.playerId) : "";
+  const nameOf = (id: string | undefined) => (id ? (ctx.players.get(id)?.name ?? id) : "");
+  const player = nameOf(event.playerId);
   switch (event.type) {
     case "kickoff":
       return "Começa o jogo!";
@@ -32,5 +33,13 @@ export function narrate(event: MatchEvent, ctx: NarrationContext): string {
       return `${player} (${club}) finaliza, mas o goleiro defende.`;
     case "shot_missed":
       return `${player} (${club}) chuta pra fora.`;
+    case "yellow":
+      return `Cartão amarelo para ${player} (${club}).`;
+    case "red":
+      return `Cartão vermelho! ${player} (${club}) está expulso.`;
+    case "injury":
+      return `${player} (${club}) se machuca e deixa o campo.`;
+    case "substitution":
+      return `Substituição no ${club}: sai ${player || "—"}, entra ${nameOf(event.playerInId)}.`;
   }
 }

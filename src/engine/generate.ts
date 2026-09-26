@@ -5,6 +5,7 @@ import {
   AGE_MIN,
   RATING_MAX,
   RATING_MIN,
+  FRESH_CONDITION,
   SCHEMA_VERSION,
   type Club,
   type GameState,
@@ -45,6 +46,7 @@ function generatePlayer(rng: Rng, id: string, position: Position, base: number, 
     position,
     age: generateAge(rng),
     rating: clamp(Math.round(base + bell(rng) * RATING_SPREAD), RATING_MIN, RATING_MAX),
+    ...FRESH_CONDITION,
   };
 }
 

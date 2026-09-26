@@ -24,5 +24,8 @@ export function seededGame(seed = 1, clubIndex = 0, roundsPlayed = 0): GameState
   state.userClubId = club.id;
   club.lineup = autoLineup(club, AI_FORMATION);
   for (let i = 0; i < roundsPlayed; i++) state = playRound(state).state;
+  // Rounds leave players injured or suspended: pick an available eleven again, as a manager would.
+  const user = state.leagues[0]!.clubs[clubIndex]!;
+  user.lineup = autoLineup(user, user.lineup?.formation ?? AI_FORMATION);
   return state;
 }

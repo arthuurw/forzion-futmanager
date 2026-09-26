@@ -1,4 +1,4 @@
-import type { Club, FormationName, Lineup, Player, Position } from "./types";
+import type { Club, FormationName, Lineup, Player, PlayerCore, Position, Posture } from "./types";
 
 export const FORMATIONS: Record<FormationName, { DF: number; MF: number; FW: number }> = {
   "4-4-2": { DF: 4, MF: 4, FW: 2 },
@@ -20,31 +20,48 @@ export function formationSlots(formation: FormationName): Position[] {
   ];
 }
 
+/** Not injured and not suspended (AC 29, AC 34). Players without condition data are available. */
+export function isAvailable(player: PlayerCore & { injuryRounds?: number; suspendedRounds?: number }): boolean {
+  return (player.injuryRounds ?? 0) === 0 && (player.suspendedRounds ?? 0) === 0;
+}
+
 function byRatingDesc(a: Player, b: Player): number {
   return b.rating - a.rating || a.id.localeCompare(b.id);
 }
 
-/** Best available player per slot: highest rating of the slot's position not yet used. */
-export function autoLineup(club: Club, formation: FormationName): Lineup {
+/**
+ * Best available player per slot: the highest-rated available player of the slot's position;
+ * when none is left, the highest-rated available player of any position (out of position).
+ */
+export function autoLineup(club: Club, formation: FormationName, posture: Posture = club.lineup?.posture ?? "balanced"): Lineup {
   const used = new Set<string>();
-  const starters = formationSlots(formation).map((position) => {
-    const best = club.players
-      .filter((p) => p.position === position && !used.has(p.id))
-      .sort(byRatingDesc)[0];
+  const available = club.players.filter(isAvailable).sort(byRatingDesc);
+  const slots = formationSlots(formation);
+  const starters: (string | null)[] = slots.map((position) => {
+    const best = available.find((p) => p.position === position && !used.has(p.id));
     if (!best) return null;
     used.add(best.id);
     return best.id;
   });
-  return { formation, starters };
+  slots.forEach((_, i) => {
+    if (starters[i]) return;
+    const any = available.find((p) => !used.has(p.id));
+    if (!any) return;
+    used.add(any.id);
+    starters[i] = any.id;
+  });
+  return { formation, starters, posture };
 }
 
+/** Any available player may take any slot; out of position costs 25% of their strength (door 6). */
 export function canAssign(slotPosition: Position, player: Player): boolean {
-  return player.position === slotPosition;
+  void slotPosition;
+  return isAvailable(player);
 }
 
 /**
- * Put `playerId` in `slotIndex`. Returns null when the player's position does not match the
- * slot. A player already in another slot is moved, leaving that slot empty.
+ * Put `playerId` in `slotIndex`. Returns null when the player is unavailable or unknown.
+ * A player already in another slot is moved, leaving that slot empty.
  */
 export function assignSlot(club: Club, lineup: Lineup, slotIndex: number, playerId: string): Lineup | null {
   const slots = formationSlots(lineup.formation);
@@ -53,26 +70,26 @@ export function assignSlot(club: Club, lineup: Lineup, slotIndex: number, player
   if (!slotPosition || !player || !canAssign(slotPosition, player)) return null;
   const starters = lineup.starters.map((id) => (id === playerId ? null : id));
   starters[slotIndex] = playerId;
-  return { formation: lineup.formation, starters };
+  return { formation: lineup.formation, starters, posture: lineup.posture };
 }
 
 export interface LineupValidation {
   ok: boolean;
-  /** How many slots still need a valid, distinct starter. */
+  /** How many slots still need a valid, distinct, available starter. */
   missing: number;
 }
 
-/** Valid = 11 distinct players, each in a slot of their own position (which implies the formation's counts). */
+/** Valid = 11 distinct available players of the club, one per slot, in any position. */
 export function validateLineup(club: Club, lineup: Lineup | null): LineupValidation {
   if (!lineup) return { ok: false, missing: 11 };
   const slots = formationSlots(lineup.formation);
   const seen = new Set<string>();
   let valid = 0;
-  slots.forEach((position, i) => {
+  slots.forEach((_, i) => {
     const id = lineup.starters[i];
     if (!id || seen.has(id)) return;
     const player = club.players.find((p) => p.id === id);
-    if (!player || player.position !== position) return;
+    if (!player || !isAvailable(player)) return;
     seen.add(id);
     valid++;
   });

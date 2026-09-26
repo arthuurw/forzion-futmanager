@@ -59,7 +59,9 @@ describe("simulação de partida", () => {
     expect(simulateMatch(home, away, createRng(state + 1))).not.toEqual(a);
   });
 
-  test("todos os 6 tipos de evento ocorrem e têm narração", () => {
+  // Supersedes nucleo C33 (6 types): partida-ao-vivo C46 proves all 10 in live rounds. Here: the
+  // one-shot simulator has no bench, so it produces every type except substitution.
+  test("tipos de evento da partida simples têm narração distinta", () => {
     const seen = new Set<MatchEventType>();
     const lines = new Map<MatchEventType, string>();
     const league = newGame(1).leagues[0]!;
@@ -73,9 +75,8 @@ describe("simulação de partida", () => {
         if (!lines.has(e.type)) lines.set(e.type, text);
       }
     }
-    expect([...seen].sort()).toEqual([...MATCH_EVENT_TYPES].sort());
-    expect(MATCH_EVENT_TYPES).toHaveLength(6);
+    expect([...seen].sort()).toEqual(MATCH_EVENT_TYPES.filter((t) => t !== "substitution").sort());
     // Each type narrates to a line distinct from the others.
-    expect(new Set(lines.values()).size).toBe(6);
+    expect(new Set(lines.values()).size).toBe(9);
   });
 });

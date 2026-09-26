@@ -1,5 +1,5 @@
-import { AI_FORMATION, autoLineup, starters, validateLineup } from "./lineup";
-import { simulateMatch, type TeamSheet } from "./match";
+import { applyRound } from "./condition";
+import { resultOf, runToEnd, startRound, userMatch, type LiveRound } from "./live";
 import { createRng } from "./rng";
 import type { Club, GameState, League, MatchEvent, MatchResult } from "./types";
 
@@ -7,7 +7,7 @@ export interface RoundOutcome {
   state: GameState;
   /** Round number just played (1-based). */
   roundNumber: number;
-  /** Full event log of the user's match, in minute order. Not persisted (door 7). */
+  /** Full event log of the user's match, in minute order. Not persisted (door 7 of the core). */
   userEvents: MatchEvent[];
   /** Every result of the round, in schedule order. */
   results: { matchId: string; homeId: string; awayId: string; result: MatchResult }[];
@@ -29,35 +29,36 @@ export function isSeasonOver(league: League): boolean {
   return league.currentRound >= league.rounds.length;
 }
 
-function sheetFor(club: Club, isUser: boolean): TeamSheet {
-  // AI clubs always field their best eleven in 4-4-2 (AC 24). The user's lineup must already be valid.
-  const lineup = isUser && club.lineup && validateLineup(club, club.lineup).ok ? club.lineup : autoLineup(club, AI_FORMATION);
-  return { clubId: club.id, starters: starters(club, lineup) };
-}
-
-/** Simulates the next round of the user's league. Pure: returns a new state, never mutates. */
-export function playRound(input: GameState): RoundOutcome {
-  // The save is plain JSON, so a JSON round-trip is a faithful deep copy without DOM globals (door 3).
+/**
+ * Closes a live round (door 3): plays any minutes left, writes the results, applies condition,
+ * advances the round and the save's Rng once. Pure: returns a new state.
+ */
+export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcome {
+  const live = runToEnd(liveInput);
   const state = JSON.parse(JSON.stringify(input)) as GameState;
   const league = userLeague(state);
-  if (isSeasonOver(league)) throw new Error("season is over");
-  const round = league.rounds[league.currentRound];
+  const round = league.rounds[live.roundIndex];
   if (!round) throw new Error("round missing");
 
-  const rng = createRng(state.rngState);
-  let userEvents: MatchEvent[] = [];
   const results: RoundOutcome["results"] = [];
+  round.matches.forEach((match, i) => {
+    const lm = live.matches[i];
+    if (!lm || lm.matchId !== match.id) throw new Error("live round does not match the schedule");
+    match.result = resultOf(lm);
+    results.push({ matchId: match.id, homeId: match.homeId, awayId: match.awayId, result: match.result });
+  });
 
-  for (const match of round.matches) {
-    const home = findClub(league, match.homeId);
-    const away = findClub(league, match.awayId);
-    const sim = simulateMatch(sheetFor(home, home.id === state.userClubId), sheetFor(away, away.id === state.userClubId), rng);
-    match.result = sim.result;
-    results.push({ matchId: match.id, homeId: match.homeId, awayId: match.awayId, result: sim.result });
-    if (match.homeId === state.userClubId || match.awayId === state.userClubId) userEvents = sim.events;
-  }
-
-  league.currentRound++;
+  league.clubs = applyRound(league.clubs, live.matches);
+  league.currentRound = live.roundIndex + 1;
+  const rng = createRng(state.rngState);
+  rng.next();
   state.rngState = rng.getState();
-  return { state, roundNumber: round.number, userEvents, results };
+
+  return { state, roundNumber: round.number, userEvents: userMatch(live)?.events ?? [], results };
+}
+
+/** A round with no decisions: start, run to the end, finish. */
+export function playRound(input: GameState): RoundOutcome {
+  if (isSeasonOver(userLeague(input))) throw new Error("season is over");
+  return finishRound(input, startRound(input));
 }

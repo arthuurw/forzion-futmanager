@@ -1,5 +1,6 @@
 import { newGame } from "./generate";
 import { AI_FORMATION, FORMATIONS, assignSlot, autoLineup, formationSlots, starters, validateLineup } from "./lineup";
+import { effectiveRating } from "./strength";
 import { FORMATION_NAMES, type Club, type Position } from "./types";
 
 function club(seed = 5): Club {
@@ -35,13 +36,17 @@ describe("escalação", () => {
     }
   });
 
-  test("slot rejeita posição diferente", () => {
+  // Supersedes nucleo C19 ("slot rejeita posição diferente"): partida-ao-vivo AC 23 allows it at 75%.
+  test("fora de posição aceito com 75% da força", () => {
     const c = club();
     const lineup = autoLineup(c, "4-4-2");
     const benchDf = c.players.find((p) => p.position === "DF" && !lineup.starters.includes(p.id))!;
     const fwSlot = formationSlots("4-4-2").indexOf("FW");
     const dfSlot = formationSlots("4-4-2").indexOf("DF");
-    expect(assignSlot(c, lineup, fwSlot, benchDf.id)).toBeNull();
+    const oop = assignSlot(c, lineup, fwSlot, benchDf.id)!;
+    expect(oop.starters[fwSlot]).toBe(benchDf.id);
+    expect(validateLineup(c, oop).ok).toBe(true);
+    expect(effectiveRating(benchDf, "FW") / effectiveRating(benchDf, "DF")).toBeCloseTo(0.75, 10);
     const ok = assignSlot(c, lineup, dfSlot, benchDf.id)!;
     expect(ok.starters[dfSlot]).toBe(benchDf.id);
     // Moving a starter to another slot empties the one it came from.
@@ -74,5 +79,21 @@ describe("escalação", () => {
     const dup = { ...lineup, starters: lineup.starters.map((id, i) => (i === 2 ? lineup.starters[1]! : id)) };
     expect(validateLineup(c, dup)).toEqual({ ok: false, missing: 1 });
     expect(validateLineup(c, null)).toEqual({ ok: false, missing: 11 });
+  });
+
+  test("indisponível não entra na escalação", () => {
+    const c = club();
+    const lineup = autoLineup(c, "4-4-2");
+    const [injured, suspended] = c.players.filter((p) => p.position === "MF" && lineup.starters.includes(p.id));
+    injured!.injuryRounds = 2;
+    suspended!.suspendedRounds = 1;
+    // Neither can be put in a slot, the saved lineup counts them as missing, and autoLineup skips them.
+    expect(assignSlot(c, lineup, 0, injured!.id)).toBeNull();
+    expect(assignSlot(c, lineup, 0, suspended!.id)).toBeNull();
+    expect(validateLineup(c, lineup)).toEqual({ ok: false, missing: 2 });
+    const fresh = autoLineup(c, "4-4-2");
+    expect(fresh.starters).not.toContain(injured!.id);
+    expect(fresh.starters).not.toContain(suspended!.id);
+    expect(validateLineup(c, fresh).ok).toBe(true);
   });
 });

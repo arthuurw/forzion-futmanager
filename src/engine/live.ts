@@ -36,11 +36,13 @@ const DIRECT_RED_PER_SIDE_MINUTE = 0.0004;
 const BOOKED_CAUTION = 0.2;
 const CARD_WEIGHT: Record<Position, number> = { GK: 0.2, DF: 3, MF: 2, FW: 1 };
 const INJURY_PER_SIDE_MINUTE = 0.00125;
-const DRAIN_PER_MINUTE = 0.3;
-const DRAIN_PER_MINUTE_VETERAN = 0.4;
+const DRAIN_PER_MINUTE = 0.15;
+const DRAIN_PER_MINUTE_VETERAN = 0.2;
 const VETERAN_AGE = 30;
 const AI_TIRED_FITNESS = 60;
 const AI_TIRED_FROM_MINUTE = 60;
+/** The AI benches players below this fitness when a rested one of the same position is available. */
+const AI_REST_BELOW = 60;
 
 export type LivePlayer = PlayerCore & Partial<Condition>;
 
@@ -379,7 +381,7 @@ export function startRound(state: GameState): LiveRound {
     const club = clubs.get(clubId);
     if (!club) throw new Error(`unknown club ${clubId}`);
     const isUser = clubId === state.userClubId;
-    const lineup = isUser && club.lineup ? club.lineup : autoLineup(club, AI_FORMATION);
+    const lineup = isUser && club.lineup ? club.lineup : autoLineup(club, AI_FORMATION, undefined, AI_REST_BELOW);
     const slotPos = formationSlots(lineup.formation);
     const starters = lineup.starters.map((id) => {
       const p = id ? club.players.find((x) => x.id === id) : undefined;

@@ -131,8 +131,15 @@ describe("tela Elenco", () => {
     useGame.setState({ phase: "squad", game });
     render(<Squad />);
     expect(screen.queryByText("fora de posição")).not.toBeInTheDocument();
+    // Every slot offers an available bench player of each of the 4 positions, its own and the 3 foreign ones.
+    for (const pos of POSITIONS) {
+      const spare = club.players.find((p) => p.position === pos && !club.lineup!.starters.includes(p.id))!;
+      expect(spare).toBeTruthy();
+      for (const select of screen.getAllByLabelText(/^Titular /) as HTMLSelectElement[]) {
+        expect([...select.options].map((o) => o.value)).toContain(spare.id);
+      }
+    }
     const fwSlot = screen.getByLabelText("Titular 11 (ATA)") as HTMLSelectElement;
-    expect([...fwSlot.options].map((o) => o.value)).toContain(benchDf.id);
     await user.selectOptions(fwSlot, benchDf.id);
     expect(fwSlot.closest(".token")).toHaveClass("oop");
     expect(screen.getByText("fora de posição")).toBeInTheDocument();

@@ -111,7 +111,7 @@ Proof: `npx vitest run src/ui/Squad.test.tsx -t "suspenso fica fora com selo SUS
 
 ### S4 - Condição física e lesões · ~3 files · ~15 KB · ~4k
 
-**C30** - Em campo, a condição cai 0,3 por minuto até 30 anos e 0,4 acima de 30 (AC 30)
+**C30** - Em campo, a condição cai 0,15 por minuto até 30 anos e 0,2 acima de 30 (AC 30, renegociado)
 Proof: `npx vitest run src/engine/live.test.ts -t "condição cai por minuto e mais rápido acima de 30"`
 
 **C31** - Ao fim da rodada, quem não jogou recupera 30 e quem jogou recupera 15, com teto 100 (AC 31)
@@ -169,6 +169,9 @@ Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVers
 **C46** - Cada um dos 10 tipos de evento ocorre ao menos uma vez em 200 rodadas simuladas e tem uma narração PT-BR distinta (plano Impact, `MatchEvent`)
 Proof: `npx vitest run src/engine/live.test.ts -t "todos os 10 tipos de evento ocorrem e têm narração"`
 
+**C48** - Ao escalar um clube de IA, um jogador abaixo de 60 de condição fica fora quando há reserva disponível da mesma posição com 60 ou mais, e um com exatamente 60 continua titular (AC 45)
+Proof: `npx vitest run src/engine/live.test.ts -t "IA poupa quem está abaixo de 60 de condição"`
+
 **C47** - Um jogador fora de posição aparece marcado no campo da tela Elenco, e o seletor do slot oferece jogadores de todas as posições (AC 23)
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "slot aceita outra posição e marca fora de posição"`
 
@@ -191,6 +194,15 @@ Proof: `npx vitest run src/ui/Squad.test.tsx -t "slot aceita outra posição e m
 
 - `Surface` do plano é `None`; nenhuma rota.
 - Claims que cruzam a persistência: C9, C12, C42, C45.
+
+## Renegotiated
+
+Aprovado pelo usuário em 26/09/2026 («sim, menos desgaste»), depois da primeira verificação. O plano registra o motivo em `## Renegotiated`.
+
+| Check | Antes | Depois |
+| --- | --- | --- |
+| C30 | cai 0,3 por minuto até 30 anos e 0,4 acima de 30 | cai 0,15 por minuto até 30 anos e 0,2 acima de 30 |
+| C48 | - | nova: IA poupa quem está abaixo de 60 de condição (AC 45) |
 
 ## Superseded checks of nucleo-liga-partida
 
@@ -225,5 +237,6 @@ O plano aprovado muda contratos que o núcleo provou. Os testes abaixo mudam jun
 - Total ≈ 34k, abaixo do budget de 150k - one builder
 
 - **Boundary:** C1–C47 closed across `bd7340b` (engine) and the `feat(ui)` commit that follows it
+- **Boundary (renegotiation):** C30 and C48 re-closed, and the C47 proof widened to every position, in the commit after `1650910`
 - **Settled mid-build:** nothing asked. Tunables recalibrated over 2000 matches (home midfield bonus 1.25 → 1.2, booked-player caution 0.3 → 0.2) to keep the core's home-win ceiling of 52%. The goal-flash un-highlight timer lives per match, not per minute, or a 300 ms tick would cancel it. Clock tests click with `fireEvent`, since `userEvent` waits on a timeout that fake timers never fire
 - **Abandoned:** copying the whole live round on every minute of `runToEnd` - one copy per round instead; importing a fixture from a test file - it re-registered that file's tests, moved to `src/engine/test-fixtures.ts`

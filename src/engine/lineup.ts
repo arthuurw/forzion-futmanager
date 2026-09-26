@@ -33,9 +33,16 @@ function byRatingDesc(a: Player, b: Player): number {
  * Best available player per slot: the highest-rated available player of the slot's position;
  * when none is left, the highest-rated available player of any position (out of position).
  */
-export function autoLineup(club: Club, formation: FormationName, posture: Posture = club.lineup?.posture ?? "balanced"): Lineup {
+export function autoLineup(
+  club: Club,
+  formation: FormationName,
+  posture: Posture = club.lineup?.posture ?? "balanced",
+  restBelow = 0,
+): Lineup {
   const used = new Set<string>();
-  const available = club.players.filter(isAvailable).sort(byRatingDesc);
+  // Players at or above `restBelow` fitness come first, so a tired one starts only when no rested one fits the slot.
+  const rested = (p: Player) => (p.fitness >= restBelow ? 0 : 1);
+  const available = club.players.filter(isAvailable).sort((a, b) => rested(a) - rested(b) || byRatingDesc(a, b));
   const slots = formationSlots(formation);
   const starters: (string | null)[] = slots.map((position) => {
     const best = available.find((p) => p.position === position && !used.has(p.id));

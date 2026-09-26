@@ -239,11 +239,35 @@ describe("rodada ao vivo (engine)", () => {
       if (!young || !old) continue;
       const end = userSide(stepTo(start, 10));
       if (!end.slots.includes(young) || !end.slots.includes(old)) continue;
-      expect(100 - end.fitness[young]!).toBeCloseTo(3.0, 5);
-      expect(100 - end.fitness[old]!).toBeCloseTo(4.0, 5);
+      expect(100 - end.fitness[young]!).toBeCloseTo(1.5, 5);
+      expect(100 - end.fitness[old]!).toBeCloseTo(2.0, 5);
       return;
     }
     throw new Error("no suitable squad found");
+  });
+
+  test("IA poupa quem está abaixo de 60 de condição", () => {
+    const state = game(3);
+    const league = state.leagues[0]!;
+    const aiClub = league.clubs.find((c) => c.id !== state.userClubId)!;
+    const firstXI = autoLineup(aiClub, AI_FORMATION).starters;
+    const byId = (id: string) => aiClub.players.find((p) => p.id === id)!;
+    // Tire one starter of each outfield position: one just below the line, one exactly on it.
+    const tiredFw = byId(firstXI.find((id) => byId(id!).position === "FW")!);
+    const edgeMf = byId(firstXI.find((id) => byId(id!).position === "MF")!);
+    tiredFw.fitness = 59;
+    edgeMf.fitness = 60;
+    const rested = aiClub.players.filter((p) => p.position === "FW" && p.id !== tiredFw.id && p.fitness >= 60);
+    expect(rested.length).toBeGreaterThanOrEqual(2);
+
+    const live = startRound(state);
+    const match = live.matches.find((m) => m.home.clubId === aiClub.id || m.away.clubId === aiClub.id)!;
+    const side = match.home.clubId === aiClub.id ? match.home : match.away;
+    expect(side.slots).not.toContain(tiredFw.id);
+    expect(side.bench).toContain(tiredFw.id);
+    expect(side.slots).toContain(edgeMf.id);
+    const fwSlots = side.slots.filter((_, i) => side.slotPos[i] === "FW");
+    for (const id of fwSlots) expect(live.players[id!]!.position).toBe("FW");
   });
 
   test("lesionado sai na hora", () => {

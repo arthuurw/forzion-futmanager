@@ -148,13 +148,14 @@ Jogar cansa, descansar recupera, e lesão tira o jogador por algumas rodadas.
 
 **Acceptance Criteria**
 
-30. WHILE um jogador está em campo, a condição dele SHALL cair entre 0,25 e 0,45 ponto por minuto, mais rápido acima de 30 anos
+30. WHILE um jogador está em campo, a condição dele SHALL cair entre 0,1 e 0,25 ponto por minuto, mais rápido acima de 30 anos (renegociado em 26/09/2026, ver `## Renegotiated`)
 31. WHEN uma rodada termina THEN quem não jogou SHALL recuperar 30 pontos de condição e quem jogou SHALL recuperar 15, sem passar de 100
 32. WHEN 2000 partidas entre times iguais são simuladas THEN a média de lesões por partida SHALL ficar entre 0,10 e 0,40
 33. WHEN um jogador se lesiona THEN ele SHALL sair de campo na hora, e ficar fora de 1 a 4 rodadas
 34. WHILE um jogador está lesionado, a escalação SHALL não aceitá-lo, e a tela Elenco SHALL mostrá-lo com o selo «LES» e as rodadas que faltam
 35. WHEN a escalação salva tem um lesionado ou suspenso THEN «Jogar rodada» SHALL ficar desabilitado com «Faltam N titulares», como hoje
 36. WHEN um jogador com condição 50 enfrenta um igual com condição 100 THEN a força efetiva dele SHALL ser 85% da do outro
+45. WHEN a IA escala um clube para a rodada THEN ela SHALL deixar fora quem está abaixo de 60 de condição sempre que houver outro jogador disponível da mesma posição com 60 ou mais (acrescentado em 26/09/2026, ver `## Renegotiated`)
 
 **Independent test:** jogar 3 rodadas com o mesmo time, ver a condição cair na tela Elenco; poupar um jogador e vê-lo recuperar.
 
@@ -183,6 +184,15 @@ O save da versão atual continua jogável.
 44. WHEN 2000 partidas entre times iguais, com condição 100, moral 0 e postura «Equilibrada», são simuladas THEN as faixas de gols e de vitória do mandante do núcleo (AC 22 e 23 do núcleo) SHALL continuar valendo
 
 **Independent test:** abrir o jogo com um save criado antes desta entrega, clicar «Continuar» e jogar a rodada seguinte ao vivo.
+
+## Renegotiated
+
+Aprovado pelo usuário em 26/09/2026 («sim, menos desgaste»), depois do build. Com queda de 27 a 36 por partida e recuperação de 15, um titular fixo chegava a 0 de condição em ~9 rodadas (veterano em ~5), e a IA nunca poupava ninguém.
+
+| AC | Antes | Depois |
+| --- | --- | --- |
+| 30 | queda entre 0,25 e 0,45 por minuto | queda entre 0,1 e 0,25 por minuto |
+| 45 | - | IA poupa quem está abaixo de 60 quando tem reserva da mesma posição |
 
 ## Out of scope
 

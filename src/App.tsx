@@ -9,16 +9,26 @@ import { Squad } from "./ui/Squad";
 
 export function App() {
   const phase = useGame((s) => s.phase);
+  const season = useGame((s) => s.game?.season);
   const init = useGame((s) => s.init);
   useEffect(() => {
     void init();
   }, [init]);
 
+  const onTitle = phase === "loading" || phase === "home";
+
   return (
     <main>
+      {!onTitle && (
+        <div className="top-strip">
+          <span className="logo" aria-hidden="true">
+            Brasfoot
+          </span>
+          {season !== undefined && <span className="season">TEMPORADA {season}</span>}
+        </div>
+      )}
       <Banner />
-      {phase === "loading" && <Home />}
-      {phase === "home" && <Home />}
+      {onTitle && <Home />}
       {phase === "chooseClub" && <ChooseClub />}
       {phase === "squad" && <Squad />}
       {phase === "round" && <Round />}

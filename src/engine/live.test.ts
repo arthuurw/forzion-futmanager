@@ -252,7 +252,7 @@ describe("rodada ao vivo (engine)", () => {
     const aiClub = league.clubs.find((c) => c.id !== state.userClubId)!;
     const firstXI = autoLineup(aiClub, AI_FORMATION).starters;
     const byId = (id: string) => aiClub.players.find((p) => p.id === id)!;
-    // Tire one starter of each outfield position: one just below the line, one exactly on it.
+    // Tire a starting forward just below the line and put a starting midfielder exactly on it.
     const tiredFw = byId(firstXI.find((id) => byId(id!).position === "FW")!);
     const edgeMf = byId(firstXI.find((id) => byId(id!).position === "MF")!);
     tiredFw.fitness = 59;

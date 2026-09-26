@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 5,
+  "next_id": 8,
   "lessons": [
     {
       "id": "L-001",
@@ -76,6 +76,60 @@
       ],
       "created": "2026-09-26T19:16:04Z",
       "last_seen": "2026-09-26T19:16:04Z"
+    },
+    {
+      "id": "L-005",
+      "key": "spec_precision_gap::a check that says every all members of a set needs a table driven proof over the whole set not one sample",
+      "text": "A check that says every/all members of a set needs a table-driven proof over the whole set, not one sample.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "partida-ao-vivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "checks.md C47 (checks)"
+      ],
+      "created": "2026-09-26T20:54:52Z",
+      "last_seen": "2026-09-26T20:54:52Z"
+    },
+    {
+      "id": "L-006",
+      "key": "spec_precision_gap::a selection rule check must name who takes the slot and the no alternative fallback with a fixture where the right and the likely wrong pick differ",
+      "text": "A selection-rule check must name who takes the slot and the no-alternative fallback, with a fixture where the right and the likely wrong pick differ.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "partida-ao-vivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "checks.md C48 (checks)"
+      ],
+      "created": "2026-09-26T20:54:53Z",
+      "last_seen": "2026-09-26T20:54:53Z"
+    },
+    {
+      "id": "L-007",
+      "key": "spec_precision_gap::when a check says available the fixture must include an unavailable member so exclusion is actually exercised",
+      "text": "When a check says available, the fixture must include an unavailable member so exclusion is actually exercised.",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "partida-ao-vivo"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "checks.md C14 (tests)"
+      ],
+      "created": "2026-09-26T20:54:53Z",
+      "last_seen": "2026-09-26T20:54:53Z"
     }
   ]
 }

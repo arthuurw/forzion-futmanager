@@ -18,9 +18,9 @@
 ## Handoff
 
 **Feature**: partida-ao-vivo
-**Where**: C1–C47 built, 93 testes verdes, build OK - aguardando verification.md do Verifier
+**Where**: partida-ao-vivo concluída - C1–C48 PASS (round 2 scoped, `validate_verification.py` 0). Desgaste renegociado (0,15/0,2 por minuto) e IA poupa abaixo de 60
 **In progress**: nada
-**Next step**: Verifier independente escreve verification.md; `validate_verification.py` deve sair 0
+**Next step**: sub-projeto 2 (elenco, mercado e finanças) via tlc-spec-lean; opcional: apertar C48 (quem assume a vaga, fallback sem reserva) e check para «Sem reservas disponíveis»
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

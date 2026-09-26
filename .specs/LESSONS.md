@@ -38,6 +38,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C7 / src/ui/ChooseClub.test.tsx (tests)
 - last seen: 2026-09-26T19:16:04Z
 
+### L-005 - A check that says every/all members of a set needs a table-driven proof over the whole set, not one sample.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: partida-ao-vivo
+- evidence: checks.md C47 (checks)
+- last seen: 2026-09-26T20:54:52Z
+
+### L-006 - A selection-rule check must name who takes the slot and the no-alternative fallback, with a fixture where the right and the likely wrong pick differ.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: partida-ao-vivo
+- evidence: checks.md C48 (checks)
+- last seen: 2026-09-26T20:54:53Z
+
+### L-007 - When a check says available, the fixture must include an unavailable member so exclusion is actually exercised.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: partida-ao-vivo
+- evidence: checks.md C14 (tests)
+- last seen: 2026-09-26T20:54:53Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

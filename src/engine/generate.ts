@@ -1,5 +1,6 @@
 import { CLUB_IDENTITIES, generatePlayerName, uniqueName } from "./names";
-import { bell, createRng, randInt, shuffle, type Rng } from "./rng";
+import { initialFinance, salaryFor } from "./finance";
+import { bell, createRng, mix32, pick, randInt, shuffle, type Rng } from "./rng";
 import {
   AGE_MAX,
   AGE_MIN,
@@ -10,6 +11,7 @@ import {
   type Club,
   type GameState,
   type League,
+  type Market,
   type Match,
   type Player,
   type Position,
@@ -39,15 +41,52 @@ function generateAge(rng: Rng): number {
   return clamp(AGE_MIN + Math.floor(u * (AGE_MAX - AGE_MIN + 1)), AGE_MIN, AGE_MAX);
 }
 
+/** A fresh player; the salary follows the rating at creation and is stored (door 2). */
+export function makePlayer(id: string, name: string, position: Position, age: number, rating: number): Player {
+  return { id, name, position, age, rating, ...FRESH_CONDITION, salary: salaryFor(rating) };
+}
+
 function generatePlayer(rng: Rng, id: string, position: Position, base: number, taken: Set<string>): Player {
-  return {
-    id,
-    name: uniqueName(rng, taken, generatePlayerName),
-    position,
-    age: generateAge(rng),
-    rating: clamp(Math.round(base + bell(rng) * RATING_SPREAD), RATING_MIN, RATING_MAX),
-    ...FRESH_CONDITION,
-  };
+  const name = uniqueName(rng, taken, generatePlayerName);
+  const age = generateAge(rng);
+  const rating = clamp(Math.round(base + bell(rng) * RATING_SPREAD), RATING_MIN, RATING_MAX);
+  return makePlayer(id, name, position, age, rating);
+}
+
+export const FREE_AGENTS_PER_POSITION = 10;
+const FREE_AGENT_RATING = { min: 45, max: 70 } as const;
+export const JUNIORS_PER_WINDOW = 3;
+const JUNIOR_AGE = 17;
+const JUNIOR_RATING = { min: 45, max: 62 } as const;
+
+/** AC 35: 10 per position, rating 45-70, ids `fa-<n>` (door 4). */
+export function generateFreeAgents(rng: Rng, taken: Set<string>): Player[] {
+  const out: Player[] = [];
+  for (const position of SQUAD_SHAPE.map((s) => s.position)) {
+    for (let i = 0; i < FREE_AGENTS_PER_POSITION; i++) {
+      const name = uniqueName(rng, taken, generatePlayerName);
+      out.push(makePlayer(`fa-${out.length + 1}`, name, position, generateAge(rng), randInt(rng, FREE_AGENT_RATING.min, FREE_AGENT_RATING.max)));
+    }
+  }
+  return out;
+}
+
+/** AC 37: three 17-year-olds rated 45-62, ids `jr-<season>-<window>-<n>` (door 4). */
+export function generateJuniors(rng: Rng, taken: Set<string>, season: number, window: number): Player[] {
+  const positions = SQUAD_SHAPE.map((s) => s.position);
+  return Array.from({ length: JUNIORS_PER_WINDOW }, (_, i) => {
+    const name = uniqueName(rng, taken, generatePlayerName);
+    const position = pick(rng, positions);
+    return makePlayer(`jr-${season}-${window}-${i + 1}`, name, position, JUNIOR_AGE, randInt(rng, JUNIOR_RATING.min, JUNIOR_RATING.max));
+  });
+}
+
+/** Every player name in the save, so new players never repeat one. */
+export function takenNames(state: Pick<GameState, "leagues"> & { market?: Market }): Set<string> {
+  const names = new Set<string>();
+  for (const league of state.leagues) for (const club of league.clubs) for (const p of club.players) names.add(p.name);
+  for (const p of [...(state.market?.freeAgents ?? []), ...(state.market?.juniors ?? [])]) names.add(p.name);
+  return names;
 }
 
 function generateClub(rng: Rng, index: number, name: string, base: number, takenPlayers: Set<string>): Club {
@@ -59,7 +98,7 @@ function generateClub(rng: Rng, index: number, name: string, base: number, taken
       players.push(generatePlayer(rng, `${id}-p${++n}`, shape.position, base, takenPlayers));
     }
   }
-  return { id, name, players, lineup: null };
+  return { id, name, players, lineup: null, finance: initialFinance(players), forSale: [] };
 }
 
 /**
@@ -113,6 +152,14 @@ export function generateLeague(rng: Rng, id: string, name: string): League {
 export function newGame(seed: number): GameState {
   const rng = createRng(seed);
   const league = generateLeague(rng, "l1", "Campeonato Nacional");
+  // Door 6: the market has its own stream, so the leagues and rngState match every earlier save of this seed.
+  const marketRng = createRng(mix32(seed, 2));
+  const taken = takenNames({ leagues: [league] });
+  const market: Market = {
+    freeAgents: generateFreeAgents(marketRng, taken),
+    juniors: generateJuniors(marketRng, taken, 1, 1),
+    offers: [],
+  };
   return {
     schemaVersion: SCHEMA_VERSION,
     seed,
@@ -120,6 +167,7 @@ export function newGame(seed: number): GameState {
     season: 1,
     userClubId: null,
     leagues: [league],
+    market,
   };
 }
 

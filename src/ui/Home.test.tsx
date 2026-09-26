@@ -61,13 +61,14 @@ describe("tela Início", () => {
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Novo jogo"]);
   });
 
-  test("save de versão futura incompatível", async () => {
+  // Supersedes partida-ao-vivo C43 (> 2 incompatible): v3 is now current, so the first unknown version is 4.
+  test("save de versão 4 incompatível", async () => {
     const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
-    await db.put(STORE, { schemaVersion: 3 }, SLOT);
+    await db.put(STORE, { schemaVersion: 4 }, SLOT);
     db.close();
     await useGame.getState().init();
     render(<Home />);
-    expect(screen.getByText("Jogo salvo incompatível (versão 3)")).toBeInTheDocument();
+    expect(screen.getByText("Jogo salvo incompatível (versão 4)")).toBeInTheDocument();
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Novo jogo"]);
   });
 

@@ -31,7 +31,10 @@ export interface Condition {
   idleRounds: number;
 }
 
-export interface Player extends PlayerCore, Condition {}
+export interface Player extends PlayerCore, Condition {
+  /** Reais per round, fixed when the player is generated or joins a club; never derived from rating (door 2). */
+  salary: number;
+}
 
 export const FRESH_CONDITION: Readonly<Condition> = {
   fitness: 100,
@@ -55,11 +58,45 @@ export interface Lineup {
   posture: Posture;
 }
 
+/** What a club earned and spent when the last round closed. Reais. */
+export interface Ledger {
+  /** 0 when the club played away. */
+  attendance: number;
+  tickets: number;
+  sponsorship: number;
+  salaries: number;
+  interest: number;
+  /** Money received from sales since the previous close. */
+  transfersIn: number;
+  /** Money paid for purchases, sign-on fees and releases since the previous close. */
+  transfersOut: number;
+}
+
+/** Door 1 (save v3): a club's money and stadium. Every amount is an integer in reais (AD-006). */
+export interface Finance {
+  cash: number;
+  sponsorship: number;
+  fans: number;
+  capacity: number;
+  ticketPrice: number;
+  /** Rounds until the stadium expansion is ready; 0 = no works. */
+  expansionRoundsLeft: number;
+  /** Outstanding bank loan. */
+  loan: number;
+  loanLimit: number;
+  pendingIn: number;
+  pendingOut: number;
+  lastRound: Ledger | null;
+}
+
 export interface Club {
   id: string;
   name: string;
   players: Player[];
   lineup: Lineup | null;
+  finance: Finance;
+  /** Ids of the players the user put up for sale. */
+  forSale: string[];
 }
 
 export interface Goal {
@@ -96,7 +133,22 @@ export interface League {
   currentRound: number;
 }
 
-export const SCHEMA_VERSION = 2 as const;
+/** An AI club's bid for one of the user's players, valid until the next round closes. */
+export interface Offer {
+  id: string;
+  buyerId: string;
+  playerId: string;
+  amount: number;
+}
+
+/** Players with no club, kept outside the leagues so they can cross countries later (door 1). */
+export interface Market {
+  freeAgents: Player[];
+  juniors: Player[];
+  offers: Offer[];
+}
+
+export const SCHEMA_VERSION = 3 as const;
 
 /** Door 1: the whole save document. */
 export interface GameState {
@@ -106,6 +158,7 @@ export interface GameState {
   season: number;
   userClubId: string | null;
   leagues: League[];
+  market: Market;
 }
 
 export type MatchEventType =

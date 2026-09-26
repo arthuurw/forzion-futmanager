@@ -1,3 +1,4 @@
+import { initialFinance } from "./finance";
 import { compareRows, computeTable, type TableRow } from "./table";
 import type { League } from "./types";
 
@@ -10,7 +11,7 @@ function miniLeague(results: [string, string, number, number][]): League {
   return {
     id: "l",
     name: "mini",
-    clubs: ids.map((id) => ({ id, name: id, players: [], lineup: null })),
+    clubs: ids.map((id) => ({ id, name: id, players: [], lineup: null, finance: initialFinance([]), forSale: [] })),
     rounds: [
       {
         number: 1,

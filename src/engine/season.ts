@@ -1,5 +1,7 @@
 import { applyRound } from "./condition";
+import { closeRoundFinances, positionsBeforeRound } from "./finance";
 import { resultOf, runToEnd, startRound, userMatch, type LiveRound } from "./live";
+import { closeRoundMarket } from "./market";
 import { createRng } from "./rng";
 import type { Club, GameState, League, MatchEvent, MatchResult } from "./types";
 
@@ -40,6 +42,7 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
   const round = league.rounds[live.roundIndex];
   if (!round) throw new Error("round missing");
 
+  const positions = positionsBeforeRound(league);
   const results: RoundOutcome["results"] = [];
   round.matches.forEach((match, i) => {
     const lm = live.matches[i];
@@ -49,7 +52,9 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
   });
 
   league.clubs = applyRound(league.clubs, live.matches);
+  closeRoundFinances(league.clubs, round.matches, positions);
   league.currentRound = live.roundIndex + 1;
+  closeRoundMarket(state, state.rngState, round.number);
   const rng = createRng(state.rngState);
   rng.next();
   state.rngState = rng.getState();

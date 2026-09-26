@@ -60,6 +60,14 @@ export function autoLineup(
   return { formation, starters, posture };
 }
 
+/** The AI benches players below this fitness when a rested one of the same position is available. */
+export const AI_REST_BELOW = 60;
+
+/** The eleven an AI club fields this round (AC 45 of partida-ao-vivo); also who the AI prices as a starter. */
+export function aiLineup(club: Club): Lineup {
+  return autoLineup(club, AI_FORMATION, "balanced", AI_REST_BELOW);
+}
+
 /** Any available player may take any slot; out of position costs 25% of their strength (door 6). */
 export function canAssign(slotPosition: Position, player: Player): boolean {
   void slotPosition;

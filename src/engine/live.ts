@@ -2,7 +2,7 @@
  * Door 3 of partida-ao-vivo: the match engine as a one-minute step.
  * A LiveRound lives in memory only (door 4); every match has its own Rng (door 2).
  */
-import { AI_FORMATION, autoLineup, formationSlots, isAvailable } from "./lineup";
+import { aiLineup, formationSlots, isAvailable } from "./lineup";
 import { createRng, mix32, randInt, type Rng } from "./rng";
 import { effectiveRating } from "./strength";
 import type {
@@ -41,8 +41,6 @@ const DRAIN_PER_MINUTE_VETERAN = 0.2;
 const VETERAN_AGE = 30;
 const AI_TIRED_FITNESS = 60;
 const AI_TIRED_FROM_MINUTE = 60;
-/** The AI benches players below this fitness when a rested one of the same position is available. */
-const AI_REST_BELOW = 60;
 
 export type LivePlayer = PlayerCore & Partial<Condition>;
 
@@ -381,7 +379,7 @@ export function startRound(state: GameState): LiveRound {
     const club = clubs.get(clubId);
     if (!club) throw new Error(`unknown club ${clubId}`);
     const isUser = clubId === state.userClubId;
-    const lineup = isUser && club.lineup ? club.lineup : autoLineup(club, AI_FORMATION, undefined, AI_REST_BELOW);
+    const lineup = isUser && club.lineup ? club.lineup : aiLineup(club);
     const slotPos = formationSlots(lineup.formation);
     const starters = lineup.starters.map((id) => {
       const p = id ? club.players.find((x) => x.id === id) : undefined;

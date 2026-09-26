@@ -1,6 +1,8 @@
+import { newGame } from "./generate";
 import { formationSlots } from "./lineup";
 import { simulateMatch, type TeamSheet } from "./match";
 import { createRng } from "./rng";
+import { playRound } from "./season";
 import type { PlayerCore, Posture } from "./types";
 
 function flatSheet(clubId: string, rating: number, posture: Posture = "balanced"): TeamSheet {
@@ -84,5 +86,26 @@ describe("balanceamento", () => {
     const t = tally(flatSheet("H", 70), flatSheet("A", 70));
     expect(t.injuries).toBeGreaterThanOrEqual(0.1);
     expect(t.injuries).toBeLessThanOrEqual(0.4);
+  });
+});
+
+describe("equilíbrio financeiro", () => {
+  test("caixa equilibrado em uma temporada", () => {
+    const ratios: number[] = [];
+    for (let seed = 1; seed <= 5; seed++) {
+      let state = newGame(seed);
+      const initial = new Map(state.leagues[0]!.clubs.map((c) => [c.id, c.finance.cash]));
+      for (let r = 0; r < 38; r++) state = playRound(state).state;
+      for (const c of state.leagues[0]!.clubs) ratios.push(c.finance.cash / initial.get(c.id)!);
+    }
+    expect(ratios).toHaveLength(100);
+    for (const r of ratios) {
+      expect(r).toBeGreaterThanOrEqual(0.5);
+      expect(r).toBeLessThanOrEqual(2.5);
+    }
+    const sorted = [...ratios].sort((a, b) => a - b);
+    const median = (sorted[49]! + sorted[50]!) / 2;
+    expect(median).toBeGreaterThanOrEqual(0.9);
+    expect(median).toBeLessThanOrEqual(1.6);
   });
 });

@@ -47,7 +47,9 @@ export function Live() {
   useEffect(() => {
     if (!live) return;
     const changed: string[] = [];
-    for (const m of live.matches) {
+    // Match ids repeat across divisions; only the user's division is on screen (AC 4).
+    const leagueId = userMatch(live)?.leagueId;
+    for (const m of live.matches.filter((x) => x.leagueId === leagueId)) {
       const now = `${m.homeGoals}-${m.awayGoals}`;
       const before = scores.current[m.matchId];
       if (before !== undefined && before !== now) changed.push(m.matchId);
@@ -139,7 +141,7 @@ export function Live() {
         <section aria-label="Jogos da rodada" className={panelClass("games")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Jogos da rodada</h2>
           <ul className="results live-results fill">
-            {live.matches.map((m) => (
+            {live.matches.filter((m) => m.leagueId === mine.leagueId).map((m) => (
               <li key={m.matchId} data-match={m.matchId} className={[m === mine ? "mine" : "", flash[m.matchId] ? "flash" : ""].filter(Boolean).join(" ") || undefined}>
                 <Flag clubId={m.home.clubId} name={name(m.home.clubId)} size={13} />
                 <span className="h">{name(m.home.clubId)}</span>{" "}

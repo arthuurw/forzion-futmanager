@@ -262,6 +262,7 @@ Proof: `npx vitest run src/ui/Home.test.tsx -t "save de versão 5 incompatível"
 
 **C51** - Um documento v4 passa pela leitura sem mudança (door 1)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v4 passa direto"`
+Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVersion 4 com finanças e mercado"`
 
 **C52** - A Série B do jogo novo é a de `generateLeague` sobre `createRng(mix32(seed, 4))`. A Série A e o `rngState` continuam os de `createRng(seed)`. Na migração, a Série B vem do mesmo stream e as partidas já jogadas usam `mix32(mix32(seed, 0xB), n*16 + i)`: migrar duas vezes dá o mesmo documento (door 5)
 Proof: `npx vitest run src/engine/generate.test.ts -t "série B tem stream próprio"`
@@ -308,9 +309,12 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 | Check anterior | O que muda | Substituído por |
 | --- | --- | --- |
 | elenco-mercado-financas C19 (valor por salário) | o valor usa `salaryFor(força)`; o teste `valor por salário e idade` passa a `valor pela força e idade`, com os mesmos números para força 75 | C26 |
-| elenco-mercado-financas C51 (v2 e v1 viram v3) | viram v4; as asserções de condição e finanças continuam | C49 |
+| elenco-mercado-financas C51 (v2 e v1 viram v3, v3 passa direto) | viram v4; as asserções de condição e finanças continuam, e quem passa direto é v4. O teste `migra v2 e v1 para v3` passa a `migra v2 e v1 para v4` | C49, C51 |
 | elenco-mercado-financas C52 (versão 4 incompatível) | só > 4 é incompatível; o teste passa a usar a versão 5 | C50 |
-| elenco-mercado-financas C54 (v3 passa direto) | v3 migra; quem passa direto é v4 | C48, C51 |
+| elenco-mercado-financas C54 (documento gravado v3) | o documento é v4, com as duas ligas, `history` e `boardGoal`; o teste passa a `documento tem schemaVersion 4 com finanças e mercado` e vira mais um `Proof:` de C51 | C51 |
+| elenco-mercado-financas C26 (comprado chega como está) | chega igual, exceto o contrato, que passa a 3 | C29 |
+| elenco-mercado-financas C13 (caixa de uma temporada entre 50% e 250%) | o caixa final passa a incluir o prêmio da rodada 38; o teste mede o caixa sem o prêmio, que é o que a calibração do patrocínio controla | C34 |
+| partida-ao-vivo C42 (`carrega save v1 migrado`) | o save v1 carregado vira v4 | C49 |
 | nucleo-liga-partida, tela Fim («Fim da temporada») | o título passa a «Fim da temporada 1»; o teste `fim mostra campeão sem Jogar rodada` procura esse texto | C12 |
 
 ## Swept

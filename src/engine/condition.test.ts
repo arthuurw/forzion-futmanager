@@ -2,9 +2,9 @@ import { playerAfterRound } from "./condition";
 import { newGame } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
 import { makeSide, runToEnd, startRound, type LiveSide } from "./live";
-import { FRESH_CONDITION, type Player } from "./types";
+import { FRESH_CONDITION, ZERO_STATS, type Player } from "./types";
 
-const base: Player = { id: "p", name: "p", position: "MF", age: 25, rating: 70, ...FRESH_CONDITION, salary: 0 };
+const base: Player = { id: "p", name: "p", position: "MF", age: 25, rating: 70, ...FRESH_CONDITION, ...ZERO_STATS, salary: 0, contractSeasons: 1 };
 
 /** A side where `p` played (or not), with the given match facts. */
 function side(opts: { played?: boolean; fitness?: number; yellows?: number; red?: boolean; injured?: number } = {}): LiveSide {

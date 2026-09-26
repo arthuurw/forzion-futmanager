@@ -292,12 +292,12 @@ describe("rodada ao vivo (engine)", () => {
   });
 
   test("condição 50 rende 85%", () => {
-    const p: Player = { id: "x", name: "x", position: "MF", age: 25, rating: 80, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0 };
+    const p: Player = { id: "x", name: "x", position: "MF", age: 25, rating: 80, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0, contractSeasons: 1, seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0 };
     expect(effectiveRating({ ...p, fitness: 50 }, "MF") / effectiveRating(p, "MF")).toBeCloseTo(0.85, 10);
   });
 
   test("moral +2 rende 6% a mais", () => {
-    const p: Player = { id: "x", name: "x", position: "FW", age: 25, rating: 70, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0 };
+    const p: Player = { id: "x", name: "x", position: "FW", age: 25, rating: 70, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0, contractSeasons: 1, seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0 };
     expect(effectiveRating({ ...p, morale: 2 }, "FW") / effectiveRating(p, "FW")).toBeCloseTo(1.06, 10);
   });
 

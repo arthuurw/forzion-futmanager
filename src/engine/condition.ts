@@ -18,9 +18,10 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-/** One player's condition after a round. Pure. */
-export function playerAfterRound(p: Player, side: LiveSide | null, outcome: Outcome | null): Player {
+/** One player's condition and season numbers after a round (AC 36). Pure. */
+export function playerAfterRound(p: Player, side: LiveSide | null, outcome: Outcome | null, goals = 0): Player {
   const next: Player = { ...p };
+  next.seasonGoals = (p.seasonGoals ?? 0) + goals;
   const wasOut = p.injuryRounds > 0 || p.suspendedRounds > 0;
 
   // Serve the round they were out for.
@@ -29,6 +30,7 @@ export function playerAfterRound(p: Player, side: LiveSide | null, outcome: Outc
 
   const played = !!side && side.played.includes(p.id);
   if (played && side) {
+    next.seasonGames = (p.seasonGames ?? 0) + 1;
     next.fitness = clamp(Math.round(side.fitness[p.id] ?? p.fitness) + RECOVERY_PLAYED, 0, 100);
     next.idleRounds = 0;
     if (outcome === "win") next.morale = clamp(next.morale + 1, MORALE_MIN, MORALE_MAX);
@@ -70,14 +72,16 @@ function outcomeFor(m: LiveMatch, side: LiveSide): Outcome {
 /** Applies a finished round to every club that played in it. Clubs are replaced, not mutated. */
 export function applyRound(clubs: Club[], matches: LiveMatch[]): Club[] {
   const sides = new Map<string, { m: LiveMatch; side: LiveSide }>();
+  const goals = new Map<string, number>();
   for (const m of matches) {
     sides.set(m.home.clubId, { m, side: m.home });
     sides.set(m.away.clubId, { m, side: m.away });
+    for (const g of m.goals) goals.set(g.playerId, (goals.get(g.playerId) ?? 0) + 1);
   }
   return clubs.map((club) => {
     const entry = sides.get(club.id);
     const side = entry?.side ?? null;
     const outcome = entry ? outcomeFor(entry.m, entry.side) : null;
-    return { ...club, players: club.players.map((p) => playerAfterRound(p, side, outcome)) };
+    return { ...club, players: club.players.map((p) => playerAfterRound(p, side, outcome, goals.get(p.id) ?? 0)) };
   });
 }

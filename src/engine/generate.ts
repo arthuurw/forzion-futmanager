@@ -1,4 +1,4 @@
-import { CLUB_IDENTITIES, generatePlayerName, uniqueName } from "./names";
+import { CLUB_IDENTITIES, SERIE_B_IDENTITIES, generatePlayerName, uniqueName, type ClubIdentity } from "./names";
 import { initialFinance, salaryFor } from "./finance";
 import { bell, createRng, mix32, pick, randInt, shuffle, type Rng } from "./rng";
 import {
@@ -8,6 +8,7 @@ import {
   RATING_MIN,
   FRESH_CONDITION,
   SCHEMA_VERSION,
+  ZERO_STATS,
   type Club,
   type GameState,
   type League,
@@ -27,8 +28,12 @@ export const SQUAD_SHAPE: readonly { position: Position; count: number }[] = [
 ];
 export const PLAYERS_PER_CLUB = SQUAD_SHAPE.reduce((n, s) => n + s.count, 0);
 
-const CLUB_BASE_MIN = 58;
-const CLUB_BASE_MAX = 80;
+/** AC 1: club strength ranges, Série A and Série B. */
+const SERIE_A_BASE = { min: 58, max: 80 } as const;
+const SERIE_B_BASE = { min: 50, max: 66 } as const;
+/** AC 23: a new game's contracts run 1 to 4 seasons. */
+const CONTRACT_MIN = 1;
+const CONTRACT_MAX = 4;
 const RATING_SPREAD = 7;
 
 function clamp(n: number, min: number, max: number): number {
@@ -41,16 +46,20 @@ function generateAge(rng: Rng): number {
   return clamp(AGE_MIN + Math.floor(u * (AGE_MAX - AGE_MIN + 1)), AGE_MIN, AGE_MAX);
 }
 
-/** A fresh player; the salary follows the rating at creation and is stored (door 2). */
-export function makePlayer(id: string, name: string, position: Position, age: number, rating: number): Player {
-  return { id, name, position, age, rating, ...FRESH_CONDITION, salary: salaryFor(rating) };
+/**
+ * A fresh player; the salary follows the rating at creation and is stored (door 2).
+ * `contractSeasons` is 0 for a player with no club (door 1).
+ */
+export function makePlayer(id: string, name: string, position: Position, age: number, rating: number, contractSeasons = 0): Player {
+  return { id, name, position, age, rating, ...FRESH_CONDITION, ...ZERO_STATS, salary: salaryFor(rating), contractSeasons };
 }
 
 function generatePlayer(rng: Rng, id: string, position: Position, base: number, taken: Set<string>): Player {
   const name = uniqueName(rng, taken, generatePlayerName);
   const age = generateAge(rng);
   const rating = clamp(Math.round(base + bell(rng) * RATING_SPREAD), RATING_MIN, RATING_MAX);
-  return makePlayer(id, name, position, age, rating);
+  // Door 5: the contract is drawn in the league's own stream.
+  return makePlayer(id, name, position, age, rating, randInt(rng, CONTRACT_MIN, CONTRACT_MAX));
 }
 
 export const FREE_AGENTS_PER_POSITION = 10;
@@ -89,8 +98,7 @@ export function takenNames(state: Pick<GameState, "leagues"> & { market?: Market
   return names;
 }
 
-function generateClub(rng: Rng, index: number, name: string, base: number, takenPlayers: Set<string>): Club {
-  const id = `c${index + 1}`;
+function generateClub(rng: Rng, id: string, name: string, base: number, takenPlayers: Set<string>): Club {
   const players: Player[] = [];
   let n = 0;
   for (const shape of SQUAD_SHAPE) {
@@ -135,18 +143,34 @@ export function generateSchedule(clubIds: readonly string[]): Round[] {
   return rounds;
 }
 
-export function generateLeague(rng: Rng, id: string, name: string): League {
-  const takenPlayers = new Set<string>();
+export interface DivisionSpec {
+  identities: readonly ClubIdentity[];
+  base: { min: number; max: number };
+  /** Club ids run from `c<firstId>` (door 4). */
+  firstId: number;
+}
+
+export const SERIE_A: DivisionSpec = { identities: CLUB_IDENTITIES, base: SERIE_A_BASE, firstId: 1 };
+export const SERIE_B: DivisionSpec = { identities: SERIE_B_IDENTITIES, base: SERIE_B_BASE, firstId: 21 };
+export const SERIE_B_NAME = "Série B";
+
+export function generateLeague(rng: Rng, id: string, name: string, spec: DivisionSpec = SERIE_A, takenPlayers = new Set<string>()): League {
+  const { min, max } = spec.base;
   // Club strength spread evenly across the range, then shuffled so ids do not encode strength.
   const bases = shuffle(
     rng,
-    Array.from({ length: CLUBS_PER_LEAGUE }, (_, i) => CLUB_BASE_MIN + ((CLUB_BASE_MAX - CLUB_BASE_MIN) * i) / (CLUBS_PER_LEAGUE - 1)),
+    Array.from({ length: CLUBS_PER_LEAGUE }, (_, i) => min + ((max - min) * i) / (CLUBS_PER_LEAGUE - 1)),
   );
-  // Every league has the same 20 identities (like the real Série A); order and strength vary by seed.
-  const names = shuffle(rng, CLUB_IDENTITIES.map((c) => c.name));
-  const clubs = bases.map((base, i) => generateClub(rng, i, names[i] as string, base, takenPlayers));
+  // Every league has the same 20 identities; order and strength vary by seed.
+  const names = shuffle(rng, spec.identities.map((c) => c.name));
+  const clubs = bases.map((base, i) => generateClub(rng, `c${spec.firstId + i}`, names[i] as string, base, takenPlayers));
   const order = shuffle(rng, clubs.map((c) => c.id));
   return { id, name, clubs, rounds: generateSchedule(order), currentRound: 0 };
+}
+
+/** Door 5: the Série B has its own stream, so the Série A and `rngState` of a seed do not move. */
+export function generateSerieB(seed: number, taken: Set<string>): League {
+  return generateLeague(createRng(mix32(seed, 4)), "l2", SERIE_B_NAME, SERIE_B, taken);
 }
 
 export function newGame(seed: number): GameState {
@@ -160,14 +184,17 @@ export function newGame(seed: number): GameState {
     juniors: generateJuniors(marketRng, taken, 1, 1),
     offers: [],
   };
+  const serieB = generateSerieB(seed, takenNames({ leagues: [league], market }));
   return {
     schemaVersion: SCHEMA_VERSION,
     seed,
     rngState: rng.getState(),
     season: 1,
     userClubId: null,
-    leagues: [league],
+    leagues: [league, serieB],
     market,
+    history: [],
+    boardGoal: 0,
   };
 }
 

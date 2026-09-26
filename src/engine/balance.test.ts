@@ -2,6 +2,7 @@ import { newGame } from "./generate";
 import { formationSlots } from "./lineup";
 import { simulateMatch, type TeamSheet } from "./match";
 import { createRng } from "./rng";
+import { nextSeason } from "./rollover";
 import { playRound } from "./season";
 import type { PlayerCore, Posture } from "./types";
 
@@ -96,7 +97,8 @@ describe("equilíbrio financeiro", () => {
       let state = newGame(seed);
       const initial = new Map(state.leagues[0]!.clubs.map((c) => [c.id, c.finance.cash]));
       for (let r = 0; r < 38; r++) state = playRound(state).state;
-      for (const c of state.leagues[0]!.clubs) ratios.push(c.finance.cash / initial.get(c.id)!);
+      // The end-of-season prize (multiplas-temporadas AC 29) is left out: this measures the running costs.
+      for (const c of state.leagues[0]!.clubs) ratios.push((c.finance.cash - (c.finance.lastRound!.prize ?? 0)) / initial.get(c.id)!);
     }
     expect(ratios).toHaveLength(100);
     for (const r of ratios) {
@@ -108,4 +110,59 @@ describe("equilíbrio financeiro", () => {
     expect(median).toBeGreaterThanOrEqual(0.9);
     expect(median).toBeLessThanOrEqual(1.6);
   });
+});
+
+/** Five seasons of three seeds with no user, played once and shared by the checks below. */
+const SEASONS = 5;
+const MULTI_SEEDS = [1, 2, 3];
+const best18 = (ratings: number[]) => [...ratings].sort((a, b) => b - a).slice(0, 18).reduce((a, b) => a + b, 0) / Math.min(18, ratings.length);
+
+interface Run {
+  /** Per season start, per division: mean over clubs of the best-18 mean. */
+  strength: number[][];
+  /** Final cash / initial cash, per club. */
+  cash: number[];
+}
+
+let runs: Run[] | null = null;
+function multiSeason(): Run[] {
+  if (runs) return runs;
+  runs = MULTI_SEEDS.map((seed) => {
+    let state = newGame(seed);
+    const initial = new Map(state.leagues.flatMap((l) => l.clubs).map((c) => [c.id, c.finance.cash]));
+    const strength: number[][] = [];
+    for (let season = 1; season <= SEASONS; season++) {
+      strength.push(state.leagues.map((l) => l.clubs.reduce((sum, c) => sum + best18(c.players.map((p) => p.rating)), 0) / l.clubs.length));
+      for (let r = 0; r < 38; r++) state = playRound(state).state;
+      if (season < SEASONS) state = nextSeason(state).state;
+    }
+    const cash = state.leagues.flatMap((l) => l.clubs).map((c) => c.finance.cash / initial.get(c.id)!);
+    return { strength, cash };
+  });
+  return runs;
+}
+
+describe("equilíbrio em várias temporadas", () => {
+  test("força estável em 5 temporadas", () => {
+    for (const [k, run] of multiSeason().entries()) {
+      for (const [season, divisions] of run.strength.entries()) {
+        divisions.forEach((mean, d) => {
+          expect(Math.abs(mean - run.strength[0]![d]!), `seed ${MULTI_SEEDS[k]} temporada ${season + 1} divisão ${d}`).toBeLessThanOrEqual(4);
+        });
+      }
+    }
+  }, 120_000);
+
+  test("caixa em 5 temporadas", () => {
+    const ratios = multiSeason().flatMap((r) => r.cash);
+    expect(ratios).toHaveLength(120);
+    const sorted = [...ratios].sort((a, b) => a - b);
+    const median = (sorted[59]! + sorted[60]!) / 2;
+    for (const r of ratios) {
+      expect(r).toBeGreaterThanOrEqual(-1);
+      expect(r).toBeLessThanOrEqual(8);
+    }
+    expect(median).toBeGreaterThanOrEqual(0.8);
+    expect(median).toBeLessThanOrEqual(3);
+  }, 120_000);
 });

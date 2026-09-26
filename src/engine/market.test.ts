@@ -51,8 +51,9 @@ describe("mercado (engine)", () => {
     for (let next = 1; next <= 39; next++) expect(isWindowOpen(next), `rodada ${next}`).toBe(open.has(next));
   });
 
-  test("valor por salário e idade", () => {
-    const at = (age: number) => marketValue({ salary: 40_800, age });
+  test("valor pela força e idade", () => {
+    // Rating 75 is the rating whose formula salary is R$ 40.800 (superseded C19 of elenco-mercado-financas, now C26).
+    const at = (age: number) => marketValue({ rating: 75, age });
     expect(at(20)).toBe(3_060_000);
     expect(at(25)).toBe(2_450_000);
     expect(at(29)).toBe(2_040_000);
@@ -67,6 +68,9 @@ describe("mercado (engine)", () => {
     expect(at(31)).toBe(1_220_000);
     expect(at(33)).toBe(1_220_000);
     expect(at(34)).toBe(610_000);
+    // The stored salary plays no part: a rating-75 player paid R$ 2.000 is worth the same.
+    const underpaid = { rating: 75, age: 25, salary: 2_000 };
+    expect(marketValue(underpaid)).toBe(2_450_000);
   });
 
   test("preço pedido titular e reserva", () => {
@@ -141,7 +145,8 @@ describe("mercado (engine)", () => {
     const before = JSON.parse(JSON.stringify(target)) as Player;
     const after = ok(buyPlayer(state, target.id, expectedValue(target)));
     const arrived = user(after).players.find((p) => p.id === target.id)!;
-    expect(arrived).toEqual(before);
+    // Arrives as they are, with the 3-season contract of a purchase (multiplas-temporadas C29).
+    expect(arrived).toEqual({ ...before, contractSeasons: 3 });
     expect(user(after).lineup!.starters).not.toContain(target.id);
   });
 

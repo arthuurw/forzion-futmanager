@@ -1,7 +1,8 @@
 import { takenNames, generateJuniors } from "./generate";
+import { salaryFor } from "./finance";
 import { aiLineup } from "./lineup";
 import { createRng, mix32, pick, type Rng } from "./rng";
-import { findClub, userLeague } from "./season";
+import { allClubs, findAnyClub, findClub, userLeague } from "./season";
 import { POSITIONS, type Club, type GameState, type Offer, type Player } from "./types";
 
 export const SQUAD_MIN = 18;
@@ -14,6 +15,11 @@ const FOR_SALE_OFFER_RANGE = [0.8, 1.1] as const;
 const UNSOLICITED_OFFER_CHANCE = 0.25;
 const UNSOLICITED_OFFER_RANGE = [1.1, 1.5] as const;
 const UNSOLICITED_TARGETS = 5;
+/** AC 24, AC 26 (multiplas-temporadas): contract length, in seasons, by how a player arrives. */
+export const CONTRACT_BOUGHT = 3;
+export const CONTRACT_FREE_AGENT = 2;
+export const CONTRACT_JUNIOR = 3;
+export const CONTRACT_RENEWAL = 3;
 /** Door 3: salts mixed into `rngState` with the round number, next to the 10 match streams. */
 const OFFERS_SALT = 14;
 const JUNIORS_SALT = 15;
@@ -52,9 +58,9 @@ export function ageFactor(age: number): number {
   return 0.3;
 }
 
-/** AC 19: never stored; follows the stored salary and the age. */
-export function marketValue(p: Pick<Player, "salary" | "age">): number {
-  return roundTo(p.salary * 50 * ageFactor(p.age), 10_000);
+/** AC 21 (multiplas-temporadas): never stored; follows the current rating and the age, not the stored salary. */
+export function marketValue(p: Pick<Player, "rating" | "age">): number {
+  return roundTo(salaryFor(p.rating) * 50 * ageFactor(p.age), 10_000);
 }
 
 /** AC 20: a club asks half as much again for one of the eleven it would field. */
@@ -70,7 +76,8 @@ export type MarketRefusal =
   | "cash"
   | "squad_full"
   | "seller_min"
-  | "user_min";
+  | "user_min"
+  | "not_last_year";
 export type MarketResult = { ok: true; state: GameState } | { ok: false; reason: MarketRefusal; amount?: number };
 
 const refuse = (reason: MarketRefusal, amount?: number): MarketResult => (amount === undefined ? { ok: false, reason } : { ok: false, reason, amount });
@@ -82,6 +89,11 @@ function clone(state: GameState): GameState {
 function userOf(state: GameState): Club {
   if (!state.userClubId) throw new Error("no user club");
   return findClub(userLeague(state), state.userClubId);
+}
+
+/** A player joining a club signs for `seasons`. */
+function signed(p: Player, seasons: number): Player {
+  return { ...p, contractSeasons: seasons };
 }
 
 /** Takes a player out of a club: squad, lineup slot, sale list and any offer for them. */
@@ -99,7 +111,8 @@ function detach(state: GameState, club: Club, playerId: string): Player {
 export function buyPlayer(input: GameState, playerId: string, offer: number): MarketResult {
   if (!isMarketOpen(input)) return refuse("closed");
   const user = userOf(input);
-  const seller = userLeague(input).clubs.find((c) => c.id !== user.id && c.players.some((p) => p.id === playerId));
+  // AC 6: any of the other clubs, in either division.
+  const seller = allClubs(input).find((c) => c.id !== user.id && c.players.some((p) => p.id === playerId));
   const player = seller?.players.find((p) => p.id === playerId);
   if (!seller || !player || !Number.isInteger(offer) || offer <= 0) return refuse("not_found");
   if (user.players.length >= SQUAD_MAX) return refuse("squad_full");
@@ -110,8 +123,8 @@ export function buyPlayer(input: GameState, playerId: string, offer: number): Ma
 
   const state = clone(input);
   const buyer = userOf(state);
-  const from = findClub(userLeague(state), seller.id);
-  buyer.players.push(detach(state, from, playerId));
+  const from = findAnyClub(state, seller.id);
+  buyer.players.push(signed(detach(state, from, playerId), CONTRACT_BOUGHT));
   buyer.finance.cash -= offer;
   buyer.finance.pendingOut += offer;
   from.finance.cash += offer;
@@ -138,8 +151,8 @@ export function acceptOffer(input: GameState, offerId: string): MarketResult {
 
   const state = clone(input);
   const user = userOf(state);
-  const buyer = findClub(userLeague(state), offer.buyerId);
-  buyer.players.push(detach(state, user, offer.playerId));
+  const buyer = findAnyClub(state, offer.buyerId);
+  buyer.players.push(signed(detach(state, user, offer.playerId), CONTRACT_BOUGHT));
   user.finance.cash += offer.amount;
   user.finance.pendingIn += offer.amount;
   buyer.finance.cash -= offer.amount;
@@ -169,7 +182,7 @@ export function releasePlayer(input: GameState, playerId: string): MarketResult 
 
   const state = clone(input);
   const user = userOf(state);
-  state.market.freeAgents.push(detach(state, user, playerId));
+  state.market.freeAgents.push(signed(detach(state, user, playerId), 0));
   user.finance.cash -= cost;
   user.finance.pendingOut += cost;
   return { ok: true, state };
@@ -187,7 +200,7 @@ export function signFreeAgent(input: GameState, playerId: string): MarketResult 
   const state = clone(input);
   const user = userOf(state);
   state.market.freeAgents = state.market.freeAgents.filter((p) => p.id !== playerId);
-  user.players.push(player);
+  user.players.push(signed(player, CONTRACT_FREE_AGENT));
   user.finance.cash -= fee;
   user.finance.pendingOut += fee;
   return { ok: true, state };
@@ -201,7 +214,22 @@ export function promoteJunior(input: GameState, playerId: string): MarketResult 
   if (userOf(input).players.length >= SQUAD_MAX) return refuse("squad_full");
   const state = clone(input);
   state.market.juniors = state.market.juniors.filter((p) => p.id !== playerId);
-  userOf(state).players.push(junior);
+  userOf(state).players.push(signed(junior, CONTRACT_JUNIOR));
+  return { ok: true, state };
+}
+
+/** AC 26: in the last season of the contract, 3 more seasons at the salary of the current rating. */
+export function renewalSalary(p: Pick<Player, "rating">): number {
+  return salaryFor(p.rating);
+}
+
+export function renewContract(input: GameState, playerId: string): MarketResult {
+  const player = userOf(input).players.find((p) => p.id === playerId);
+  if (!player) return refuse("not_found");
+  if (player.contractSeasons !== 1) return refuse("not_last_year");
+  const state = clone(input);
+  const user = userOf(state);
+  user.players = user.players.map((p) => (p.id === playerId ? { ...p, contractSeasons: CONTRACT_RENEWAL, salary: renewalSalary(p) } : p));
   return { ok: true, state };
 }
 
@@ -217,12 +245,13 @@ function pickBuyer(rng: Rng, clubs: readonly Club[], userId: string, amount: num
 
 /** AC 28, 29: bids for the user's players, drawn from the round's market stream (door 3). */
 function generateOffers(state: GameState, rng: Rng, roundNumber: number): Offer[] {
-  const league = userLeague(state);
+  // Bids come from the user's own division, as before the Série B existed.
+  const clubs = userLeague(state).clubs;
   const user = userOf(state);
   const offers: Offer[] = [];
   const add = (player: Player, range: readonly [number, number]) => {
     const amount = roundTo(marketValue(player) * between(rng, range), 10_000);
-    const buyer = pickBuyer(rng, league.clubs, user.id, amount);
+    const buyer = pickBuyer(rng, clubs, user.id, amount);
     if (buyer && amount > 0) offers.push({ id: `o${roundNumber}-${offers.length + 1}`, buyerId: buyer.id, playerId: player.id, amount });
   };
   for (const player of user.players) {
@@ -240,7 +269,7 @@ function generateOffers(state: GameState, rng: Rng, roundNumber: number): Offer[
 
 /** AC 40: an AI club under 18 signs the best free agent of its thinnest position until it has 18. */
 function fillAiSquads(state: GameState): void {
-  for (const club of userLeague(state).clubs) {
+  for (const club of allClubs(state)) {
     if (club.id === state.userClubId) continue;
     while (club.players.length < SQUAD_MIN && state.market.freeAgents.length) {
       const count = (pos: string) => club.players.filter((p) => p.position === pos).length;
@@ -251,7 +280,7 @@ function fillAiSquads(state: GameState): void {
         .sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id))[0];
       if (!best) break;
       state.market.freeAgents = state.market.freeAgents.filter((p) => p.id !== best.id);
-      club.players.push(best);
+      club.players.push(signed(best, CONTRACT_FREE_AGENT));
       const fee = releaseCost(best);
       club.finance.cash -= fee;
       club.finance.pendingOut += fee;

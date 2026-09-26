@@ -21,6 +21,10 @@ const DEMAND_ELASTICITY = 1.5;
 const FANS_MIN = 15_000;
 const FANS_MAX = 60_000;
 const CAPACITY_SHARE = 0.8;
+/** AC 7 (multiplas-temporadas): a Série B club gets this share of its sponsorship. */
+export const SERIE_B_SPONSORSHIP_SHARE = 0.6;
+/** AC 29: prize per place above the 21st, by division. */
+const PRIZE_PER_PLACE = [1_000_000, 250_000] as const;
 
 const roundTo = (n: number, step: number) => Math.round(n / step) * step;
 
@@ -97,6 +101,16 @@ export function positionsBeforeRound(league: League): Map<string, number | null>
   return out;
 }
 
+/** AC 7: what a club is paid per round in division `divisionIndex` (0 = Série A). */
+export function sponsorshipPaid(f: Pick<Finance, "sponsorship">, divisionIndex: number): number {
+  return divisionIndex === 0 ? f.sponsorship : Math.round(f.sponsorship * SERIE_B_SPONSORSHIP_SHARE);
+}
+
+/** AC 29: (21 − position) × R$ 1.000.000 in the Série A, × R$ 250.000 in the Série B. */
+export function prizeFor(divisionIndex: number, position: number): number {
+  return (21 - position) * (PRIZE_PER_PLACE[divisionIndex] ?? PRIZE_PER_PLACE[1]);
+}
+
 export function interestFor(loan: number): number {
   return roundTo(loan * INTEREST_RATE, 100);
 }
@@ -106,7 +120,13 @@ export function interestFor(loan: number): number {
  * stadium works - and writes the round's ledger. Transfers were paid when they happened; the
  * ledger only reports them. Mutates `clubs`.
  */
-export function closeRoundFinances(clubs: Club[], matches: readonly Match[], positions: Map<string, number | null>): void {
+export function closeRoundFinances(
+  clubs: Club[],
+  matches: readonly Match[],
+  positions: Map<string, number | null>,
+  divisionIndex = 0,
+  prizes: Map<string, number> | null = null,
+): void {
   const homeOf = new Set(matches.map((m) => m.homeId));
   for (const club of clubs) {
     const f = club.finance;
@@ -115,13 +135,15 @@ export function closeRoundFinances(clubs: Club[], matches: readonly Match[], pos
     const ledger: Ledger = {
       attendance,
       tickets: attendance * f.ticketPrice,
-      sponsorship: f.sponsorship,
+      sponsorship: sponsorshipPaid(f, divisionIndex),
       salaries: payroll(club.players),
       interest: interestFor(f.loan),
       transfersIn: f.pendingIn,
       transfersOut: f.pendingOut,
     };
-    f.cash += ledger.tickets + ledger.sponsorship - ledger.salaries - ledger.interest;
+    const prize = prizes?.get(club.id);
+    if (prize !== undefined) ledger.prize = prize;
+    f.cash += ledger.tickets + ledger.sponsorship - ledger.salaries - ledger.interest + (prize ?? 0);
     f.pendingIn = 0;
     f.pendingOut = 0;
     f.lastRound = ledger;
@@ -134,7 +156,7 @@ export function closeRoundFinances(clubs: Club[], matches: readonly Match[], pos
 
 /** AC 9: the round's result as the Finanças screen shows it. */
 export function ledgerBalance(l: Ledger): number {
-  return l.tickets + l.sponsorship + l.transfersIn - l.salaries - l.interest - l.transfersOut;
+  return l.tickets + l.sponsorship + l.transfersIn - l.salaries - l.interest - l.transfersOut + (l.prize ?? 0);
 }
 
 export type FinanceRefusal = "cash" | "invalid" | "works" | "max_capacity" | "loan_limit" | "over_debt";

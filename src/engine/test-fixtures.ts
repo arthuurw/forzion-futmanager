@@ -15,19 +15,39 @@ import {
 import { playRound } from "./season";
 import type { GameState } from "./types";
 
-/** A document shaped like a v2 save: no salaries, finances, sale lists or market. */
-export function v2Document(seed = 3): Record<string, unknown> {
-  const state = newGame(seed);
+const V4_PLAYER_FIELDS = ["contractSeasons", "seasonGames", "seasonGoals", "careerGames", "careerGoals"];
+
+/**
+ * A document shaped like a v3 save: one league, no contracts or season numbers, no history and no
+ * board goal. The user manages the first club; `roundsPlayed` rounds are in.
+ */
+export function v3Document(seed = 3, roundsPlayed = 0): Record<string, unknown> {
+  let state = newGame(seed);
   const club = state.leagues[0]!.clubs[0]!;
   state.userClubId = club.id;
   club.lineup = autoLineup(club, "4-3-3");
+  for (let i = 0; i < roundsPlayed; i++) state = playRound(state).state;
   const doc = JSON.parse(JSON.stringify(state));
+  doc.schemaVersion = 3;
+  doc.leagues = [doc.leagues[0]];
+  delete doc.history;
+  delete doc.boardGoal;
+  const strip = (p: Record<string, unknown>) => V4_PLAYER_FIELDS.forEach((k) => delete p[k]);
+  for (const c of doc.leagues[0].clubs) c.players.forEach(strip);
+  doc.market.freeAgents.forEach(strip);
+  doc.market.juniors.forEach(strip);
+  return doc;
+}
+
+/** A document shaped like a v2 save: also no salaries, finances, sale lists or market. */
+export function v2Document(seed = 3): Record<string, unknown> {
+  const doc = v3Document(seed) as Record<string, unknown> & { leagues: { clubs: Record<string, unknown>[] }[] };
   doc.schemaVersion = 2;
   delete doc.market;
-  for (const c of doc.leagues[0].clubs) {
+  for (const c of doc.leagues[0]!.clubs) {
     delete c.finance;
     delete c.forSale;
-    for (const p of c.players) delete p.salary;
+    for (const p of c.players as Record<string, unknown>[]) delete p.salary;
   }
   return doc;
 }

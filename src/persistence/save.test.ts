@@ -20,7 +20,7 @@ beforeEach(() => {
 
 describe("save (door 1, door 7)", () => {
   // Supersedes partida-ao-vivo C45 (schemaVersion 2): elenco-mercado-financas door 1 moves the save to v3.
-  test("documento tem schemaVersion 3 com finanças e mercado", async () => {
+  test("documento tem schemaVersion 4 com finanças e mercado", async () => {
     const state = fixture();
     const club = state.leagues[0]!.clubs[0]!;
     club.lineup = autoLineup(club, "4-4-2");
@@ -31,7 +31,11 @@ describe("save (door 1, door 7)", () => {
     expect(DB_NAME).toBe("brasfoot");
     expect(STORE).toBe("saves");
     expect(SLOT).toBe("slot-1");
-    expect(doc.schemaVersion).toBe(3);
+    // Supersedes elenco-mercado-financas C54: the document is v4 (multiplas-temporadas C51).
+    expect(doc.schemaVersion).toBe(4);
+    expect(doc.leagues.map((l: { id: string }) => l.id)).toEqual(["l1", "l2"]);
+    expect(doc.history).toEqual([]);
+    expect(Number.isInteger(doc.boardGoal)).toBe(true);
     for (const club of doc.leagues[0].clubs) {
       for (const k of ["cash", "sponsorship", "fans", "capacity", "ticketPrice", "expansionRoundsLeft", "loan", "loanLimit", "pendingIn", "pendingOut"]) {
         expect(Number.isInteger(club.finance[k]), `${club.id}.finance.${k}`).toBe(true);
@@ -51,7 +55,7 @@ describe("save (door 1, door 7)", () => {
     expect(doc.season).toBe(1);
     expect(doc.userClubId).toBe("c1");
     expect(Array.isArray(doc.leagues)).toBe(true);
-    expect(doc.leagues).toHaveLength(1);
+    expect(doc.leagues).toHaveLength(2);
     expect(doc.market.freeAgents).toHaveLength(40);
     expect(doc.market.juniors).toHaveLength(3);
     expect(doc.market.offers).toEqual([]);
@@ -96,7 +100,7 @@ describe("save (door 1, door 7)", () => {
     const loaded = await loadGame();
     expect(loaded.kind).toBe("ok");
     if (loaded.kind !== "ok") return;
-    expect(loaded.state.schemaVersion).toBe(3);
+    expect(loaded.state.schemaVersion).toBe(4);
     expect(loaded.state.leagues[0]!.clubs[0]!.players[0]).toMatchObject({ fitness: 100, morale: 0, idleRounds: 0 });
   });
 });

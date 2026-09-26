@@ -1,0 +1,253 @@
+/**
+ * The turn of the season (S2-S6 of multiplas-temporadas): promotion and relegation, history,
+ * evolution, retirements, contracts, refilled squads, new schedules and the board's new goal.
+ * Everything is drawn from the rollover's own Rng (door 3).
+ */
+import { userBoardGoal } from "./board";
+import { salaryFor } from "./finance";
+import { generateJuniors, generateSchedule, makePlayer, takenNames } from "./generate";
+import { AI_FORMATION, autoLineup } from "./lineup";
+import { CONTRACT_JUNIOR } from "./market";
+import { generatePlayerName, uniqueName } from "./names";
+import { createRng, mix32, randInt, shuffle, type Rng } from "./rng";
+import { allClubs, seasonReview } from "./season";
+import { POSITIONS, RATING_MAX, RATING_MIN, type Club, type GameState, type Player, type Position, type SeasonRecord } from "./types";
+
+/** Door 3. */
+const ROLLOVER_SALT = 0x5e45;
+
+/** AC 16: rating change by age before the birthday; the first row whose `maxAge` fits. */
+export const EVOLUTION: readonly { maxAge: number; min: number; max: number }[] = [
+  { maxAge: 20, min: 2, max: 6 },
+  { maxAge: 23, min: 1, max: 4 },
+  { maxAge: 27, min: -1, max: 2 },
+  { maxAge: 30, min: -2, max: 1 },
+  { maxAge: 33, min: -4, max: 0 },
+  { maxAge: Infinity, min: -6, max: -2 },
+];
+
+/** AC 18: chance of retiring by age after the birthday; everyone from 36. */
+const RETIREMENT: Readonly<Record<number, number>> = { 34: 0.2, 35: 0.5 };
+const RETIRE_ALWAYS_FROM = 36;
+/** AC 28: AI clubs renew the last year of players up to this age at the end of the season. */
+const AI_RENEW_MAX_AGE = 32;
+const AI_RENEW_SEASONS = { min: 1, max: 3 } as const;
+/** AC 19. */
+const AI_SQUAD_TARGET = 22;
+const AI_JUNIOR_AGE = { min: 18, max: 20 } as const;
+const AI_JUNIOR_BELOW_MEAN = 8;
+const AI_JUNIOR_SPREAD = 4;
+/** AC 20. */
+const FREE_AGENTS_TARGET = 40;
+const NEW_FREE_AGENT_AGE = { min: 19, max: 31 } as const;
+const NEW_FREE_AGENT_RATING = { min: 45, max: 70 } as const;
+
+export interface RatingChange {
+  playerId: string;
+  name: string;
+  position: Position;
+  before: number;
+  after: number;
+}
+
+/** What the «Nova temporada» screen shows (AC 14). In memory only. */
+export interface RolloverReport {
+  season: number;
+  retired: { id: string; name: string }[];
+  expired: { id: string; name: string }[];
+  changes: RatingChange[];
+  divisionIndex: number;
+  boardGoal: number;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+export function evolutionRange(age: number): { min: number; max: number } {
+  return EVOLUTION.find((row) => age <= row.maxAge)!;
+}
+
+function retires(rng: Rng, age: number): boolean {
+  if (age >= RETIRE_ALWAYS_FROM) return true;
+  const chance = RETIREMENT[age];
+  return chance !== undefined && rng.next() < chance;
+}
+
+/**
+ * AC 12, 16, 17, 18, 37: one player through the summer. Returns null when they retire.
+ * Stats go to the career; condition is fresh except injury and morale.
+ */
+function ageOneSeason(rng: Rng, p: Player): Player | null {
+  const { min, max } = evolutionRange(p.age);
+  const rating = clamp(p.rating + randInt(rng, min, max), RATING_MIN, RATING_MAX);
+  const age = p.age + 1;
+  if (retires(rng, age)) return null;
+  return {
+    ...p,
+    rating,
+    age,
+    fitness: 100,
+    yellowCards: 0,
+    suspendedRounds: 0,
+    idleRounds: 0,
+    careerGames: p.careerGames + p.seasonGames,
+    careerGoals: p.careerGoals + p.seasonGoals,
+    seasonGames: 0,
+    seasonGoals: 0,
+  };
+}
+
+function thinnestPosition(players: readonly Player[]): Position {
+  const count = (pos: Position) => players.filter((p) => p.position === pos).length;
+  return [...POSITIONS].sort((a, b) => count(a) - count(b))[0]!;
+}
+
+/** AC 19: an AI club under 22 gets juniors from its own academy, thinnest position first. */
+function refillFromAcademy(rng: Rng, club: Club, season: number, taken: Set<string>): void {
+  const mean = club.players.reduce((sum, p) => sum + p.rating, 0) / Math.max(1, club.players.length);
+  let n = 0;
+  while (club.players.length < AI_SQUAD_TARGET) {
+    const position = thinnestPosition(club.players);
+    const name = uniqueName(rng, taken, generatePlayerName);
+    const age = randInt(rng, AI_JUNIOR_AGE.min, AI_JUNIOR_AGE.max);
+    const rating = clamp(Math.round(mean) - AI_JUNIOR_BELOW_MEAN + randInt(rng, -AI_JUNIOR_SPREAD, AI_JUNIOR_SPREAD), RATING_MIN, RATING_MAX);
+    club.players.push(makePlayer(`${club.id}-y${season}-${++n}`, name, position, age, rating, CONTRACT_JUNIOR));
+  }
+}
+
+/** AC 20: new free agents until there are 40, thinnest position first. */
+function topUpFreeAgents(rng: Rng, state: GameState, season: number, taken: Set<string>): void {
+  let n = 0;
+  while (state.market.freeAgents.length < FREE_AGENTS_TARGET) {
+    const position = thinnestPosition(state.market.freeAgents);
+    const name = uniqueName(rng, taken, generatePlayerName);
+    const age = randInt(rng, NEW_FREE_AGENT_AGE.min, NEW_FREE_AGENT_AGE.max);
+    const rating = randInt(rng, NEW_FREE_AGENT_RATING.min, NEW_FREE_AGENT_RATING.max);
+    state.market.freeAgents.push(makePlayer(`fa-s${season}-${++n}`, name, position, age, rating));
+  }
+}
+
+/** Drops players who left from a lineup and a sale list. */
+function forgetDeparted(club: Club): void {
+  const here = new Set(club.players.map((p) => p.id));
+  club.forSale = club.forSale.filter((id) => here.has(id));
+  if (club.lineup) club.lineup = { ...club.lineup, starters: club.lineup.starters.map((id) => (id && here.has(id) ? id : null)) };
+}
+
+/**
+ * «Próxima temporada» (AC 10-35). `jobClubId` is the offer a fired user picked (AC 35); it is
+ * required then and ignored otherwise. Pure: returns a new state and what changed for the user.
+ */
+export function nextSeason(input: GameState, jobClubId?: string): { state: GameState; report: RolloverReport } {
+  const review = seasonReview(input);
+  const fired = review.user?.verdict === "fired";
+  if (fired && (!jobClubId || !review.jobOffers.includes(jobClubId))) throw new Error("a fired manager must pick one of the job offers");
+  const state = JSON.parse(JSON.stringify(input)) as GameState;
+  const season = input.season + 1;
+  const rng = createRng(mix32(input.rngState, ROLLOVER_SALT + input.season));
+
+  // AC 38: the season goes to the history before anything moves.
+  const record: SeasonRecord = {
+    season: input.season,
+    userClubId: input.userClubId,
+    userLeagueId: review.user ? (review.divisions[review.user.divisionIndex]?.leagueId ?? null) : null,
+    userPosition: review.user?.position ?? null,
+    verdict: review.user?.verdict ?? null,
+    prize: review.user?.prize ?? 0,
+    divisions: review.divisions.map((d) => ({
+      leagueId: d.leagueId,
+      championId: d.championId,
+      promotedIds: d.promotedIds,
+      relegatedIds: d.relegatedIds,
+      topScorer: d.topScorer ? { name: d.topScorer.name, clubName: d.topScorer.clubName, goals: d.topScorer.goals } : null,
+    })),
+  };
+  state.history = [...state.history, record];
+
+  // AC 10, door 4: 4 down from each division, 4 up from the one below, appended in table order.
+  for (let i = 0; i + 1 < state.leagues.length; i++) {
+    const upper = state.leagues[i]!;
+    const lower = state.leagues[i + 1]!;
+    const down = review.divisions[i]!.relegatedIds;
+    const up = review.divisions[i + 1]!.promotedIds;
+    const goingDown = down.map((id) => upper.clubs.find((c) => c.id === id)!);
+    const goingUp = up.map((id) => lower.clubs.find((c) => c.id === id)!);
+    upper.clubs = [...upper.clubs.filter((c) => !down.includes(c.id)), ...goingUp];
+    lower.clubs = [...lower.clubs.filter((c) => !up.includes(c.id)), ...goingDown];
+  }
+
+  // AC 35: a fired manager takes the club they picked; the old one is the AI's now.
+  if (fired && jobClubId) {
+    const old = allClubs(state).find((c) => c.id === input.userClubId);
+    if (old) old.lineup = null;
+    state.userClubId = jobClubId;
+  }
+  const userId = state.userClubId;
+  const userBefore = new Map((allClubs(state).find((c) => c.id === userId)?.players ?? []).map((p) => [p.id, p.rating]));
+  const retired: RolloverReport["retired"] = [];
+  const expired: RolloverReport["expired"] = [];
+
+  // AC 16-18, 27, 28, 37: every player at a club.
+  for (const club of allClubs(state)) {
+    const isUser = club.id === userId;
+    const stay: Player[] = [];
+    for (const p of club.players) {
+      const next = ageOneSeason(rng, p);
+      if (!next) {
+        if (isUser) retired.push({ id: p.id, name: p.name });
+        continue;
+      }
+      if (next.contractSeasons > 1) {
+        stay.push({ ...next, contractSeasons: next.contractSeasons - 1 });
+      } else if (!isUser && p.age <= AI_RENEW_MAX_AGE) {
+        stay.push({ ...next, contractSeasons: randInt(rng, AI_RENEW_SEASONS.min, AI_RENEW_SEASONS.max), salary: salaryFor(next.rating) });
+      } else {
+        if (isUser) expired.push({ id: p.id, name: p.name });
+        state.market.freeAgents.push({ ...next, contractSeasons: 0 });
+      }
+    }
+    club.players = stay;
+    forgetDeparted(club);
+  }
+  // Free agents age too; the ones who just left their club already did.
+  const leaving = new Set(allClubs(input).flatMap((c) => c.players.map((p) => p.id)));
+  state.market.freeAgents = state.market.freeAgents.flatMap((p) => {
+    if (leaving.has(p.id)) return [p];
+    const next = ageOneSeason(rng, p);
+    return next ? [next] : [];
+  });
+
+  const taken = takenNames(state);
+  for (const club of allClubs(state)) {
+    if (club.id !== userId) refillFromAcademy(rng, club, season, taken);
+  }
+  topUpFreeAgents(rng, state, season, taken);
+
+  // AC 11, 13: new market window with 3 juniors, no offers; money, stadium and loans untouched.
+  state.market.offers = [];
+  state.market.juniors = generateJuniors(rng, takenNames(state), season, 1);
+  for (const league of state.leagues) {
+    league.rounds = generateSchedule(shuffle(rng, league.clubs.map((c) => c.id)));
+    league.currentRound = 0;
+  }
+
+  const user = allClubs(state).find((c) => c.id === userId);
+  if (user) user.lineup = autoLineup(user, (!fired && user.lineup?.formation) || AI_FORMATION);
+  if (user && !fired && input.leagues.length) {
+    const before = allClubs(input).find((c) => c.id === userId)?.lineup;
+    if (before && user.lineup) user.lineup = { ...user.lineup, posture: before.posture };
+  }
+
+  state.season = season;
+  state.boardGoal = userBoardGoal(state);
+  const advance = createRng(input.rngState);
+  advance.next();
+  state.rngState = advance.getState();
+
+  const divisionIndex = userId ? state.leagues.findIndex((l) => l.clubs.some((c) => c.id === userId)) : -1;
+  const changes = (user?.players ?? [])
+    .filter((p) => userBefore.has(p.id))
+    .map((p) => ({ playerId: p.id, name: p.name, position: p.position, before: userBefore.get(p.id)!, after: p.rating }));
+  return { state, report: { season, retired, expired, changes, divisionIndex, boardGoal: state.boardGoal } };
+}

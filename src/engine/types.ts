@@ -31,9 +31,22 @@ export interface Condition {
   idleRounds: number;
 }
 
-export interface Player extends PlayerCore, Condition {
+/** Door 1 (save v4): games and goals, this season and before it. */
+export interface PlayerStats {
+  seasonGames: number;
+  seasonGoals: number;
+  /** Seasons already closed; the current season is not in here yet. */
+  careerGames: number;
+  careerGoals: number;
+}
+
+export const ZERO_STATS: Readonly<PlayerStats> = { seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0 };
+
+export interface Player extends PlayerCore, Condition, PlayerStats {
   /** Reais per round, fixed when the player is generated or joins a club; never derived from rating (door 2). */
   salary: number;
+  /** Seasons left, counting the current one. At least 1 while at a club; 0 for free agents and juniors (door 1). */
+  contractSeasons: number;
 }
 
 export const FRESH_CONDITION: Readonly<Condition> = {
@@ -70,6 +83,8 @@ export interface Ledger {
   transfersIn: number;
   /** Money paid for purchases, sign-on fees and releases since the previous close. */
   transfersOut: number;
+  /** End-of-season prize by table position; only on the ledger of the last round (AC 29). */
+  prize?: number;
 }
 
 /** Door 1 (save v3): a club's money and stadium. Every amount is an integer in reais (AD-006). */
@@ -148,7 +163,29 @@ export interface Market {
   offers: Offer[];
 }
 
-export const SCHEMA_VERSION = 3 as const;
+export const SCHEMA_VERSION = 4 as const;
+
+export type Verdict = "met" | "missed" | "fired";
+
+/** One division's season, kept by name where players may retire and vanish (door 1). */
+export interface DivisionRecord {
+  leagueId: string;
+  championId: string;
+  promotedIds: string[];
+  relegatedIds: string[];
+  topScorer: { name: string; clubName: string; goals: number } | null;
+}
+
+/** Door 1: one entry per closed season, never rewritten. */
+export interface SeasonRecord {
+  season: number;
+  userClubId: string | null;
+  userLeagueId: string | null;
+  userPosition: number | null;
+  verdict: Verdict | null;
+  prize: number;
+  divisions: DivisionRecord[];
+}
 
 /** Door 1: the whole save document. */
 export interface GameState {
@@ -157,8 +194,12 @@ export interface GameState {
   rngState: number;
   season: number;
   userClubId: string | null;
+  /** Door 4: `leagues[0]` is the Série A and `leagues[1]` the Série B. */
   leagues: League[];
   market: Market;
+  history: SeasonRecord[];
+  /** Worst acceptable final position for the user this season; 0 before a club is chosen (AC 30). */
+  boardGoal: number;
 }
 
 export type MatchEventType =

@@ -80,6 +80,8 @@ export interface LiveSide {
 
 export interface LiveMatch {
   matchId: string;
+  /** The division the match belongs to; match ids repeat across divisions. */
+  leagueId: string;
   home: LiveSide;
   away: LiveSide;
   homeGoals: number;
@@ -90,7 +92,7 @@ export interface LiveMatch {
 }
 
 export interface LiveRound {
-  /** Index into league.rounds. */
+  /** Index into each league's rounds; both divisions play the same round. */
   roundIndex: number;
   roundNumber: number;
   /** Last minute simulated, 0 before kick-off. */
@@ -137,8 +139,8 @@ export function makeSide(
   };
 }
 
-export function makeMatch(matchId: string, home: LiveSide, away: LiveSide, rngState: number): LiveMatch {
-  return { matchId, home, away, homeGoals: 0, awayGoals: 0, goals: [], events: [], rngState };
+export function makeMatch(matchId: string, home: LiveSide, away: LiveSide, rngState: number, leagueId = "l1"): LiveMatch {
+  return { matchId, leagueId, home, away, homeGoals: 0, awayGoals: 0, goals: [], events: [], rngState };
 }
 
 function sideOf(m: LiveMatch, clubId: string): LiveSide | null {
@@ -356,24 +358,26 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function userLeagueOf(state: GameState): League {
-  const league = state.leagues[0];
-  if (!league) throw new Error("save has no league");
-  return league;
-}
+/** Salt of the Série B match streams (door 2 of multiplas-temporadas). */
+const SERIE_B_MATCH_SALT = 0xb;
 
-/** Door 2: the seed of each match depends only on the save's state, the round and the match's index. */
-export function matchSeed(rngState: number, roundNumber: number, matchIndex: number): number {
-  return mix32(rngState, roundNumber * 16 + matchIndex);
+/**
+ * Door 2: the seed of each match depends only on the save's state, the round, the match's index
+ * and its division. The Série A keeps the core's formula; the Série B mixes in its own salt first.
+ */
+export function matchSeed(rngState: number, roundNumber: number, matchIndex: number, divisionIndex = 0): number {
+  const base = divisionIndex === 0 ? rngState : mix32(rngState, SERIE_B_MATCH_SALT);
+  return mix32(base, roundNumber * 16 + matchIndex);
 }
 
 export function startRound(state: GameState): LiveRound {
-  const league = userLeagueOf(state);
-  const round = league.rounds[league.currentRound];
-  if (!round) throw new Error("season is over");
+  const first = state.leagues[0];
+  if (!first) throw new Error("save has no league");
+  const roundIndex = first.currentRound;
+  if (!first.rounds[roundIndex]) throw new Error("season is over");
   const players: Record<string, LivePlayer> = {};
-  const clubs = new Map(league.clubs.map((c) => [c.id, c]));
-  for (const c of league.clubs) for (const p of c.players) players[p.id] = { ...p };
+  const clubs = new Map(state.leagues.flatMap((l: League) => l.clubs).map((c) => [c.id, c]));
+  for (const c of clubs.values()) for (const p of c.players) players[p.id] = { ...p };
 
   const sideFor = (clubId: string): LiveSide => {
     const club = clubs.get(clubId);
@@ -390,10 +394,16 @@ export function startRound(state: GameState): LiveRound {
     return makeSide(clubId, slotPos, starters, bench, players, { formation: lineup.formation, posture: lineup.posture ?? "balanced", isUser });
   };
 
-  const matches = round.matches.map((match, i) =>
-    makeMatch(match.id, sideFor(match.homeId), sideFor(match.awayId), matchSeed(state.rngState, round.number, i)),
-  );
-  return { roundIndex: league.currentRound, roundNumber: round.number, minute: 0, userClubId: state.userClubId, matches, players };
+  // AC 3: the 20 matches of the round, Série A first.
+  const matches = state.leagues.flatMap((league, division) => {
+    const round = league.rounds[roundIndex];
+    if (!round) throw new Error("divisions out of step");
+    return round.matches.map((match, i) =>
+      makeMatch(match.id, sideFor(match.homeId), sideFor(match.awayId), matchSeed(state.rngState, round.number, i, division), league.id),
+    );
+  });
+  const roundNumber = first.rounds[roundIndex]!.number;
+  return { roundIndex, roundNumber, minute: 0, userClubId: state.userClubId, matches, players };
 }
 
 function stepInPlace(live: LiveRound): void {

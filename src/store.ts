@@ -15,12 +15,25 @@ import {
 } from "./engine/live";
 import * as finance from "./engine/finance";
 import * as market from "./engine/market";
+import { userBoardGoal } from "./engine/board";
+import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
 import type { Club, Finance, FormationName, GameState, Posture } from "./engine/types";
 import { isStorageAvailable, loadGame, saveGame } from "./persistence/save";
 import { formatMoney } from "./ui/money";
 
-export type Phase = "loading" | "home" | "chooseClub" | "squad" | "market" | "finance" | "live" | "round" | "end";
+export type Phase =
+  | "loading"
+  | "home"
+  | "chooseClub"
+  | "squad"
+  | "market"
+  | "finance"
+  | "live"
+  | "round"
+  | "end"
+  | "newSeason"
+  | "history";
 export type SaveStatus = "ok" | "failed" | "unavailable";
 export type LastRound = Omit<RoundOutcome, "state">;
 export type Clock = "running" | "paused" | "halftime";
@@ -67,6 +80,8 @@ export function refusalText(reason: Refusal, amount = 0): string {
       return "Valor maior que a dívida";
     case "invalid":
       return "Valor inválido";
+    case "not_last_year":
+      return "Só renova no último ano de contrato";
   }
 }
 
@@ -91,6 +106,8 @@ export interface GameStore {
   marketMessage: string | null;
   /** A market or finance action is being saved; further actions wait. */
   saving: boolean;
+  /** What the last «Próxima temporada» changed (AC 14). In memory only. */
+  rolloverReport: RolloverReport | null;
   init(): Promise<void>;
   newGame(seed?: number): void;
   chooseClub(clubId: string): Promise<void>;
@@ -121,6 +138,11 @@ export interface GameStore {
   expandStadium(): Promise<boolean>;
   takeLoan(amount: number): Promise<boolean>;
   repayLoan(amount: number): Promise<boolean>;
+  /** AC 26. */
+  renewContract(playerId: string): Promise<boolean>;
+  /** «Próxima temporada» (AC 10-15, 35): saves the new season, then shows «Nova temporada». */
+  nextSeason(jobClubId?: string): Promise<void>;
+  goToHistory(): void;
   continueGame(): void;
   goToSquad(): void;
   goHome(): void;
@@ -212,6 +234,7 @@ export const useGame = create<GameStore>()((set, get) => {
     finishing: false,
     marketMessage: null,
     saving: false,
+    rolloverReport: null,
 
     async init() {
       // Only the first mount reads storage; StrictMode's second effect run is a no-op.
@@ -237,7 +260,9 @@ export const useGame = create<GameStore>()((set, get) => {
     async chooseClub(clubId) {
       const game = get().game;
       if (!game) return;
-      const next = editUserClub({ ...game, userClubId: clubId }, (club) => ({ ...club, lineup: autoLineup(club, AI_FORMATION) }));
+      const chosen = editUserClub({ ...game, userClubId: clubId }, (club) => ({ ...club, lineup: autoLineup(club, AI_FORMATION) }));
+      // AC 30: the board sets the goal when the manager arrives.
+      const next = { ...chosen, boardGoal: userBoardGoal(chosen) };
       set({ game: next });
       await persist(next, set);
       set({ phase: "squad" });
@@ -334,6 +359,20 @@ export const useGame = create<GameStore>()((set, get) => {
     expandStadium: () => commit((g) => withUserFinance(g, (f) => finance.expandStadium(f))),
     takeLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.takeLoan(f, amount))),
     repayLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.repayLoan(f, amount))),
+    renewContract: (playerId) => commit((g) => market.renewContract(g, playerId)),
+
+    async nextSeason(jobClubId) {
+      const { game, saving } = get();
+      if (!game || saving || !isSeasonOver(userLeague(game))) return;
+      set({ saving: true });
+      const { state, report } = rollOver(game, jobClubId);
+      await persist(state, set);
+      set({ game: state, rolloverReport: report, phase: "newSeason", saving: false, lastRound: null, marketMessage: null });
+    },
+
+    goToHistory() {
+      set({ phase: "history", marketMessage: null });
+    },
 
     continueGame() {
       const game = get().game;

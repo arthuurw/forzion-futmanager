@@ -23,10 +23,10 @@
 
 ## Handoff
 
-**Feature**: ajustes-4a e paises (4b) planejados; nada em build
-**Where**: planos aprovados pelo autor em 27/09/2026 e checks escritos - ajustes-4a C1–C12 (~47k), paises C1–C33 (~123k), `validate_plan.py` e `validate_checks.py` 0 nos dois
-**In progress**: nada - o autor pediu para não executar ainda
-**Next step**: quando o autor liberar, build de ajustes-4a com um builder, Verifier; depois build de paises com um builder, Verifier. AD-016 vira `active` quando paises for verificada
-**Blockers**: aguardando o autor liberar a execução
+**Feature**: ajustes-4a verificada (PASS, 7f09c28..8050291); paises (4b) em build
+**Where**: ajustes-4a C1–C12 fechados e verificados; paises C1–C33 (~123k), base 8050291+relatório
+**In progress**: build de paises com um builder
+**Next step**: Verifier de paises; AD-016 vira `active` quando paises for verificada
+**Blockers**: none
 **Uncommitted**: none
 **Branch**: main

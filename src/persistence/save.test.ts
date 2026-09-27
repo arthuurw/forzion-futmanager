@@ -30,7 +30,7 @@ describe("save (door 1, door 7)", () => {
     const db = await openDB(DB_NAME, DB_VERSION);
     const doc = await db.get(STORE, SLOT);
     db.close();
-    expect(DB_NAME).toBe("brasfoot");
+    expect(DB_NAME).toBe("forzion-futmanager");
     expect(STORE).toBe("saves");
     expect(SLOT).toBe("slot-1");
     expect(doc.schemaVersion).toBe(5);

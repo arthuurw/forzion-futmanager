@@ -3,7 +3,7 @@ import { migrateSave } from "../engine/migrate";
 import type { GameState } from "../engine/types";
 
 // Door 1: one document, one slot.
-export const DB_NAME = "brasfoot";
+export const DB_NAME = "forzion-futmanager";
 export const DB_VERSION = 1;
 export const STORE = "saves";
 export const SLOT = "slot-1";

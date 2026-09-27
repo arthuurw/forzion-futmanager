@@ -18,13 +18,14 @@
 | AD-012 | O valor de mercado segue a força atual (`salaryFor(força) × 50 × fator de idade`), não o salário guardado; o salário só muda na contratação ou na renovação | com evolução por idade, um jovem que cresce precisa valer mais; plano de multiplas-temporadas (AC 21) | active | 2026-09-26 |
 | AD-013 | Competições além da liga vivem em `GameState.cups[]` (a copa nacional é `cups[0]`, id `"cup-nat"`); a disciplina de copa fica em `Player.cupDiscipline[cupId]`, e `yellowCards`/`suspendedRounds` de topo são só da liga | a copa continental (4c) entra como mais um elemento sem save novo; plano de copa-nacional (doors 1 e 6) | active | 2026-09-26 |
 | AD-014 | O calendário não é gravado: a próxima data sai de `League.currentRound` e de `CupPhase.afterLeagueRound` (`engine/calendar.nextDate`) | um ponteiro próprio duplicaria o estado e poderia divergir; plano de copa-nacional (door 4) | active | 2026-09-26 |
+| AD-015 | Nome do produto é «Forzion FutManager» (marca do autor); o banco IndexedDB passa de `brasfoot` para `forzion-futmanager`, sem cópia do banco antigo. Substitui só o nome do banco na door 1 de nucleo-liga-partida (C15); store, chave e documento continuam iguais | «Brasfoot» é marca de terceiros; antes do lançamento não há save de usuário real a preservar | active | 2026-09-27 |
 
 ## Handoff
 
-**Feature**: copa-nacional (sub-projeto 4a; o 4 foi quebrado em 4a copa nacional -> 4b países -> 4c copa continental)
-**Where**: plano e checks escritos (C1–C63), `validate_plan.py` e `validate_checks.py` 0 - build não iniciado, por pedido do autor
-**In progress**: nada
-**Next step**: build com um builder (~91k, budget 150k), depois o Verifier
+**Feature**: gastos-da-ia (depois de copa-nacional, sub-projeto 4a, verificada PASS em 27/09/2026, `2681ca6`)
+**Where**: plano e checks aprovados (C1–C33, `6bfea94`); build começando com um builder (~64k, budget 150k), depois o Verifier
+**In progress**: build de gastos-da-ia
+**Next step**: Verifier de gastos-da-ia; depois 4b países. Pendência de plano da copa: L-017 (AC 23 × AC 44 - usuário eliminado precisa tirar suspenso de copa da escalação nas datas de copa que não joga)
 **Blockers**: none
-**Uncommitted**: `.specs/features/copa-nacional/plan.md`, `.specs/features/copa-nacional/checks.md`, `.specs/STATE.md`
+**Uncommitted**: none
 **Branch**: main

@@ -1,5 +1,7 @@
 import { useEffect } from "react";
+import { audio } from "./audio";
 import { useGame } from "./store";
+import { AudioToggles } from "./ui/AudioToggles";
 import { Banner } from "./ui/Banner";
 import { ChooseClub } from "./ui/ChooseClub";
 import { Cup } from "./ui/Cup";
@@ -20,6 +22,10 @@ export function App() {
   useEffect(() => {
     void init();
   }, [init]);
+  // Audio AC 14: the screen picks the music.
+  useEffect(() => {
+    audio().setPhase(phase);
+  }, [phase]);
 
   const onTitle = phase === "loading" || phase === "home";
 
@@ -31,6 +37,12 @@ export function App() {
             Forzion FutManager
           </span>
           {season !== undefined && <span className="season">Temporada {season}</span>}
+          <AudioToggles />
+        </div>
+      )}
+      {onTitle && (
+        <div className="title-audio">
+          <AudioToggles />
         </div>
       )}
       <Banner />

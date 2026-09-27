@@ -296,6 +296,34 @@ h1.title-bar {
   letter-spacing: 0.08em;
 }
 
+/* Audio switches: at the right of the top strip, or in the title screen's corner. */
+.top-strip > .logo {
+  margin-right: auto;
+}
+
+.audio-toggles.speeds button.speed {
+  padding: 4px 9px;
+  font-size: 0.75rem;
+}
+
+.title-audio {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 2;
+}
+
+@media (max-width: 900px) {
+  /* Logo, season and switches do not fit one phone row: the switches wrap below. */
+  .top-strip {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .top-strip .audio-toggles {
+    margin-left: auto;
+  }
+}
+
 /* ---------- panels ---------- */
 
 .panel {

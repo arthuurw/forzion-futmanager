@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { playRound } from "./engine/season";
 import { computeTable } from "./engine/table";
@@ -7,6 +7,8 @@ import { loadGame, saveGame } from "./persistence/save";
 import { useGame, userClub } from "./store";
 import { App } from "./App";
 import { nextSeason } from "./engine/rollover";
+import { installAudio } from "./audio";
+import { fakeBackend, musicRamps, trackStarts, type FakeBackend } from "./audio/test-backend";
 import { resetAll, resetStore, seededGame, seededGameIn, skipLive } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can observe the order of save and render. */
@@ -42,7 +44,8 @@ describe("fluxo do app", () => {
 
     const gate = deferred();
     ctl.gate = gate.promise;
-    const [first] = screen.getAllByRole("button");
+    // Audio: the top strip's sound switches come first now; the first club card is the target.
+    const [first] = screen.getAllByRole("button").filter((b) => b.classList.contains("club-card"));
     await user.click(first!);
     // Save is in flight and blocked: the squad screen must not be up yet.
     expect(vi.mocked(saveGame)).toHaveBeenCalledTimes(1);
@@ -110,7 +113,8 @@ describe("fluxo do app", () => {
     render(<App />);
     expect(await screen.findByText("Salvamento indisponível neste navegador")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Novo jogo" }));
-    await user.click((await screen.findAllByRole("button"))[0]!);
+    // Audio: the sound switches come first in the top strip; take the first club card.
+    await user.click((await screen.findAllByRole("button")).filter((b) => b.classList.contains("club-card"))[0]!);
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
     expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
@@ -329,5 +333,100 @@ describe("países no app (paises)", () => {
     const names = rows.map((r) => r.querySelector(".club-name-text")!.textContent);
     expect(new Set(names)).toEqual(new Set(useGame.getState().game!.leagues[3]!.clubs.map((c) => c.name)));
     expect(names).toContain(me.name);
+  });
+});
+
+describe("som no app (audio)", () => {
+  let backend: FakeBackend;
+  beforeEach(() => {
+    localStorage.clear();
+    backend = fakeBackend();
+    installAudio(backend);
+  });
+
+  const pressed = (buttons: HTMLElement[]) => buttons.map((b) => [b.textContent, b.getAttribute("aria-pressed")]);
+  const GESTAO = ["audio/music/gestao-1.mp3", "audio/music/gestao-2.mp3", "audio/music/gestao-3.mp3"];
+
+  test("botões de áudio na tela inicial e no top strip", async () => {
+    // C1: nothing stored, both on, «Música» before «Efeitos».
+    const view = render(<App />);
+    await screen.findByRole("button", { name: "Novo jogo" });
+    const title = view.container.querySelector<HTMLElement>(".title-audio")!;
+    expect(pressed(within(title).getAllByRole("button"))).toEqual([
+      ["Música", "true"],
+      ["Efeitos", "true"],
+    ]);
+    view.unmount();
+
+    useGame.setState({ phase: "squad", game: seededGame(3), hasSave: true });
+    const squad = render(<App />);
+    expect(screen.getByRole("table", { name: "Elenco" })).toBeInTheDocument();
+    const strip = squad.container.querySelector<HTMLElement>(".top-strip")!;
+    expect(pressed(within(strip).getAllByRole("button"))).toEqual([
+      ["Música", "true"],
+      ["Efeitos", "true"],
+    ]);
+  });
+
+  test("preferências de áudio gravadas e relidas", async () => {
+    // C2 (door 1, L-001).
+    const user = userEvent.setup();
+    const view = render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Música" }));
+    expect(localStorage.getItem("forzion-futmanager:audio")).toBe('{"music":false,"sfx":true}');
+    expect(screen.getByRole("button", { name: "Música" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: "Efeitos" }));
+    expect(localStorage.getItem("forzion-futmanager:audio")).toBe('{"music":false,"sfx":false}');
+    expect(screen.getByRole("button", { name: "Efeitos" })).toHaveAttribute("aria-pressed", "false");
+    view.unmount();
+
+    // Reload with the key written first.
+    localStorage.setItem("forzion-futmanager:audio", '{"music":false,"sfx":false}');
+    resetStore();
+    installAudio(fakeBackend());
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Música" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Efeitos" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  for (const gesture of ["pointerdown", "keydown"] as const) {
+    test(`primeiro gesto inicia a música de abertura (${gesture})`, async () => {
+      // C5 through the app.
+      render(<App />);
+      await screen.findByRole("button", { name: "Novo jogo" });
+      expect(backend.calls).toEqual([]);
+      if (gesture === "pointerdown") fireEvent.pointerDown(document);
+      else fireEvent.keyDown(document, { key: "a" });
+      expect(backend.calls[0]).toEqual({ kind: "start" });
+      await waitFor(() => expect(trackStarts(backend.calls)).toEqual(["audio/music/abertura.mp3"]));
+    });
+  }
+
+  test("tela ao vivo cala a música", async () => {
+    // C13 through the app.
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game: seededGame(5), hasSave: true });
+    render(<App />);
+    fireEvent.pointerDown(document);
+    await waitFor(() => expect(trackStarts(backend.calls)).toHaveLength(1));
+    expect(GESTAO).toContain(trackStarts(backend.calls)[0]);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    expect(await screen.findByRole("timer", { name: "Relógio" })).toBeInTheDocument();
+    expect(musicRamps(backend.calls)).toEqual([{ kind: "music-ramp", gain: 0, seconds: 1 }]);
+  });
+
+  test("trocar de tela de gestão não recomeça a faixa", async () => {
+    // C16 through the app.
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game: seededGame(5), hasSave: true });
+    render(<App />);
+    fireEvent.pointerDown(document);
+    await waitFor(() => expect(trackStarts(backend.calls)).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "Mercado" }));
+    await user.click(await screen.findByRole("button", { name: "Voltar ao elenco" }));
+    expect(await screen.findByRole("table", { name: "Elenco" })).toBeInTheDocument();
+    expect(trackStarts(backend.calls)).toHaveLength(1);
+    expect(backend.calls.filter((c) => c.kind === "stop-track")).toEqual([]);
+    expect(musicRamps(backend.calls)).toEqual([]);
   });
 });

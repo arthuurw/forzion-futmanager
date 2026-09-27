@@ -17,11 +17,11 @@ Quando isto for entregue:
 
 Reutiliza a `phase` da store para escolher a música e os `events` da partida do usuário, que a tela ao vivo já lê para a narração. O motor não muda, e nenhum evento novo é criado.
 
-1. qualquer clique ou tecla → `src/audio` (door 2) - cria o `AudioContext` no primeiro gesto e lê as preferências (door 1)
+1. `App` (exists) - ao montar, cria o áudio de `src/audio` (door 2), que lê as preferências (door 1); qualquer clique ou tecla → `src/audio` cria o `AudioContext` no primeiro gesto
 2. `App` (exists) - repassa a `phase` a `src/audio`, que a traduz num contexto de música (abertura, gestão, fim de temporada ou nenhum) e troca de faixa só quando o contexto muda
 3. `src/audio` (door 2) - baixa a faixa do contexto de `public/audio/music/` (door 3) na primeira vez que o contexto toca e alterna entre faixa e silêncio
 4. tela `Live` (exists) - a cada minuto, repassa a `src/audio` os eventos novos da partida do usuário e o estado do relógio; `src/audio` sintetiza o efeito de cada evento e o som ambiente da torcida
-5. top strip e tela inicial (exist) - os botões «Música» e «Efeitos» gravam as preferências (door 1) e ligam ou desligam o áudio na hora
+5. `AudioToggles` (new), que o `App` põe no top strip e num canto da tela inicial - os botões «Música» e «Efeitos» gravam as preferências (door 1) e ligam ou desligam o áudio na hora
 
 ## Impact
 

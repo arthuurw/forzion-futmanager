@@ -13,24 +13,24 @@ Ids de efeito fixados aqui para os testes: `whistle-short`, `whistle-double`, `w
 
 ### S1 - O usuário controla o som · ~6 files · ~60 KB · ~15k
 
-**C1** - Sem preferência gravada, a tela inicial e o top strip da tela Elenco mostram os botões «Música» e «Efeitos», nessa ordem, os dois com `aria-pressed="true"` (AC 1, AC 3)
+**C1** - ✓ Sem preferência gravada, a tela inicial e o top strip da tela Elenco mostram os botões «Música» e «Efeitos», nessa ordem, os dois com `aria-pressed="true"` (AC 1, AC 3)
 Proof: `npx vitest run src/app.test.tsx -t "botões de áudio na tela inicial e no top strip"`
 
-**C2** - Apertar «Música» grava `{"music":false,"sfx":true}` na chave `forzion-futmanager:audio` e deixa o botão com `aria-pressed="false"`; apertar «Efeitos» em seguida grava `{"music":false,"sfx":false}`. Com `{"music":false,"sfx":false}` escrito na chave antes de montar o `App`, os dois botões abrem com `aria-pressed="false"` (AC 2, door 1, L-001)
+**C2** - ✓ Apertar «Música» grava `{"music":false,"sfx":true}` na chave `forzion-futmanager:audio` e deixa o botão com `aria-pressed="false"`; apertar «Efeitos» em seguida grava `{"music":false,"sfx":false}`. Com `{"music":false,"sfx":false}` escrito na chave antes de montar o `App`, os dois botões abrem com `aria-pressed="false"` (AC 2, door 1, L-001)
 Proof: `npx vitest run src/app.test.tsx -t "preferências de áudio gravadas e relidas"`
 
-**C3** - Tabela do valor na chave → estado lido: ausente → `{music: true, sfx: true}`; `{"music":false,"sfx":true}` → `{music: false, sfx: true}`; `lixo` (JSON inválido) → os dois ligados; `{"music":"no","sfx":1}` (tipo errado) → os dois ligados; `getItem` que lança → os dois ligados, sem exceção; `setItem` que lança ao gravar → sem exceção, e o estado em memória muda mesmo assim (AC 3, AC 4, door 1)
+**C3** - ✓ Tabela do valor na chave → estado lido: ausente → `{music: true, sfx: true}`; `{"music":false,"sfx":true}` → `{music: false, sfx: true}`; `lixo` (JSON inválido) → os dois ligados; `{"music":"no","sfx":1}` (tipo errado) → os dois ligados; `getItem` que lança → os dois ligados, sem exceção; `setItem` que lança ao gravar → sem exceção, e o estado em memória muda mesmo assim (AC 3, AC 4, door 1)
 Proof: `npx vitest run src/audio/prefs.test.ts -t "leitura e gravação das preferências"`
 
 **C4** - Com a faixa de gestão tocando, desligar a música registra uma rampa do ganho da música até 0 com duração de no máximo 1 s. Com os efeitos desligados, um `goal` do usuário não registra nenhum efeito tocado; religados, o próximo `goal` registra `crowd-roar` (AC 2)
 Proof: `npx vitest run src/audio/music.test.ts -t "desligar a música some em até 1 s"`
 Proof: `npx vitest run src/audio/sfx.test.ts -t "efeitos desligados não tocam"`
 
-**C5** - Antes do primeiro gesto, com a tela inicial aberta e um evento `kickoff` enviado, o backend não registra contexto criado, arquivo baixado nem som tocado. Depois de um `pointerdown` no documento, o contexto é criado e a faixa `abertura` começa. Depois de um `keydown` (num segundo teste, sem `pointerdown`), o mesmo acontece (AC 5, AC 20)
+**C5** - ✓ Antes do primeiro gesto, com a tela inicial aberta e um evento `kickoff` enviado, o backend não registra contexto criado, arquivo baixado nem som tocado. Depois de um `pointerdown` no documento, o contexto é criado e a faixa `abertura` começa. Depois de um `keydown` (num segundo teste, sem `pointerdown`), o mesmo acontece (AC 5, AC 20)
 Proof: `npx vitest run src/audio/music.test.ts -t "nada toca antes do primeiro gesto"`
 Proof: `npx vitest run src/app.test.tsx -t "primeiro gesto inicia a música de abertura"`
 
-**C6** - Com `document.hidden` passando a `true` e um `visibilitychange`, o backend registra `suspend`; voltando a `false`, registra `resume`, e a faixa não recomeça (AC 6)
+**C6** - ✓ Com `document.hidden` passando a `true` e um `visibilitychange`, o backend registra `suspend`; voltando a `false`, registra `resume`, e a faixa não recomeça (AC 6)
 Proof: `npx vitest run src/audio/music.test.ts -t "aba escondida suspende o áudio"`
 
 ### S2 - A partida do usuário tem som · ~5 files · ~75 KB · ~19k
@@ -54,7 +54,7 @@ Proof: `npx vitest run src/audio/sfx.test.ts -t "mesmo efeito em menos de 400 ms
 **C12** - Pela tela ao vivo, num minuto em que a partida do usuário ainda tem pela frente pelo menos um `goal` e um `shot_saved` ou `shot_missed`, apertar «Pular para o fim» registra exatamente um efeito: `whistle-long` (AC 12, L-007)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "pular para o fim toca só o apito final"`
 
-**C13** - Com a faixa de gestão tocando, a `phase` passar a `live` registra uma rampa do ganho da música até 0 com duração de 1 s, e nenhuma faixa começa enquanto a `phase` é `live`, mesmo depois de 120 s de relógio falso. Pelo ponto de entrada, «Jogar rodada» a partir da tela Elenco registra a mesma rampa (AC 13)
+**C13** - ✓ Com a faixa de gestão tocando, a `phase` passar a `live` registra uma rampa do ganho da música até 0 com duração de 1 s, e nenhuma faixa começa enquanto a `phase` é `live`, mesmo depois de 120 s de relógio falso. Pelo ponto de entrada, «Jogar rodada» a partir da tela Elenco registra a mesma rampa (AC 13)
 Proof: `npx vitest run src/audio/music.test.ts -t "sem música na partida"`
 Proof: `npx vitest run src/app.test.tsx -t "tela ao vivo cala a música"`
 
@@ -63,40 +63,40 @@ Proof: `npx vitest run src/ui/Live.test.tsx -t "áudio não mexe no sorteio do j
 
 ### S3 - A música acompanha as telas sem cansar · ~3 files · ~45 KB · ~11k
 
-**C15** - Tabela sobre as 12 `Phase` → contexto: `home` e `chooseClub` → abertura; `squad`, `market`, `finance`, `round`, `history` e `cup` → gestão; `end` e `newSeason` → fim de temporada; `loading` e `live` → nenhum. O mapa é um `Record<Phase, …>`, então uma `Phase` nova sem contexto não compila (AC 14)
+**C15** - ✓ Tabela sobre as 12 `Phase` → contexto: `home` e `chooseClub` → abertura; `squad`, `market`, `finance`, `round`, `history` e `cup` → gestão; `end` e `newSeason` → fim de temporada; `loading` e `live` → nenhum. O mapa é um `Record<Phase, …>`, então uma `Phase` nova sem contexto não compila (AC 14)
 Proof: `npx vitest run src/audio/music.test.ts -t "contexto de cada tela"`
 
-**C16** - `squad` → `market` → `finance` → `squad` registra um único início de faixa de gestão, nenhuma parada e nenhuma rampa. Pelo ponto de entrada, ir da tela Elenco ao Mercado e voltar registra o mesmo (AC 15, L-003)
+**C16** - ✓ `squad` → `market` → `finance` → `squad` registra um único início de faixa de gestão, nenhuma parada e nenhuma rampa. Pelo ponto de entrada, ir da tela Elenco ao Mercado e voltar registra o mesmo (AC 15, L-003)
 Proof: `npx vitest run src/audio/music.test.ts -t "mesmo contexto não recomeça"`
 Proof: `npx vitest run src/app.test.tsx -t "trocar de tela de gestão não recomeça a faixa"`
 
-**C17** - Com uma faixa de gestão tocando, a `phase` passar a `end` registra uma rampa da faixa atual até 0 com duração de 1 s; a 999 ms `fim-de-temporada` ainda não começou, e a 1000 ms começou. Se a `phase` volta a um contexto de gestão durante o fade, só a faixa do último contexto começa (AC 16)
+**C17** - ✓ Com uma faixa de gestão tocando, a `phase` passar a `end` registra uma rampa da faixa atual até 0 com duração de 1 s; a 999 ms `fim-de-temporada` ainda não começou, e a 1000 ms começou. Se a `phase` volta a um contexto de gestão durante o fade, só a faixa do último contexto começa (AC 16)
 Proof: `npx vitest run src/audio/music.test.ts -t "troca de contexto com fade de 1 s"`
 
-**C18** - Quando uma faixa termina: com um `Rng` que devolve 0, a próxima começa a 30 s e não a 29,999 s; com um que devolve 0,999999, começa entre 89,9 s e 90 s e não antes de 89,9 s; com um `Rng` semeado com 1, em 200 fins seguidos todo silêncio fica entre 30 e 90 s (AC 17)
+**C18** - ✓ Quando uma faixa termina: com um `Rng` que devolve 0, a próxima começa a 30 s e não a 29,999 s; com um que devolve 0,999999, começa entre 89,9 s e 90 s e não antes de 89,9 s; com um `Rng` semeado com 1, em 200 fins seguidos todo silêncio fica entre 30 e 90 s (AC 17)
 Proof: `npx vitest run src/audio/music.test.ts -t "silêncio de 30 a 90 s entre faixas"`
 
-**C19** - No contexto gestão, com um `Rng` semeado com 1, em 50 faixas seguidas nenhuma é igual à anterior e as 3 (`gestao-1`, `gestao-2`, `gestao-3`) aparecem. No contexto fim de temporada, `fim-de-temporada` volta a tocar depois do silêncio (AC 18)
+**C19** - ✓ No contexto gestão, com um `Rng` semeado com 1, em 50 faixas seguidas nenhuma é igual à anterior e as 3 (`gestao-1`, `gestao-2`, `gestao-3`) aparecem. No contexto fim de temporada, `fim-de-temporada` volta a tocar depois do silêncio (AC 18)
 Proof: `npx vitest run src/audio/music.test.ts -t "próxima faixa diferente da anterior"`
 
-**C20** - O ganho mestre da música é exatamente metade do ganho mestre dos efeitos (AC 19)
+**C20** - ✓ O ganho mestre da música é exatamente metade do ganho mestre dos efeitos (AC 19)
 Proof: `npx vitest run src/audio/music.test.ts -t "música na metade do volume dos efeitos"`
 
-**C21** - Depois do primeiro gesto na tela inicial, o backend registra o download só de `audio/music/abertura.mp3`; ao entrar na gestão, só da faixa sorteada; ao voltar à gestão depois de passar pela partida, a mesma faixa não é baixada de novo. Nenhuma URL aparece duas vezes nos downloads registrados (AC 20)
+**C21** - ✓ Depois do primeiro gesto na tela inicial, o backend registra o download só de `audio/music/abertura.mp3`; ao entrar na gestão, só da faixa sorteada; ao voltar à gestão depois de passar pela partida, a mesma faixa não é baixada de novo. Nenhuma URL aparece duas vezes nos downloads registrados (AC 20)
 Proof: `npx vitest run src/audio/music.test.ts -t "faixa baixada só quando toca"`
 
-**C22** - Com o download de `gestao-1` rejeitado, e num segundo caso com a decodificação rejeitada: nenhuma exceção sai do módulo, `console.error` não é chamado, e a próxima faixa do contexto começa depois de um silêncio entre 30 e 90 s (AC 21)
+**C22** - ✓ Com o download de `gestao-1` rejeitado, e num segundo caso com a decodificação rejeitada: nenhuma exceção sai do módulo, `console.error` não é chamado, e a próxima faixa do contexto começa depois de um silêncio entre 30 e 90 s (AC 21)
 Proof: `npx vitest run src/audio/music.test.ts -t "faixa que falha vira silêncio"`
 
 ### Doors
 
-**C23** - As faixas são exatamente `abertura`, `gestao-1`, `gestao-2`, `gestao-3` e `fim-de-temporada`, cada uma em `audio/music/<id>.mp3` (door 3)
+**C23** - ✓ As faixas são exatamente `abertura`, `gestao-1`, `gestao-2`, `gestao-3` e `fim-de-temporada`, cada uma em `audio/music/<id>.mp3` (door 3)
 Proof: `npx vitest run src/audio/music.test.ts -t "faixas e caminhos"`
 
-**C24** - As dependências de runtime em `package.json` continuam exatamente `idb`, `react`, `react-dom` e `zustand` (door 2)
+**C24** - ✓ As dependências de runtime em `package.json` continuam exatamente `idb`, `react`, `react-dom` e `zustand` (door 2)
 Proof: `npx vitest run src/deps.test.ts -t "dependências de runtime"`
 
-**C25** - Nenhum arquivo em `src/audio/` contém `Math.random`, e nenhum arquivo em `src/engine/` importa de `audio` (door 2, AD-002)
+**C25** - ✓ Nenhum arquivo em `src/audio/` contém `Math.random`, e nenhum arquivo em `src/engine/` importa de `audio` (door 2, AD-002)
 Proof: `npx vitest run src/deps.test.ts -t "áudio sem Math.random e fora do motor"`
 
 **C26** - Sem `window.AudioContext`, criar o áudio, enviar um `pointerdown`, trocar de contexto e enviar um `goal` não lança exceção e não registra som. Pela tela ao vivo em jsdom, que não tem `AudioContext`, com o backend padrão (sem o falso), uma rodada jogada até o fim em 4× termina na tela de resultados sem exceção (door 2)

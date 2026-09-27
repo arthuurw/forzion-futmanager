@@ -1595,7 +1595,7 @@ td.contract button.contract-n.last {
 }
 
 .new-season-body {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
 }
 
 /* Copa-nacional: the six phases in two rows of three; each list scrolls inside its panel. */
@@ -2396,7 +2396,7 @@ button.mini {
 
   .new-season-body {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr);
   }
 
   .champions,

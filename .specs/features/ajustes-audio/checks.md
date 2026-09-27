@@ -47,10 +47,10 @@ Proof: `npx vitest run src/audio/sfx.test.ts -t "efeito de cada tipo de evento"`
 
 ### S4 - Liga e campeões nas telas de temporada · ~4 files · ~40 KB · ~10k
 
-**C11** - Tabela das 4 ligas: na tela Nova temporada, depois de uma temporada fechada, aparecem «Série A», «Série B», «Liga Argentina» e «Liga Portuguesa», cada uma com o nome do seu campeão, que o teste lê da tabela final de cada liga. Tudo fica dentro de um elemento com a classe `fill` (AC 10, AD-010)
+**C11** - ✓ Tabela das 4 ligas: na tela Nova temporada, depois de uma temporada fechada, aparecem «Série A», «Série B», «Liga Argentina» e «Liga Portuguesa», cada uma com o nome do seu campeão, que o teste lê da tabela final de cada liga. Tudo fica dentro de um elemento com a classe `fill` (AC 10, AD-010)
 Proof: `npx vitest run src/ui/NewSeason.test.tsx -t "campeões das 4 ligas na nova temporada"`
 
-**C12** - Com um usuário de um clube da Liga Portuguesa e uma temporada fechada, a linha dessa temporada na tela Histórico mostra «Liga Portuguesa» como a liga do usuário, e não «Série A» (AC 11, L-007)
+**C12** - ✓ Com um usuário de um clube da Liga Portuguesa e uma temporada fechada, a linha dessa temporada na tela Histórico mostra «Liga Portuguesa» como a liga do usuário, e não «Série A» (AC 11, L-007)
 Proof: `npx vitest run src/ui/History.test.tsx -t "liga do usuário de Portugal no histórico"`
 
 ## Coverage

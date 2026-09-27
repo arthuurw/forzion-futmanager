@@ -7,7 +7,7 @@ import { newGame } from "../engine/generate";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
 import { playDate, playRound, type RoundOutcome } from "../engine/season";
 import { atCupDate } from "../engine/test-fixtures";
-import type { GameState } from "../engine/types";
+import type { GameState, League } from "../engine/types";
 import { useGame } from "../store";
 
 /** Fresh IndexedDB and a store back to its initial state - what a page reload gives you. */
@@ -77,4 +77,26 @@ export function preliminaryWithCupSuspended(seed: number, pick: (s: GameState) =
   const suspended = club.players.find((p) => p.id === club.lineup!.starters[1])!;
   suspended.cupDiscipline = { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } };
   return { game: state, lastRound, suspended };
+}
+
+/**
+ * Written out here (L-004): a league's final order, as club ids. Points (3 a win, 1 a draw), then
+ * wins, goal difference, goals scored, then name.
+ */
+export function finalOrder(league: League): string[] {
+  const rows = league.clubs.map((c) => ({ id: c.id, name: c.name, points: 0, wins: 0, diff: 0, scored: 0 }));
+  const row = (id: string) => rows.find((r) => r.id === id)!;
+  for (const match of league.rounds.flatMap((r) => r.matches)) {
+    if (!match.result) continue;
+    const { homeGoals: h, awayGoals: a } = match.result;
+    for (const [id, own, other] of [[match.homeId, h, a], [match.awayId, a, h]] as const) {
+      const r = row(id);
+      r.points += own > other ? 3 : own === other ? 1 : 0;
+      r.wins += own > other ? 1 : 0;
+      r.diff += own - other;
+      r.scored += own;
+    }
+  }
+  rows.sort((x, y) => y.points - x.points || y.wins - x.wins || y.diff - x.diff || y.scored - x.scored || x.name.localeCompare(y.name, "pt-BR"));
+  return rows.map((r) => r.id);
 }

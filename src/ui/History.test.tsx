@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import type { GameState, SeasonRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
-import { resetAll, seededGame, seededGameIn } from "./test-utils";
+import { finalOrder, resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -179,4 +179,28 @@ describe("histórico com quatro ligas (paises)", () => {
     expect(cellsOf(abroad)).toEqual([["1", champions[2]!.name, champions[3]!.name]]);
     for (const t of [home, abroad]) expect(t.closest(".fill")).not.toBeNull();
   });
+});
+
+describe("liga do usuário no histórico (ajustes-audio)", () => {
+  test("liga do usuário de Portugal no histórico", async () => {
+    // C12 (AC 11, L-007): a season closed in Portugal, through «Próxima temporada».
+    const game = seededGameIn(3, 37, 6, 38);
+    game.boardGoal = 20;
+    const pt = game.leagues[3]!;
+    expect(pt.country).toBe("PT");
+    const position = finalOrder(pt).indexOf(game.userClubId!) + 1;
+    const user = userEvent.setup();
+    useGame.setState({ phase: "end", game, hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Próxima temporada" }));
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+    await user.click(await screen.findByRole("button", { name: "Histórico" }));
+    await user.click(await screen.findByRole("tab", { name: "Campeões" }));
+    const table = screen.getByRole("table", { name: "Campeões" });
+    const col = within(table).getAllByRole("columnheader").map((h) => h.textContent).indexOf("Sua posição");
+    const [row] = cellsOf(table);
+    expect(row![0]).toBe("1");
+    expect(row![col]).toBe(`${position}º na Liga Portuguesa`);
+    expect(row![col]).not.toContain("Série A");
+  }, 60_000);
 });

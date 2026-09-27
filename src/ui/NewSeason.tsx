@@ -1,14 +1,20 @@
 import { DIVISION_LABEL, divisionAt, goalLabel } from "../engine/board";
+import { findAnyClub } from "../engine/season";
 import { useGame } from "../store";
 import { cupGoalText } from "./Cup";
 import { POSITION_LABEL } from "./Squad";
 
-/** AC 14: who retired, whose contract ended, how each player's rating moved, and the new goal. */
+/**
+ * AC 14: who retired, whose contract ended, how each player's rating moved, and the new goal.
+ * Ajustes-audio AC 10: the champions of the 4 leagues, from the season just closed.
+ */
 export function NewSeason() {
   const report = useGame((s) => s.rolloverReport);
   const game = useGame((s) => s.game);
   const goToSquad = useGame((s) => s.goToSquad);
   if (!report) return null;
+  const closed = game?.history.at(-1);
+  const leagueLabel = (leagueId: string) => DIVISION_LABEL[game?.leagues.findIndex((l) => l.id === leagueId) ?? -1] ?? "";
   const changes = [...report.changes].sort((a, b) => b.after - b.before - (a.after - a.before) || a.name.localeCompare(b.name, "pt-BR"));
   return (
     <div className="screen">
@@ -20,7 +26,29 @@ export function NewSeason() {
         </span>
       </div>
       <div className="screen-body new-season-body">
-        <section aria-label="Aposentados" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
+        <section aria-label="Campeões" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
+          <h2 className="title-bar">Campeões</h2>
+          <div className="fill">
+            <table aria-label="Campeões" className="compact">
+              <thead>
+                <tr>
+                  <th>Liga</th>
+                  <th>Campeão</th>
+                </tr>
+              </thead>
+              <tbody>
+                {game &&
+                  closed?.divisions.map((d) => (
+                    <tr key={d.leagueId}>
+                      <td>{leagueLabel(d.leagueId)}</td>
+                      <td>{findAnyClub(game, d.championId).name}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section aria-label="Aposentados" className="panel" style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Aposentados</h2>
           {report.retired.length === 0 ? (
             <p className="empty">Ninguém se aposentou</p>
@@ -32,7 +60,7 @@ export function NewSeason() {
             </ul>
           )}
         </section>
-        <section aria-label="Fim de contrato" className="panel" style={{ "--i": 1 } as React.CSSProperties}>
+        <section aria-label="Fim de contrato" className="panel" style={{ "--i": 2 } as React.CSSProperties}>
           <h2 className="title-bar">Fim de contrato</h2>
           {report.expired.length === 0 ? (
             <p className="empty">Nenhum contrato encerrado</p>
@@ -44,7 +72,7 @@ export function NewSeason() {
             </ul>
           )}
         </section>
-        <section aria-label="Evolução" className="panel" style={{ "--i": 2 } as React.CSSProperties}>
+        <section aria-label="Evolução" className="panel" style={{ "--i": 3 } as React.CSSProperties}>
           <h2 className="title-bar">Evolução</h2>
           <div className="fill">
             <table aria-label="Evolução" className="compact">

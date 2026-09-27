@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import type { GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
-import { resetAll, seededGame, seededGameIn } from "./test-utils";
+import { finalOrder, resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -114,5 +114,23 @@ describe("nova temporada com países (paises)", () => {
     expect(after.boardGoal).toBe(goal);
     expect(screen.getByText(new RegExp(`Temporada 2 · Liga Portuguesa · Meta: até o ${goal}º`))).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Evolução" }).closest(".fill")).not.toBeNull();
+  }, 60_000);
+});
+
+describe("campeões na nova temporada (ajustes-audio)", () => {
+  test("campeões das 4 ligas na nova temporada", async () => {
+    // C11 (AC 10, AD-010): each league's champion, read from its final table before the turn.
+    const game = endedSeason();
+    const labels: Record<string, string> = { "BR 0": "Série A", "BR 1": "Série B", "AR 0": "Liga Argentina", "PT 0": "Liga Portuguesa" };
+    const expected = game.leagues.map((l) => [labels[`${l.country} ${l.tier}`], l.clubs.find((c) => c.id === finalOrder(l)[0])!.name]);
+    expect(expected.map(([l]) => l)).toEqual(["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"]);
+    await turnSeason(game);
+    const table = screen.getByRole("table", { name: "Campeões" });
+    const rows = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => within(r).getAllByRole("cell").map((c) => c.textContent));
+    expect(rows).toEqual(expected);
+    expect(table.closest(".fill")).not.toBeNull();
   }, 60_000);
 });

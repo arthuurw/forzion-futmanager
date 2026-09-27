@@ -19,13 +19,14 @@
 | AD-013 | Competições além da liga vivem em `GameState.cups[]` (a copa nacional é `cups[0]`, id `"cup-nat"`); a disciplina de copa fica em `Player.cupDiscipline[cupId]`, e `yellowCards`/`suspendedRounds` de topo são só da liga | a copa continental (4c) entra como mais um elemento sem save novo; plano de copa-nacional (doors 1 e 6) | active | 2026-09-26 |
 | AD-014 | O calendário não é gravado: a próxima data sai de `League.currentRound` e de `CupPhase.afterLeagueRound` (`engine/calendar.nextDate`) | um ponteiro próprio duplicaria o estado e poderia divergir; plano de copa-nacional (door 4) | active | 2026-09-26 |
 | AD-015 | Nome do produto é «Forzion FutManager» (marca do autor); o banco IndexedDB passa de `brasfoot` para `forzion-futmanager`, sem cópia do banco antigo. Substitui só o nome do banco na door 1 de nucleo-liga-partida (C15); store, chave e documento continuam iguais | «Brasfoot» é marca de terceiros; antes do lançamento não há save de usuário real a preservar | active | 2026-09-27 |
+| AD-016 | Cada `League` tem `country` (`"BR"`, `"AR"`, `"PT"`) e `tier` (0 = primeira divisão); `leagues` continua plano, com a Série A e a Série B em 0 e 1 e os países novos depois; clube só muda de divisão dentro do país; a copa nacional é só `BR` | o 4c escolhe os classificados da copa continental por país; mantém AD-003 e a door 4 de multiplas-temporadas; plano de paises (door 1) | approved - build pending | 2026-09-27 |
 
 ## Handoff
 
-**Feature**: nenhuma em andamento. gastos-da-ia verificada PASS em 27/09/2026 (`be16c96`, save v6); copa-nacional (4a) PASS em `2681ca6`
-**Where**: sub-projeto 4a e gastos-da-ia concluídos
-**In progress**: nada
-**Next step**: 4b países. Pendências anotadas: L-017 (copa - usuário eliminado precisa tirar suspenso de copa da escalação nas datas que não joga); gastos-da-ia - IA compra lesionado e o mesmo jogador pode passar por vários clubes na mesma rodada (proibir pede nova medição das faixas); nota 1 do Verifier - nenhum check separa salário atual e salário do AC 5 na sobra da compra do AC 3
-**Blockers**: none
+**Feature**: ajustes-4a e paises (4b) planejados; nada em build
+**Where**: planos aprovados pelo autor em 27/09/2026 e checks escritos - ajustes-4a C1–C12 (~47k), paises C1–C33 (~123k), `validate_plan.py` e `validate_checks.py` 0 nos dois
+**In progress**: nada - o autor pediu para não executar ainda
+**Next step**: quando o autor liberar, build de ajustes-4a com um builder, Verifier; depois build de paises com um builder, Verifier. AD-016 vira `active` quando paises for verificada
+**Blockers**: aguardando o autor liberar a execução
 **Uncommitted**: none
 **Branch**: main

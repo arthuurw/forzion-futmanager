@@ -21,7 +21,7 @@ Reutiliza `calendar.nextDate`/`competitionOf`, `lineup.isAvailableFor`/`validate
 
 1. telas Squad, Round e Condition (exist) - pedem a competição do próximo jogo **do usuário** a `engine/calendar` (exists), no lugar da competição da próxima data
 2. `engine/calendar` (exists) - se a próxima data é de copa e o clube do usuário não tem confronto na fase, devolve a liga; senão, a competição da data, como hoje
-3. `engine/market.closeRoundMarket` (exists) → compras da IA - o filtro de candidatos exclui lesionados e quem já tem linha `buy` com destino a um clube da IA nesta temporada em `market.transfers`
+3. `engine/market.closeRoundMarket` (exists) → compras da IA e venda do vermelho - o filtro de candidatos exclui quem já tem linha `buy` com destino a um clube da IA nesta temporada em `market.transfers`; as compras também excluem lesionados
 
 ## Impact
 
@@ -29,7 +29,7 @@ Reutiliza `calendar.nextDate`/`competitionOf`, `lineup.isAvailableFor`/`validate
 | --- | --- |
 | domain | existing term: `nextCompetition(state)` respondia «a competição da próxima data». Para a escalação do usuário passa a valer «a competição do próximo jogo do usuário». Quem lê hoje: `Squad` (validação e marcas), `Round` (`canPlay`) e `Condition` (marca «Suspenso (copa)»). A escalação da IA e o banco ao vivo continuam pela data, porque só montam times de quem joga |
 | domain | existing criterion: copa-nacional AC 23 («WHILE a próxima data é uma fase de copa ... na validação da escalação do usuário») passa a valer só quando o usuário joga a fase. Os testes de C29 da copa usam uma data que o usuário joga e não mudam |
-| domain | existing term: candidato da compra da IA (gastos-da-ia AC 3) ganha dois filtros: sem lesão e sem compra pela IA nesta temporada. A venda do vermelho (AC 9) não muda |
+| domain | existing term: candidato da compra da IA (gastos-da-ia AC 3) ganha dois filtros: sem lesão e sem compra pela IA nesta temporada. A venda do vermelho (AC 9) ganha só o segundo: continua vendendo lesionado |
 | domain | existing criterion: as faixas de gastos-da-ia C19, C20, C21 e C34 continuam valendo sem mudança; as compras mudam e a medição tem de ser refeita |
 | stored data | nothing to migrate: o boletim já existe no save v6 |
 
@@ -64,8 +64,8 @@ None - nenhum formato gravado, contrato ou dependência muda. «Já comprado nes
 
 5. WHEN a IA monta os candidatos de uma compra (gastos-da-ia AC 3) THEN o sistema SHALL excluir todo jogador com `injuryRounds` acima de 0
 6. WHEN a IA monta os candidatos de uma compra THEN o sistema SHALL excluir todo jogador que já tem, em `market.transfers`, uma linha `kind: "buy"` cujo `toId` é um clube da IA
-7. The venda do vermelho (gastos-da-ia AC 9) SHALL continuar escolhendo o jogador mais valioso, lesionado ou não
-8. The sistema SHALL, em 3 seeds e 5 temporadas sem usuário, ter no boletim de cada temporada no máximo uma linha `buy` de compra da IA (AC 3–5) por jogador, e SHALL continuar dentro das faixas de gastos-da-ia C19, C20, C21 e C34
+7. The venda do vermelho (gastos-da-ia AC 9) SHALL escolher o jogador mais valioso entre os que não têm linha `buy` com destino a um clube da IA nesta temporada, lesionado ou não
+8. The sistema SHALL, em 3 seeds e 5 temporadas sem usuário, ter no boletim de cada temporada no máximo uma linha `buy` por jogador, e SHALL continuar dentro das faixas de gastos-da-ia C19, C20, C21 e C34
 
 **Independent test:** a simulação de 5 temporadas imprime o maior número de compras da IA de um mesmo jogador numa temporada, que é 1, e as faixas de caixa, força e compras.
 

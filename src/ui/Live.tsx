@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { audio, type Crowd } from "../audio";
 import { MATCH_MINUTES, MAX_SUBS, userMatch, type LiveMatch, type LiveSide } from "../engine/live";
 import { narrate, narrationContext } from "../engine/narration";
 import { allClubs, findAnyClub } from "../engine/season";
 import { FORMATION_NAMES, POSTURES, type FormationName, type Posture } from "../engine/types";
-import { BASE_TICK_MS, useGame, type Speed } from "../store";
+import { BASE_TICK_MS, useGame, type GameStore, type Speed } from "../store";
 import { FitnessBar, MoraleArrow } from "./Condition";
 import { cupPhaseTitle, scoreText } from "./Cup";
 import { Flag } from "./Flag";
@@ -42,6 +43,30 @@ export function Live() {
     const id = setInterval(() => tick(), BASE_TICK_MS / speed);
     return () => clearInterval(id);
   }, [clock, speed, finishing, tick]);
+
+  // Audio AC 7-9, 12: the user's match as it is played, and the crowd following the clock.
+  useEffect(() => {
+    const sound = audio();
+    const crowdOf = (s: GameStore): Crowd | null => (!s.live ? null : s.finishing || s.live.minute >= MATCH_MINUTES ? "over" : s.clock);
+    const start = useGame.getState();
+    let heard = start.live ? (userMatch(start.live)?.events.length ?? 0) : 0;
+    let crowd = crowdOf(start);
+    if (crowd) sound.crowd(crowd);
+    return useGame.subscribe((s, prev) => {
+      if (s.live && prev.live && s.live !== prev.live && s.live.userClubId) {
+        // Only the user's match sounds (AC 8).
+        const events = userMatch(s.live)?.events ?? [];
+        const fresh = events.slice(heard);
+        heard = events.length;
+        // «Pular para o fim» plays every minute left at once: only the final whistle sounds (AC 12).
+        const skipped = s.live.minute - prev.live.minute > 1;
+        sound.matchEvents(skipped ? fresh.filter((e) => e.type === "fulltime") : fresh, s.live.userClubId);
+      }
+      const next = crowdOf(s);
+      if (next && next !== crowd) sound.crowd(next);
+      crowd = next ?? crowd;
+    });
+  }, []);
 
   // A score that changed flashes for 2 s (AC 4).
   const minute = live?.minute ?? 0;

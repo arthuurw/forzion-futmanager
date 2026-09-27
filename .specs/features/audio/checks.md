@@ -22,7 +22,7 @@ Proof: `npx vitest run src/app.test.tsx -t "preferências de áudio gravadas e r
 **C3** - ✓ Tabela do valor na chave → estado lido: ausente → `{music: true, sfx: true}`; `{"music":false,"sfx":true}` → `{music: false, sfx: true}`; `lixo` (JSON inválido) → os dois ligados; `{"music":"no","sfx":1}` (tipo errado) → os dois ligados; `getItem` que lança → os dois ligados, sem exceção; `setItem` que lança ao gravar → sem exceção, e o estado em memória muda mesmo assim (AC 3, AC 4, door 1)
 Proof: `npx vitest run src/audio/prefs.test.ts -t "leitura e gravação das preferências"`
 
-**C4** - Com a faixa de gestão tocando, desligar a música registra uma rampa do ganho da música até 0 com duração de no máximo 1 s. Com os efeitos desligados, um `goal` do usuário não registra nenhum efeito tocado; religados, o próximo `goal` registra `crowd-roar` (AC 2)
+**C4** - ✓ Com a faixa de gestão tocando, desligar a música registra uma rampa do ganho da música até 0 com duração de no máximo 1 s. Com os efeitos desligados, um `goal` do usuário não registra nenhum efeito tocado; religados, o próximo `goal` registra `crowd-roar` (AC 2)
 Proof: `npx vitest run src/audio/music.test.ts -t "desligar a música some em até 1 s"`
 Proof: `npx vitest run src/audio/sfx.test.ts -t "efeitos desligados não tocam"`
 
@@ -35,30 +35,30 @@ Proof: `npx vitest run src/audio/music.test.ts -t "aba escondida suspende o áud
 
 ### S2 - A partida do usuário tem som · ~5 files · ~75 KB · ~19k
 
-**C7** - Tabela sobre os 12 tipos de `MatchEventType`, com o lado do clube nos dois tipos de gol, → efeitos registrados: `kickoff` → `whistle-short`; `halftime` → `whistle-double`; `fulltime` → `whistle-long`; `goal` do usuário → `crowd-roar` e `goal-jingle`; `goal` do adversário → `crowd-groan`; `penalty_scored` do usuário → `crowd-roar` e `goal-jingle`; `penalty_scored` do adversário → `crowd-groan`; `shot_saved`, `shot_missed` e `penalty_missed` → `crowd-ooh`; `yellow` → `whistle-short`; `red` → `whistle-short` e `crowd-boo`; `injury` e `substitution` → nenhum. Os eventos da tabela são espaçados em 1 s para o limite do C11 não interferir (AC 7)
+**C7** - ✓ Tabela sobre os 12 tipos de `MatchEventType`, com o lado do clube nos dois tipos de gol, → efeitos registrados: `kickoff` → `whistle-short`; `halftime` → `whistle-double`; `fulltime` → `whistle-long`; `goal` do usuário → `crowd-roar` e `goal-jingle`; `goal` do adversário → `crowd-groan`; `penalty_scored` do usuário → `crowd-roar` e `goal-jingle`; `penalty_scored` do adversário → `crowd-groan`; `shot_saved`, `shot_missed` e `penalty_missed` → `crowd-ooh`; `yellow` → `whistle-short`; `red` → `whistle-short` e `crowd-boo`; `injury` e `substitution` → nenhum. Os eventos da tabela são espaçados em 1 s para o limite do C11 não interferir (AC 7)
 Proof: `npx vitest run src/audio/sfx.test.ts -t "efeito de cada tipo de evento"`
 
-**C8** - Pela tela ao vivo: num minuto em que a partida do usuário tem um `goal` do clube do usuário e outra partida da mesma rodada também tem um `goal`, o backend registra `crowd-roar` uma vez e nenhum efeito pelo outro gol (AC 7, AC 8, L-003, L-007)
+**C8** - ✓ Pela tela ao vivo: num minuto em que a partida do usuário tem um `goal` do clube do usuário e outra partida da mesma rodada também tem um `goal`, o backend registra `crowd-roar` uma vez e nenhum efeito pelo outro gol (AC 7, AC 8, L-003, L-007)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "som só da partida do usuário"`
 
-**C9** - Tabela do relógio → ganho do `crowd-ambience`: `running` → 1; `halftime` → 0,4; `paused` → 0; fim da partida → rampa até 0 com duração de 2 s e parada do ambiente. Pela tela ao vivo, o ambiente começa com o relógio `running` e vai a 0 quando o usuário aperta pausar (AC 9)
+**C9** - ✓ Tabela do relógio → ganho do `crowd-ambience`: `running` → 1; `halftime` → 0,4; `paused` → 0; fim da partida → rampa até 0 com duração de 2 s e parada do ambiente. Pela tela ao vivo, o ambiente começa com o relógio `running` e vai a 0 quando o usuário aperta pausar (AC 9)
 Proof: `npx vitest run src/audio/sfx.test.ts -t "ambiente da torcida segue o relógio"`
 Proof: `npx vitest run src/ui/Live.test.tsx -t "ambiente acompanha o relógio da tela ao vivo"`
 
-**C10** - Com um `Rng` semeado com 1, 200 execuções de cada um de `crowd-roar`, `crowd-groan` e `crowd-ooh` usam pelo menos 2 variantes distintas cada, e todo fator de afinação registrado fica entre 0,94 e 1,06. Com um `Rng` falso que devolve 0, o fator é 0,94; com um que devolve 0,999999, o fator fica acima de 1,0599 e no máximo 1,06 (AC 10)
+**C10** - ✓ Com um `Rng` semeado com 1, 200 execuções de cada um de `crowd-roar`, `crowd-groan` e `crowd-ooh` usam pelo menos 2 variantes distintas cada, e todo fator de afinação registrado fica entre 0,94 e 1,06. Com um `Rng` falso que devolve 0, o fator é 0,94; com um que devolve 0,999999, o fator fica acima de 1,0599 e no máximo 1,06 (AC 10)
 Proof: `npx vitest run src/audio/sfx.test.ts -t "variantes e afinação"`
 
-**C11** - Dois `crowd-ooh` a 0 ms e a 399 ms → 1 registrado; a 0 ms e a 400 ms → 2 registrados; um `crowd-ooh` a 0 ms e um `whistle-short` a 100 ms → 2 registrados (AC 11)
+**C11** - ✓ Dois `crowd-ooh` a 0 ms e a 399 ms → 1 registrado; a 0 ms e a 400 ms → 2 registrados; um `crowd-ooh` a 0 ms e um `whistle-short` a 100 ms → 2 registrados (AC 11)
 Proof: `npx vitest run src/audio/sfx.test.ts -t "mesmo efeito em menos de 400 ms"`
 
-**C12** - Pela tela ao vivo, num minuto em que a partida do usuário ainda tem pela frente pelo menos um `goal` e um `shot_saved` ou `shot_missed`, apertar «Pular para o fim» registra exatamente um efeito: `whistle-long` (AC 12, L-007)
+**C12** - ✓ Pela tela ao vivo, num minuto em que a partida do usuário ainda tem pela frente pelo menos um `goal` e um `shot_saved` ou `shot_missed`, apertar «Pular para o fim» registra exatamente um efeito: `whistle-long` (AC 12, L-007)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "pular para o fim toca só o apito final"`
 
 **C13** - ✓ Com a faixa de gestão tocando, a `phase` passar a `live` registra uma rampa do ganho da música até 0 com duração de 1 s, e nenhuma faixa começa enquanto a `phase` é `live`, mesmo depois de 120 s de relógio falso. Pelo ponto de entrada, «Jogar rodada» a partir da tela Elenco registra a mesma rampa (AC 13)
 Proof: `npx vitest run src/audio/music.test.ts -t "sem música na partida"`
 Proof: `npx vitest run src/app.test.tsx -t "tela ao vivo cala a música"`
 
-**C14** - Com a música ligada e uma partida ao vivo completa jogada em 4×, o `rngState` do jogo e os placares ficam iguais aos da mesma partida com o áudio mudo (Impact: o `Rng` do áudio nunca toca o do jogo)
+**C14** - ✓ Com a música ligada e uma partida ao vivo completa jogada em 4×, o `rngState` do jogo e os placares ficam iguais aos da mesma partida com o áudio mudo (Impact: o `Rng` do áudio nunca toca o do jogo)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "áudio não mexe no sorteio do jogo"`
 
 ### S3 - A música acompanha as telas sem cansar · ~3 files · ~45 KB · ~11k
@@ -99,7 +99,7 @@ Proof: `npx vitest run src/deps.test.ts -t "dependências de runtime"`
 **C25** - ✓ Nenhum arquivo em `src/audio/` contém `Math.random`, e nenhum arquivo em `src/engine/` importa de `audio` (door 2, AD-002)
 Proof: `npx vitest run src/deps.test.ts -t "áudio sem Math.random e fora do motor"`
 
-**C26** - Sem `window.AudioContext`, criar o áudio, enviar um `pointerdown`, trocar de contexto e enviar um `goal` não lança exceção e não registra som. Pela tela ao vivo em jsdom, que não tem `AudioContext`, com o backend padrão (sem o falso), uma rodada jogada até o fim em 4× termina na tela de resultados sem exceção (door 2)
+**C26** - ✓ Sem `window.AudioContext`, criar o áudio, enviar um `pointerdown`, trocar de contexto e enviar um `goal` não lança exceção e não registra som. Pela tela ao vivo em jsdom, que não tem `AudioContext`, com o backend padrão (sem o falso), uma rodada jogada até o fim em 4× termina na tela de resultados sem exceção (door 2)
 Proof: `npx vitest run src/audio/music.test.ts -t "sem AudioContext o áudio fica mudo"`
 Proof: `npx vitest run src/ui/Live.test.tsx -t "rodada sem AudioContext joga até o fim"`
 

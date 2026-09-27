@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { startCupDate } from "../engine/cup";
 import { runToEnd, userMatch, type LiveSide } from "../engine/live";
 import type { GameState } from "../engine/types";
 import { narrate, narrationContext } from "../engine/narration";
 import { App } from "../App";
+import { installAudio } from "../audio";
+import { effects, fakeBackend, type FakeBackend } from "../audio/test-backend";
 import { useGame } from "../store";
 import { Live } from "./Live";
 import { cupGame, resetAll, seededGame, seededGameIn } from "./test-utils";
@@ -308,4 +310,116 @@ describe("ao vivo na copa (copa-nacional)", () => {
     const item = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem")[0]!;
     expect(item).toHaveTextContent(`${nameIn(game, mine.home.clubId)} 1 x 1 (pên. 4 x 3) ${nameIn(game, mine.away.clubId)}`);
   });
+});
+
+describe("som ao vivo (audio)", () => {
+  let backend: FakeBackend;
+  beforeEach(() => {
+    localStorage.clear();
+    backend = fakeBackend();
+    installAudio(backend);
+  });
+
+  /** The first gesture, then «Jogar rodada», on fake timers. */
+  function startWithSound(seed = 3): void {
+    vi.useFakeTimers();
+    useGame.setState({ phase: "squad", game: seededGame(seed), hasSave: true });
+    render(<App />);
+    fireEvent.pointerDown(document);
+    fireEvent.click(screen.getByRole("button", { name: "Jogar rodada" }));
+  }
+
+  /** Plays the match to 90' at 4x, on fake timers; the round closes at the last tick. */
+  function playAt4x(): void {
+    press("4x");
+    advance(45 * 75);
+    expect(useGame.getState().clock).toBe("halftime");
+    press("Continuar");
+    advance(45 * 75);
+    expect(useGame.getState().lastRound).not.toBeNull();
+  }
+
+  test("som só da partida do usuário", () => {
+    // C8 (AC 7, AC 8, L-003, L-007): a minute with a goal of the user's club and a goal in another match.
+    // Seed 8: the user's club scores at 10' while another match of the round scores too.
+    startWithSound(8);
+    const userId = useGame.getState().live!.userClubId!;
+    let userGoalBefore = false;
+    for (let minute = 1; minute <= 90; minute++) {
+      if (useGame.getState().clock === "halftime") press("Continuar");
+      const from = backend.calls.length;
+      advance(300);
+      const live = useGame.getState().live!;
+      const mine = userMatch(live)!;
+      const now = mine.events.filter((e) => e.minute === live.minute);
+      const userGoal = now.some((e) => e.type === "goal" && e.clubId === userId);
+      const opponentGoal = now.some((e) => e.type === "goal" && e.clubId !== userId);
+      const otherGoal = live.matches.some((m) => m !== mine && m.events.some((e) => e.type === "goal" && e.minute === live.minute));
+      if (userGoal && !opponentGoal && otherGoal && !userGoalBefore) {
+        const heard = effects(backend.calls.slice(from));
+        expect(heard.filter((id) => id === "crowd-roar")).toHaveLength(1);
+        expect(heard).not.toContain("crowd-groan");
+        return;
+      }
+      userGoalBefore = userGoal;
+    }
+    throw new Error("no minute with a user goal and another match's goal");
+  });
+
+  test("ambiente acompanha o relógio da tela ao vivo", () => {
+    // C9 through the live screen.
+    startWithSound();
+    expect(backend.calls.filter((c) => c.kind === "ambience-start")).toHaveLength(1);
+    const ramps = () => backend.calls.filter((c) => c.kind === "ambience-ramp");
+    expect(ramps().at(-1)).toMatchObject({ gain: 1 });
+    advance(600);
+    press("Pausar");
+    expect(ramps().at(-1)).toMatchObject({ gain: 0 });
+  });
+
+  test("pular para o fim toca só o apito final", async () => {
+    // C12 (AC 12, L-007).
+    const user = await startLive(3);
+    await pauseNow(user);
+    const live = useGame.getState().live!;
+    const ahead = userMatch(runToEnd(live))!.events.filter((e) => e.minute > live.minute);
+    expect(ahead.some((e) => e.type === "goal")).toBe(true);
+    expect(ahead.some((e) => e.type === "shot_saved" || e.type === "shot_missed")).toBe(true);
+    const from = backend.calls.length;
+    await user.click(screen.getByRole("button", { name: "Pular para o fim" }));
+    expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
+    expect(effects(backend.calls.slice(from))).toEqual(["whistle-long"]);
+  });
+
+  test("áudio não mexe no sorteio do jogo", () => {
+    // C14: the same match with the audio on and muted.
+    startWithSound(7);
+    playAt4x();
+    expect(effects(backend.calls).length).toBeGreaterThan(0);
+    const withSound = { rngState: useGame.getState().game!.rngState, results: useGame.getState().lastRound!.results };
+    vi.useRealTimers();
+    cleanup();
+    resetAll();
+
+    localStorage.setItem("forzion-futmanager:audio", '{"music":false,"sfx":false}');
+    const muted = fakeBackend();
+    installAudio(muted);
+    startWithSound(7);
+    playAt4x();
+    expect(effects(muted.calls)).toEqual([]);
+    expect(useGame.getState().game!.rngState).toBe(withSound.rngState);
+    expect(useGame.getState().lastRound!.results).toEqual(withSound.results);
+  });
+
+  test("rodada sem AudioContext joga até o fim", async () => {
+    // C26: jsdom has no AudioContext; the default backend.
+    expect((window as { AudioContext?: unknown }).AudioContext).toBeUndefined();
+    installAudio();
+    const user = await startLive(8);
+    await user.click(await screen.findByRole("button", { name: "4x" }));
+    await screen.findByText("Intervalo", {}, { timeout: 25000 });
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByRole("region", { name: "Sua partida" }, { timeout: 25000 })).toBeInTheDocument();
+    expect(useGame.getState().lastRound!.userEvents.at(-1)).toMatchObject({ minute: 90, type: "fulltime" });
+  }, 90_000);
 });

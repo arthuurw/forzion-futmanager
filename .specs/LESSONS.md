@@ -20,6 +20,12 @@ Corroborated across multiple features. Safe to apply as guidance.
 - evidence: checks.md C14 (tests) (+1 more)
 - last seen: 2026-09-26T22:12:05Z
 
+### L-009 - A one-way door added during the build needs its own check before the build closes.
+- signal: `ac_gap` · recurrence: 2 feature(s) · scope: `checks` · harmful: 0
+- features: elenco-mercado-financas, multiplas-temporadas
+- evidence: plan.md Landing door 5 / src/engine/finance.ts:121 (checks) (+1 more)
+- last seen: 2026-09-27T01:23:53Z
+
 ## Candidates (under observation - do NOT load as guidance yet)
 
 Seen once or not yet corroborated. Tracked, not trusted.
@@ -60,12 +66,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C23 / src/store.ts:49 (ui)
 - last seen: 2026-09-26T22:12:06Z
 
-### L-009 - A one-way door added during the build needs its own check before the build closes.
-- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
-- features: elenco-mercado-financas
-- evidence: plan.md Landing door 5 / src/engine/finance.ts:121 (checks)
-- last seen: 2026-09-26T22:12:06Z
-
 ### L-010 - Give every displayed value a non-zero fixture so a miswired field cannot pass by showing zero.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
 - features: elenco-mercado-financas
@@ -83,6 +83,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: elenco-mercado-financas
 - evidence: C23 / src/ui/Squad.tsx:260 (ui)
 - last seen: 2026-09-26T22:19:36Z
+
+### L-013 - A check that pins a seed or stream needs an assertion that reproduces the literal formula, not only determinism.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: multiplas-temporadas
+- evidence: C52 / src/engine/migrate.test.ts:131 (tests)
+- last seen: 2026-09-27T01:23:53Z
+
+### L-014 - Pin an RNG stream over several draws and assert the rejected alternative gives different values; one draw can coincide.
+- signal: `surviving_mutant` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: multiplas-temporadas
+- evidence: C19 / src/engine/rollover.test.ts:126 (F8, F9) (tests)
+- last seen: 2026-09-27T01:23:53Z
 
 ## Quarantined (failed when applied - ignore)
 

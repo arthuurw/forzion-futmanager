@@ -19,10 +19,10 @@
 
 ## Handoff
 
-**Feature**: elenco-mercado-financas
-**Where**: concluída - C1–C59 PASS (round 2 scoped, `validate_verification.py` 0). Save v3 com finanças e mercado
+**Feature**: multiplas-temporadas
+**Where**: concluída - C1–C56 PASS (round 3 scoped, `validate_verification.py` 0). Save v4 com Série B, histórico e meta
 **In progress**: nada
-**Next step**: sub-projeto 3 (múltiplas temporadas). Opcional: C7 ganhar a prova `público da rodada usa a fase antes da rodada`; mensagem de recusa na tela Elenco sem teste de tela
+**Next step**: sub-projeto 4 (copas e países). A IA não gasta dinheiro, então o caixa dos clubes da IA só cresce; se isso pesar, é assunto para um sub-projeto futuro
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

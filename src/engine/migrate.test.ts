@@ -160,19 +160,22 @@ describe("migração do save", () => {
       const starters = lineup.starters.map((pid) => (pid && isAvailable(club.players.find((p) => p.id === pid)!) ? pid : null));
       return makeSide(id, formationSlots(lineup.formation), starters, club.players.filter((p) => !starters.includes(p.id)).map((p) => p.id), players, { formation: lineup.formation });
     };
-    const replay = (seedOf: (i: number) => number) =>
+    const replay = (n: number, seedOf: (i: number) => number) =>
       runToEnd({
-        roundIndex: 0,
-        roundNumber: 1,
+        roundIndex: n - 1,
+        roundNumber: n,
         minute: 0,
         userClubId: null,
         players,
-        matches: b.rounds[0]!.matches.map((m, i) => makeMatch(m.id, side(m.homeId), side(m.awayId), seedOf(i), "l2")),
+        matches: b.rounds[n - 1]!.matches.map((m, i) => makeMatch(m.id, side(m.homeId), side(m.awayId), seedOf(i), "l2")),
       }).matches.map((m) => [m.homeGoals, m.awayGoals]);
-    const stored = b.rounds[0]!.matches.map((m) => [m.result!.homeGoals, m.result!.awayGoals]);
-    expect(stored).toEqual(replay((i) => mix32(mix32(seed, 0xb), 1 * 16 + i)));
-    // The Série A scheme (rejected in door 2) would give other scores.
-    expect(stored).not.toEqual(replay((i) => mix32(seed, 1 * 16 + i)));
+    // Both rounds already played, so the round number n is part of what is pinned.
+    for (const n of [1, 2]) {
+      const stored = b.rounds[n - 1]!.matches.map((m) => [m.result!.homeGoals, m.result!.awayGoals]);
+      expect(stored, `rodada ${n}`).toEqual(replay(n, (i) => mix32(mix32(seed, 0xb), n * 16 + i)));
+      // The Série A scheme (rejected in door 2) would give other scores.
+      expect(stored, `rodada ${n}`).not.toEqual(replay(n, (i) => mix32(seed, n * 16 + i)));
+    }
   });
 
   test("contratos migrados da série A vêm de mix32(seed, 5)", () => {

@@ -371,3 +371,9 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 - **C55:** gained `histórico gravado com duas temporadas`. After two real rollovers, it saves and reloads through IndexedDB, with the 2 records in order and the first one unchanged.
 - Faults injected: the scorer list read from the Série A, and «Demitido» swapped for another text. The new tests failed on both, as expected.
 
+
+### Round 2 fixes (after `31cae35`, verdict FAIL on C19)
+
+- **C19, stronger fixture, same claim:** the first 8 players of the first club that stays up are 22 with long contracts. Their 8 deltas must equal the first 8 draws `randInt(1, 4)` of `createRng(mix32(rngState, 0x5E45 + season))`, written out in the test. They must also differ from the rejected alternative (`createRng(rngState)`) and from salt + 1.
+- **C52, stronger fixture, same claim:** the replay covers rounds 1 and 2, so the round number `n` is pinned too.
+- Faults injected: rollover on the save's own `Rng` (F9), salt + 1 (F8), and catch-up ignoring `n` (F4). The tests failed on all three, as expected.

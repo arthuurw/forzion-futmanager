@@ -53,10 +53,10 @@ Proof: `npx vitest run src/engine/market.test.ts -t "sobra da IA|compra no limit
 
 ### S3 - A sobra da compra fica travada por teste · ~1 file · ~20 KB · ~5k
 
-**C11** - Um candidato de força 70 com salário atual R$ 20.000 (abaixo de 1,2 × `salaryFor(70)`, valor literal da tabela no teste) tem preço maior que a sobra do comprador calculada com o salário de 1,2× e menor ou igual à calculada com o salário atual: a IA compra (AC 9)
+**C11** ✓ - Um candidato de força 70 com salário atual R$ 20.000 (abaixo de 1,2 × `salaryFor(70)`, valor literal da tabela no teste) tem preço maior que a sobra do comprador calculada com o salário de 1,2× e menor ou igual à calculada com o salário atual: a IA compra (AC 9)
 Proof: `npx vitest run src/engine/market.test.ts -t "sobra da compra usa o salário atual"`
 
-**C12** - O mesmo candidato do C11 com preço R$ 10.000 acima da sobra calculada com o salário atual não é comprado (AC 9)
+**C12** ✓ - O mesmo candidato do C11 com preço R$ 10.000 acima da sobra calculada com o salário atual não é comprado (AC 9)
 Proof: `npx vitest run src/engine/market.test.ts -t "sobra da compra usa o salário atual"`
 
 ## Coverage

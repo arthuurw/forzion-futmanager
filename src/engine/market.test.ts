@@ -1148,4 +1148,26 @@ describe("ajustes-4a: filtros da compra da IA (engine)", () => {
     }
   });
 
+  test("sobra da compra usa o salário atual", () => {
+    // salaryFor(70) is R$ 26.500 (the table, written out); the AC 5 floor is R$ 31.800.
+    expect(expectedSalary(70)).toBe(26_500);
+    expect(raised(26_500)).toBe(31_800);
+    const price = valueOf(70, 25);
+    expect(price).toBe(1_590_000);
+    const run = (surplusOverPrice: number) => {
+      const q = quiet(73);
+      cutTo21(q);
+      const target = reserve(seller(q), "DF", 70, 25);
+      target.salary = 20_000;
+      // Surplus with the current salary: price + surplusOverPrice; with the floor, R$ 118.000 less.
+      q.buyer.finance.cash = price + surplusOverPrice + 10 * (wages(q.buyer) + 20_000);
+      expect(q.buyer.finance.cash - 10 * (wages(q.buyer) + 31_800)).toBeLessThan(price);
+      close(q);
+      return has(q.s, q.buyer.id, target.id);
+    };
+    // C11: price between the surplus with the floor and the surplus with the current salary.
+    expect(run(0)).toBe(true);
+    // C12: R$ 10.000 above the surplus with the current salary.
+    expect(run(-10_000)).toBe(false);
+  });
 });

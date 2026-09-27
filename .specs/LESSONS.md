@@ -114,6 +114,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: plan.md AC 23 x AC 44 / src/ui/Squad.tsx:312 (checks)
 - last seen: 2026-09-27T15:59:05Z
 
+### L-018 - When a rule reads one of two candidate values, build the fixture so the two differ, or the test passes under either reading.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: gastos-da-ia
+- evidence: C1 / src/engine/market.test.ts:486 (ruling 1, purchase salary) (tests)
+- last seen: 2026-09-27T17:37:45Z
+
+### L-019 - When a check places one element beside another, assert their shared container, not only that both are present.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `ui` · harmful: 0
+- features: gastos-da-ia
+- evidence: C25 / src/ui/Market.test.tsx:249 (ui)
+- last seen: 2026-09-27T17:37:46Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

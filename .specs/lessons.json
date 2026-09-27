@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 18,
+  "next_id": 20,
   "lessons": [
     {
       "id": "L-001",
@@ -318,6 +318,42 @@
       ],
       "created": "2026-09-27T15:59:05Z",
       "last_seen": "2026-09-27T15:59:05Z"
+    },
+    {
+      "id": "L-018",
+      "key": "spec_precision_gap::when a rule reads one of two candidate values build the fixture so the two differ or the test passes under either reading",
+      "text": "When a rule reads one of two candidate values, build the fixture so the two differ, or the test passes under either reading.",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "gastos-da-ia"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C1 / src/engine/market.test.ts:486 (ruling 1, purchase salary) (tests)"
+      ],
+      "created": "2026-09-27T17:37:45Z",
+      "last_seen": "2026-09-27T17:37:45Z"
+    },
+    {
+      "id": "L-019",
+      "key": "spec_precision_gap::when a check places one element beside another assert their shared container not only that both are present",
+      "text": "When a check places one element beside another, assert their shared container, not only that both are present.",
+      "signal": "spec_precision_gap",
+      "scope": "ui",
+      "status": "candidate",
+      "features": [
+        "gastos-da-ia"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C25 / src/ui/Market.test.tsx:249 (ui)"
+      ],
+      "created": "2026-09-27T17:37:46Z",
+      "last_seen": "2026-09-27T17:37:46Z"
     }
   ]
 }

@@ -149,3 +149,34 @@ describe("copa no histórico (copa-nacional)", () => {
     ]);
   });
 });
+
+describe("histórico com quatro ligas (paises)", () => {
+  test("campeões das quatro ligas", async () => {
+    // C22 (AC 22, AD-010): a closed season shows the champion of every league with its name.
+    const game = seededGame(142);
+    const champions = game.leagues.map((l) => l.clubs[3]!);
+    game.history = [
+      {
+        season: 1,
+        userClubId: game.userClubId,
+        userLeagueId: "l1",
+        userPosition: 5,
+        verdict: "met",
+        prize: 1,
+        cups: [],
+        divisions: game.leagues.map((l, k) => ({ leagueId: l.id, championId: champions[k]!.id, promotedIds: [], relegatedIds: [], topScorer: null })),
+      },
+    ];
+    const user = await openHistory(game);
+    await user.click(screen.getByRole("tab", { name: "Campeões" }));
+    const home = screen.getByRole("table", { name: "Campeões" });
+    const abroad = screen.getByRole("table", { name: "Campeões no exterior" });
+    const headers = (t: HTMLElement) => within(t).getAllByRole("columnheader").map((h) => h.textContent);
+    const row = (t: HTMLElement, header: string) => cellsOf(t)[0]![headers(t).indexOf(header)];
+    expect(row(home, "Campeão Série A")).toBe(champions[0]!.name);
+    expect(row(home, "Campeão Série B")).toBe(champions[1]!.name);
+    expect(headers(abroad)).toEqual(["Temp.", "Campeão Liga Argentina", "Campeão Liga Portuguesa"]);
+    expect(cellsOf(abroad)).toEqual([["1", champions[2]!.name, champions[3]!.name]]);
+    for (const t of [home, abroad]) expect(t.closest(".fill")).not.toBeNull();
+  });
+});

@@ -31,7 +31,8 @@ describe("tela Escolher clube", () => {
     const game = newGame(22);
     useGame.setState({ phase: "chooseClub", game });
     render(<App />);
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Série A", "Série B"]);
+    // Paises (Superseded checks): a tab per league, 4.
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"]);
     const cards = () => screen.getAllByRole("button").filter((b) => b.classList.contains("club-card"));
     const expectDivision = (division: number) => {
       const clubs = [...game.leagues[division]!.clubs].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
@@ -53,5 +54,28 @@ describe("tela Escolher clube", () => {
     if (saved.kind !== "ok") throw new Error("no save");
     expect(saved.state.userClubId).toBe(chosen.id);
     expect(within(screen.getByRole("table", { name: "Elenco" })).getAllByRole("row")).toHaveLength(23);
+  });
+});
+
+describe("escolher clube em quatro ligas (paises)", () => {
+  test("abas das quatro ligas", async () => {
+    // C21 (AC 21).
+    const user = userEvent.setup();
+    const game = newGame(23);
+    useGame.setState({ phase: "chooseClub", game });
+    render(<App />);
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"]);
+    await user.click(screen.getByRole("tab", { name: "Liga Portuguesa" }));
+    const cards = screen.getAllByRole("button").filter((b) => b.classList.contains("club-card"));
+    const clubs = [...game.leagues[3]!.clubs].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    expect(clubs.map((c) => c.id).every((id) => Number(id.slice(1)) >= 61)).toBe(true);
+    expect(cards).toHaveLength(20);
+    cards.forEach((card, i) => expect(card).toHaveTextContent(clubs[i]!.name));
+    await user.click(cards[7]!);
+    expect(await screen.findByRole("heading", { name: clubs[7]!.name })).toBeInTheDocument();
+    expect(useGame.getState().game!.userClubId).toBe(clubs[7]!.id);
+    const saved = await loadGame();
+    if (saved.kind !== "ok") throw new Error("no save");
+    expect(saved.state.userClubId).toBe(clubs[7]!.id);
   });
 });

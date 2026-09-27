@@ -6,15 +6,16 @@ import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
 import { ScreenTabs } from "./ScreenTabs";
 
-type DivisionTab = "a" | "b";
-
-/** AC 7 of the core, AC 2: the 20 clubs of each division, alphabetical, with the mean rating of the best eleven. */
+/**
+ * AC 7 of the core, AC 2, paises AC 21: the 20 clubs of each league, one tab per league,
+ * alphabetical, with the mean rating of the best eleven.
+ */
 export function ChooseClub() {
   const game = useGame((s) => s.game);
   const chooseClub = useGame((s) => s.chooseClub);
-  const [tab, setTab] = useState<DivisionTab>("a");
+  const [tab, setTab] = useState("l1");
   if (!game) return null;
-  const league = game.leagues[tab === "a" ? 0 : 1] ?? game.leagues[0]!;
+  const league = game.leagues.find((l) => l.id === tab) ?? game.leagues[0]!;
   const clubs = [...league.clubs].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   return (
     <div className="screen">
@@ -23,10 +24,7 @@ export function ChooseClub() {
         <ScreenTabs
           active={tab}
           onChange={setTab}
-          tabs={[
-            { id: "a", label: DIVISION_LABEL[0] },
-            { id: "b", label: DIVISION_LABEL[1] },
-          ]}
+          tabs={game.leagues.map((l, i) => ({ id: l.id, label: DIVISION_LABEL[i] ?? l.name }))}
         />
       </div>
       <div className="club-grid" key={tab}>

@@ -304,3 +304,30 @@ describe("copa no app (copa-nacional)", () => {
     expect(loaded.state.leagues.map((l) => l.currentRound)).toEqual([4, 4, 4, 4]);
   });
 });
+
+describe("países no app (paises)", () => {
+  test("usuário em Portugal joga e vê a tabela", async () => {
+    // C23 (AC 21, L-003): through the app, from a new game.
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Novo jogo" }));
+    expect(await screen.findByText("Escolher clube")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Liga Portuguesa" }));
+    const card = screen.getAllByRole("button").filter((b) => b.classList.contains("club-card"))[5]!;
+    await user.click(card);
+    await screen.findByRole("table", { name: "Elenco" });
+    const game = useGame.getState().game!;
+    const me = userClub(game)!;
+    expect(game.leagues[3]!.clubs.some((c) => c.id === me.id)).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
+    await screen.findByRole("heading", { name: "Rodada 1" });
+    const select = screen.getByLabelText("Divisão") as HTMLSelectElement;
+    expect(select.selectedOptions[0]!.textContent).toBe("Liga Portuguesa");
+    const rows = within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(20);
+    const names = rows.map((r) => r.querySelector(".club-name-text")!.textContent);
+    expect(new Set(names)).toEqual(new Set(useGame.getState().game!.leagues[3]!.clubs.map((c) => c.name)));
+    expect(names).toContain(me.name);
+  });
+});

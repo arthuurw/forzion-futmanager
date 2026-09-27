@@ -198,3 +198,25 @@ describe("rodada antes de data de copa sem o usuário (ajustes-4a)", () => {
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
   });
 });
+
+describe("tabela com quatro ligas (paises)", () => {
+  test("tabela escolhe entre as quatro ligas", async () => {
+    // C21 (AC 21): the 4 leagues to choose from, opening on the user's.
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game: seededGameIn(2, 32, 4, 1), hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
+    await screen.findByRole("heading", { name: "Rodada 2" });
+    const game = useGame.getState().game!;
+    const names = () => within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row").slice(1).map((r) => r.querySelector(".club-name-text")!.textContent);
+    const select = screen.getByLabelText("Divisão") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual(["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"]);
+    expect(select.selectedOptions[0]!.textContent).toBe("Liga Argentina");
+    expect(names()).toEqual(computeTable(game.leagues[2]!).map((r) => r.name));
+    for (const [label, k] of [["Liga Portuguesa", 3], ["Série B", 1], ["Série A", 0], ["Liga Argentina", 2]] as const) {
+      await user.selectOptions(select, label);
+      expect(names(), label).toEqual(computeTable(game.leagues[k]!).map((r) => r.name));
+    }
+  });
+});

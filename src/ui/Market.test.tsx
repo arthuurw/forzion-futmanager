@@ -270,3 +270,31 @@ describe("tela Mercado: transferências da IA (gastos-da-ia)", () => {
     expect(table.closest(".fill")).not.toBeNull();
   });
 });
+
+describe("mercado com países (paises)", () => {
+  test("filtro de país na lista comprar", async () => {
+    // C18 (AC 18, L-015): the list opens on the user's country; «Portugal» lists c61-c80 only.
+    for (const [division, country] of [[0, "Brasil"], [1, "Brasil"], [2, "Argentina"], [3, "Portugal"]] as const) {
+      cleanup();
+      resetAll();
+      show(seededGameIn(division, 43, 2));
+      const select = screen.getByLabelText("País") as HTMLSelectElement;
+      expect([...select.options].map((o) => o.textContent), `liga ${division}`).toEqual(["Brasil", "Argentina", "Portugal"]);
+      expect(select.selectedOptions[0]!.textContent, `liga ${division}`).toBe(country);
+    }
+    cleanup();
+    resetAll();
+    const user = userEvent.setup();
+    const game = seededGame(44);
+    show(game);
+    await user.selectOptions(screen.getByLabelText("País"), "Portugal");
+    const rows = within(screen.getByRole("table", { name: "Mercado" })).getAllByRole("row").slice(1);
+    const portuguese = game.leagues.flatMap((l) => l.clubs).filter((c) => Number(c.id.slice(1)) >= 61);
+    const squads = portuguese.reduce((n, c) => n + c.players.length, 0);
+    expect(portuguese).toHaveLength(20);
+    expect(squads).toBe(20 * 22);
+    expect(rows).toHaveLength(squads);
+    const names = new Set(portuguese.map((c) => c.name));
+    for (const r of rows) expect(names.has(within(r).getAllByRole("cell")[4]!.textContent!)).toBe(true);
+  });
+});

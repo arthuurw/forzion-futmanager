@@ -97,7 +97,7 @@ export function Finance() {
             <dt>Folha por rodada</dt>
             <dd>{formatMoney(payroll(club.players))}</dd>
             <dt>Patrocínio por rodada</dt>
-            <dd>{formatMoney(sponsorshipPaid(f, divisionOf(game, club.id)))}</dd>
+            <dd>{formatMoney(sponsorshipPaid(f, game.leagues[divisionOf(game, club.id)]?.tier ?? 0))}</dd>
             <dt>Torcida</dt>
             <dd>{formatNumber(f.fans)}</dd>
             <dt>Capacidade</dt>

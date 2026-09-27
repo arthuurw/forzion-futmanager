@@ -1,4 +1,4 @@
-import { divisionAt, goalLabel } from "../engine/board";
+import { DIVISION_LABEL, divisionAt, goalLabel } from "../engine/board";
 import { useGame } from "../store";
 import { cupGoalText } from "./Cup";
 import { POSITION_LABEL } from "./Squad";
@@ -15,7 +15,7 @@ export function NewSeason() {
       <div className="screen-head">
         <h1 className="title-bar">Nova temporada</h1>
         <span className="goal">
-          Temporada {report.season} · Meta: {goalLabel(divisionAt(game?.leagues ?? [], report.divisionIndex), report.boardGoal)}
+          Temporada {report.season} · {DIVISION_LABEL[report.divisionIndex] ?? ""} · Meta: {goalLabel(divisionAt(game?.leagues ?? [], report.divisionIndex), report.boardGoal)}
           {report.cupGoal >= 0 && ` · ${cupGoalText(report.cupGoal)}`}
         </span>
       </div>

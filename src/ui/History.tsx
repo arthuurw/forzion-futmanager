@@ -28,6 +28,12 @@ export function History() {
     const i = game.leagues.findIndex((l) => l.id === leagueId);
     return DIVISION_LABEL[i] ?? "";
   };
+  // Paises AC 22: the champions of the leagues abroad, by league id (seasons before v7 have none).
+  const abroad = game.leagues.filter((l) => l.country !== "BR");
+  const championIn = (r: (typeof records)[number], leagueId: string) => {
+    const d = r.divisions.find((x) => x.leagueId === leagueId);
+    return d ? clubName(d.championId) : "—";
+  };
 
   return (
     <div className="screen">
@@ -137,6 +143,26 @@ export function History() {
                         <td>{scorerText(r.divisions[1])}</td>
                         <td>{r.cups[0] ? clubName(r.cups[0].championId) : "-"}</td>
                         <td>{r.userPosition ? `${r.userPosition}º na ${division(r.userLeagueId)}` : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <table aria-label="Campeões no exterior" className="compact">
+                  <thead>
+                    <tr>
+                      <th className="num" title="Temporada">Temp.</th>
+                      {abroad.map((l) => (
+                        <th key={l.id}>Campeão {division(l.id)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map((r) => (
+                      <tr key={r.season}>
+                        <td className="num">{r.season}</td>
+                        {abroad.map((l) => (
+                          <td key={l.id}>{championIn(r, l.id)}</td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>

@@ -78,7 +78,7 @@ Proof: `npx vitest run src/ui/End.test.tsx -t "demitido escolhe proposta"`
 **C17** ✓ - Com a janela aberta, um usuário da Série A compra um jogador da Liga Argentina pelo preço pedido: o jogador chega com `contractSeasons` 3, o caixa do usuário cai o preço e o do vendedor sobe o preço (AC 17)
 Proof: `npx vitest run src/engine/market.test.ts -t "comprar de clube de outro país"`
 
-**C18** - Na lista «Comprar», o filtro de país começa no país do clube do usuário (Brasil para Série A ou B, Argentina, Portugal) e, ao trocar para «Portugal», lista só jogadores de clubes `c61`–`c80`: 20 × 22 linhas, contadas contra os elencos (AC 18, L-015)
+**C18** ✓ - Na lista «Comprar», o filtro de país começa no país do clube do usuário (Brasil para Série A ou B, Argentina, Portugal) e, ao trocar para «Portugal», lista só jogadores de clubes `c61`–`c80`: 20 × 22 linhas, contadas contra os elencos (AC 18, L-015)
 Proof: `npx vitest run src/ui/Market.test.tsx -t "filtro de país na lista comprar"`
 
 **C19** ✓ - Numa compra da IA de um clube do Brasil, o melhor candidato elegível está num clube da Argentina e o segundo num do Brasil: a IA compra o do Brasil. Na venda do vermelho de um clube de Portugal, o clube de maior sobra de todos é do Brasil e o de maior sobra de Portugal recebe a venda (AC 19, L-007)
@@ -89,16 +89,16 @@ Proof: `npx vitest run src/engine/market.test.ts -t "propostas vêm da liga do u
 
 ### S6 - Telas com as quatro ligas · ~8 files · ~90 KB · ~23k
 
-**C21** - A tela de escolha de clube tem as abas «Série A», «Série B», «Liga Argentina» e «Liga Portuguesa»; a aba «Liga Portuguesa» lista os 20 clubes dela, e escolher um deles faz dele o clube do usuário. A tela Tabela tem as 4 ligas para escolher e abre na liga do usuário (AC 21)
+**C21** ✓ - A tela de escolha de clube tem as abas «Série A», «Série B», «Liga Argentina» e «Liga Portuguesa»; a aba «Liga Portuguesa» lista os 20 clubes dela, e escolher um deles faz dele o clube do usuário. A tela Tabela tem as 4 ligas para escolher e abre na liga do usuário (AC 21)
 Proof: `npx vitest run src/ui/ChooseClub.test.tsx -t "abas das quatro ligas"`
 Proof: `npx vitest run src/ui/Round.test.tsx -t "tabela escolhe entre as quatro ligas"`
 
-**C22** - A tela Histórico mostra, numa temporada fechada, o campeão das 4 ligas com o nome de cada liga; a tela Fim e a Nova temporada mostram «Liga Portuguesa» como a liga de um usuário de Portugal, e a meta com «até o Nº». O conteúdo de cada uma fica dentro de um elemento com a classe `fill` (AC 22, AD-010)
+**C22** ✓ - A tela Histórico mostra, numa temporada fechada, o campeão das 4 ligas com o nome de cada liga; a tela Fim e a Nova temporada mostram «Liga Portuguesa» como a liga de um usuário de Portugal, e a meta com «até o Nº». O conteúdo de cada uma fica dentro de um elemento com a classe `fill` (AC 22, AD-010)
 Proof: `npx vitest run src/ui/History.test.tsx -t "campeões das quatro ligas"`
 Proof: `npx vitest run src/ui/End.test.tsx -t "fim com usuário em Portugal"`
 Proof: `npx vitest run src/ui/NewSeason.test.tsx -t "nova temporada com usuário em Portugal"`
 
-**C23** - Pelo app: escolher um clube da Liga Portuguesa, jogar uma rodada e abrir a Tabela mostra a Liga Portuguesa com 20 linhas, e o clube do usuário nela (AC 21, L-003)
+**C23** ✓ - Pelo app: escolher um clube da Liga Portuguesa, jogar uma rodada e abrir a Tabela mostra a Liga Portuguesa com 20 linhas, e o clube do usuário nela (AC 21, L-003)
 Proof: `npx vitest run src/app.test.tsx -t "usuário em Portugal joga e vê a tabela"`
 
 ### S7 - Equilíbrio dos países novos · ~1 file · ~12 KB · ~3k

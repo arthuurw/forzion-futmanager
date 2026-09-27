@@ -25,7 +25,7 @@ export function End() {
       <div className="screen-body end-body">
         <section className="panel champion-card" style={{ "--i": 0 } as React.CSSProperties}>
           <h1>Fim da temporada {review.season}</h1>
-          <div className="end-summary">
+          <div className="end-summary fill">
           <div className="trophy" aria-hidden="true" />
           <div className="champions">
           {review.divisions.map((d) => (

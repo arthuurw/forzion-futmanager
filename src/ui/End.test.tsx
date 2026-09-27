@@ -8,7 +8,7 @@ import { zeroAiSurplus } from "../engine/test-fixtures";
 import type { Club, GameState } from "../engine/types";
 import { App } from "../App";
 import { useGame } from "../store";
-import { resetAll, seededGame, skipLive } from "./test-utils";
+import { resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -189,5 +189,28 @@ describe("copa no fim (copa-nacional)", () => {
     useGame.setState({ phase: "end", game: { ...clone(base), userClubId: final.winnerId }, hasSave: true });
     render(<App />);
     expect(within(screen.getByRole("region", { name: "Copa Nacional" })).getByText("Sua campanha: Campeão")).toBeInTheDocument();
+  }, 60_000);
+});
+
+describe("fim com países (paises)", () => {
+  test("fim com usuário em Portugal", () => {
+    // C22 (AC 22, AD-010): the league of a user in Portugal, the goal «até o Nº», 4 champions.
+    const game = seededGameIn(3, 36, 2, 38);
+    game.boardGoal = 16;
+    const me = game.userClubId!;
+    const position = computeTable(game.leagues[3]!).findIndex((r) => r.clubId === me) + 1;
+    useGame.setState({ phase: "end", game, hasSave: true });
+    render(<App />);
+    expect(screen.getByText(`Sua posição: ${position}º na Liga Portuguesa`)).toBeInTheDocument();
+    // In the Série A, 16 would read «não cair».
+    expect(screen.getByText("Meta: até o 16º")).toBeInTheDocument();
+    const labels = [...document.querySelectorAll(".champions .division-name")].map((e) => e.textContent);
+    expect(labels.slice(0, 4)).toEqual(["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"]);
+    for (const k of [0, 1, 2, 3]) {
+      const champion = computeTable(game.leagues[k]!)[0]!.name;
+      const shown = screen.getByText(`Campeão: ${champion}`);
+      expect(shown.closest(".fill"), champion).not.toBeNull();
+    }
+    expect(screen.getByText(`Sua posição: ${position}º na Liga Portuguesa`).closest(".fill")).not.toBeNull();
   }, 60_000);
 });

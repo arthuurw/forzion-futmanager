@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import type { GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -96,5 +96,23 @@ describe("meta de copa na nova temporada (copa-nacional)", () => {
     const after = await turnSeason(endedSeason());
     const label = labels.find(([g]) => g === after.cupGoal)![1];
     expect(screen.getByText(new RegExp(label))).toBeInTheDocument();
+  }, 60_000);
+});
+
+describe("nova temporada com países (paises)", () => {
+  test("nova temporada com usuário em Portugal", async () => {
+    // C22 (AC 22, AD-010): the league of a user in Portugal and the goal «até o Nº».
+    const game = seededGameIn(3, 37, 6, 38);
+    game.boardGoal = 20;
+    const after = await turnSeason(game);
+    const pt = after.leagues[3]!;
+    expect(pt.clubs.some((c) => c.id === after.userClubId)).toBe(true);
+    // Written out (L-004): rank by the best eleven in the league, ties by id; min(20, rank + 3).
+    const best11 = (ratings: number[]) => [...ratings].sort((a, b) => b - a).slice(0, 11).reduce((a, b) => a + b, 0) / 11;
+    const ranking = [...pt.clubs].sort((a, b) => best11(b.players.map((p) => p.rating)) - best11(a.players.map((p) => p.rating)) || a.id.localeCompare(b.id));
+    const goal = Math.min(20, ranking.findIndex((c) => c.id === after.userClubId) + 1 + 3);
+    expect(after.boardGoal).toBe(goal);
+    expect(screen.getByText(new RegExp(`Temporada 2 · Liga Portuguesa · Meta: até o ${goal}º`))).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Evolução" }).closest(".fill")).not.toBeNull();
   }, 60_000);
 });

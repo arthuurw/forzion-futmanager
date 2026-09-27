@@ -14,6 +14,12 @@ Corroborated across multiple features. Safe to apply as guidance.
 - evidence: C27 / src/engine/season.ts:34 (engine) (+1 more)
 - last seen: 2026-09-26T22:12:06Z
 
+### L-005 - A check that says every/all members of a set needs a table-driven proof over the whole set, not one sample.
+- signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `checks` · harmful: 0
+- features: partida-ao-vivo, copa-nacional
+- evidence: checks.md C47 (checks) (+1 more)
+- last seen: 2026-09-27T15:59:05Z
+
 ### L-007 - When a check says available, the fixture must include an unavailable member so exclusion is actually exercised.
 - signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `tests` · harmful: 0
 - features: partida-ao-vivo, elenco-mercado-financas
@@ -47,12 +53,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: nucleo-liga-partida
 - evidence: C7 / src/ui/ChooseClub.test.tsx (tests)
 - last seen: 2026-09-26T19:16:04Z
-
-### L-005 - A check that says every/all members of a set needs a table-driven proof over the whole set, not one sample.
-- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
-- features: partida-ao-vivo
-- evidence: checks.md C47 (checks)
-- last seen: 2026-09-26T20:54:52Z
 
 ### L-006 - A selection-rule check must name who takes the slot and the no-alternative fallback, with a fixture where the right and the likely wrong pick differ.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
@@ -95,6 +95,24 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: multiplas-temporadas
 - evidence: C19 / src/engine/rollover.test.ts:126 (F8, F9) (tests)
 - last seen: 2026-09-27T01:23:53Z
+
+### L-015 - When a check says a count equals a total, assert it against an independently derived total, not a sum that is equal by construction.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: copa-nacional
+- evidence: C19 / src/engine/cup.test.ts:472 (tests)
+- last seen: 2026-09-27T15:59:05Z
+
+### L-016 - Word a check's fixture the way the test builds it; a value read through production code is not a hand-built fixture.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: copa-nacional
+- evidence: C9 / src/engine/rollover.test.ts:434 (checks)
+- last seen: 2026-09-27T15:59:05Z
+
+### L-017 - When two criteria gate the same action, add a check for the case where both apply at once.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: copa-nacional
+- evidence: plan.md AC 23 x AC 44 / src/ui/Squad.tsx:312 (checks)
+- last seen: 2026-09-27T15:59:05Z
 
 ## Quarantined (failed when applied - ignore)
 

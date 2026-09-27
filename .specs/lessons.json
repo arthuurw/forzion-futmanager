@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 15,
+  "next_id": 18,
   "lessons": [
     {
       "id": "L-001",
@@ -85,17 +85,19 @@
       "text": "A check that says every/all members of a set needs a table-driven proof over the whole set, not one sample.",
       "signal": "spec_precision_gap",
       "scope": "checks",
-      "status": "candidate",
+      "status": "confirmed",
       "features": [
-        "partida-ao-vivo"
+        "partida-ao-vivo",
+        "copa-nacional"
       ],
-      "recurrence": 1,
+      "recurrence": 2,
       "harmful": 0,
       "evidence": [
-        "checks.md C47 (checks)"
+        "checks.md C47 (checks)",
+        "C57 / src/engine/migrate.test.ts:240 (checks)"
       ],
       "created": "2026-09-26T20:54:52Z",
-      "last_seen": "2026-09-26T20:54:52Z"
+      "last_seen": "2026-09-27T15:59:05Z"
     },
     {
       "id": "L-006",
@@ -262,6 +264,60 @@
       ],
       "created": "2026-09-27T01:23:53Z",
       "last_seen": "2026-09-27T01:23:53Z"
+    },
+    {
+      "id": "L-015",
+      "key": "spec_precision_gap::when a check says a count equals a total assert it against an independently derived total not a sum that is equal by construction",
+      "text": "When a check says a count equals a total, assert it against an independently derived total, not a sum that is equal by construction.",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "copa-nacional"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C19 / src/engine/cup.test.ts:472 (tests)"
+      ],
+      "created": "2026-09-27T15:59:05Z",
+      "last_seen": "2026-09-27T15:59:05Z"
+    },
+    {
+      "id": "L-016",
+      "key": "spec_precision_gap::word a check s fixture the way the test builds it a value read through production code is not a hand built fixture",
+      "text": "Word a check's fixture the way the test builds it; a value read through production code is not a hand-built fixture.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "copa-nacional"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C9 / src/engine/rollover.test.ts:434 (checks)"
+      ],
+      "created": "2026-09-27T15:59:05Z",
+      "last_seen": "2026-09-27T15:59:05Z"
+    },
+    {
+      "id": "L-017",
+      "key": "ac_gap::when two criteria gate the same action add a check for the case where both apply at once",
+      "text": "When two criteria gate the same action, add a check for the case where both apply at once.",
+      "signal": "ac_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "copa-nacional"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "plan.md AC 23 x AC 44 / src/ui/Squad.tsx:312 (checks)"
+      ],
+      "created": "2026-09-27T15:59:05Z",
+      "last_seen": "2026-09-27T15:59:05Z"
     }
   ]
 }

@@ -189,3 +189,27 @@ describe("copa no save (copa-nacional)", () => {
     expect(reloaded).toEqual(straight);
   }, 60_000);
 });
+
+describe("save com países (paises)", () => {
+  test("save v7 com países", async () => {
+    // C31 (door 1): a user in the Liga Argentina, written and read back.
+    const state = newGame(12);
+    const club = state.leagues[2]!.clubs[4]!;
+    state.userClubId = club.id;
+    club.lineup = autoLineup(club, "4-4-2");
+    const expected = JSON.parse(JSON.stringify(state)) as GameState;
+    await saveGame(state);
+    const loaded = await loadGame();
+    expect(loaded.kind).toBe("ok");
+    if (loaded.kind !== "ok") return;
+    expect(loaded.state).toEqual(expected);
+    expect(loaded.state.schemaVersion).toBe(7);
+    expect(loaded.state.userClubId).toBe(club.id);
+    expect(loaded.state.leagues.map((l) => [l.id, l.country, l.tier])).toEqual([
+      ["l1", "BR", 0],
+      ["l2", "BR", 1],
+      ["l3", "AR", 0],
+      ["l4", "PT", 0],
+    ]);
+  });
+});

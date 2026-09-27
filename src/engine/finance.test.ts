@@ -434,3 +434,24 @@ describe("gastos da IA: ampliação (engine)", () => {
     expect(ai.expansionRoundsLeft).toBe(6);
   });
 });
+
+describe("dinheiro dos países (paises)", () => {
+  test("patrocínio e prêmio dos países novos", () => {
+    // C9 (AC 9): a first division abroad is paid like the Série A.
+    let s = playRound(newGame(62)).state;
+    for (const k of [2, 3]) {
+      const club = s.leagues[k]!.clubs[0]!;
+      expect(club.finance.lastRound!.sponsorship, club.id).toBe(club.finance.sponsorship);
+      expect(club.finance.sponsorship, club.id).toBeGreaterThan(0);
+    }
+    for (let r = 1; r < 38; r++) s = playRound(s).state;
+    for (const k of [2, 3]) {
+      const table = computeTable(s.leagues[k]!);
+      expect(table, s.leagues[k]!.id).toHaveLength(20);
+      table.forEach((row, i) => {
+        const club = s.leagues[k]!.clubs.find((c) => c.id === row.clubId)!;
+        expect(club.finance.lastRound!.prize, `${club.id} ${i + 1}º`).toBe((21 - (i + 1)) * 250_000);
+      });
+    }
+  }, 60_000);
+});

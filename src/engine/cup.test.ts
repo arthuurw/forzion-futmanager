@@ -511,3 +511,23 @@ describe("copa: mercado da IA (gastos-da-ia)", () => {
     expect(all(after).some((c) => inTies.has(c.id) && c.finance.lastRound!.attendance === 20_000)).toBe(true);
   });
 });
+
+describe("copa e países (paises)", () => {
+  test("copa nacional só com o Brasil", () => {
+    // C10 (AC 10): the 40 clubs of Brazil, and no club c41-c80 in any tie of the season.
+    let s = newGame(63);
+    const brazil = new Set(s.leagues.filter((l) => l.country === "BR").flatMap((l) => l.clubs.map((c) => c.id)));
+    expect(brazil.size).toBe(40);
+    const seeding = s.cups[0]!.seeding;
+    expect(seeding).toHaveLength(40);
+    expect(new Set(seeding)).toEqual(brazil);
+    const abroad = (id: string) => Number(id.slice(1)) >= 41 && Number(id.slice(1)) <= 80;
+    while (nextDate(s).kind !== "over") s = playDate(s).state;
+    const ties = s.cups[0]!.phases.flatMap((p) => p.ties);
+    expect(ties).toHaveLength(8 + 16 + 8 + 4 + 2 + 1);
+    for (const t of ties) {
+      expect(abroad(t.homeId), t.id).toBe(false);
+      expect(abroad(t.awayId), t.id).toBe(false);
+    }
+  }, 60_000);
+});

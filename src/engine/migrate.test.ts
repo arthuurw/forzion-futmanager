@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { nextDate } from "./calendar";
 import { newGame } from "./generate";
 import { aiLineup, formationSlots, isAvailable } from "./lineup";
@@ -400,6 +401,89 @@ describe("migração v5 -> v6 (gastos-da-ia)", () => {
         ["l3", "AR", 0],
         ["l4", "PT", 0],
       ]);
+    }
+  });
+});
+
+// ---------- paises ----------
+
+/** Real v6 saves recorded from 889aa71: seed 5, the user at c4, at round 0 and at round 12. */
+const v6Saves = () =>
+  JSON.parse(readFileSync(new URL("./__fixtures__/v6-saves.json", import.meta.url), "utf8")) as { round0: Record<string, unknown>; round12: Record<string, unknown> };
+
+/** The migrated document without what v7 adds: the leagues abroad, and country and tier. */
+function backToV6(s: GameState): Record<string, unknown> {
+  const doc = JSON.parse(JSON.stringify(s)) as Record<string, unknown> & { leagues: Record<string, unknown>[] };
+  doc.schemaVersion = 6;
+  doc.leagues = doc.leagues.slice(0, 2);
+  for (const l of doc.leagues) {
+    delete l.country;
+    delete l.tier;
+  }
+  return doc;
+}
+
+describe("migração v6 -> v7 (paises)", () => {
+  test("v6 vira v7 na rodada 0", () => {
+    // C27 (AC 26, door 1, door 5).
+    const v6 = v6Saves().round0;
+    expect(v6.schemaVersion).toBe(6);
+    expect((v6.leagues as unknown[]).length).toBe(2);
+    const s = migrated(JSON.parse(JSON.stringify(v6)));
+    expect(s.schemaVersion).toBe(7);
+    const fresh = newGame(v6.seed as number);
+    expect(s.leagues[2]).toEqual(fresh.leagues[2]);
+    expect(s.leagues[3]).toEqual(fresh.leagues[3]);
+    expect(s.leagues.map((l) => [l.id, l.country, l.tier])).toEqual([
+      ["l1", "BR", 0],
+      ["l2", "BR", 1],
+      ["l3", "AR", 0],
+      ["l4", "PT", 0],
+    ]);
+    expect(backToV6(s)).toEqual(v6);
+  });
+
+  test("v6 no meio da temporada ganha os países", () => {
+    // C28 (AC 27, door 5).
+    const v6 = v6Saves().round12;
+    const seed = v6.seed as number;
+    expect((v6.leagues as { currentRound: number }[])[0]!.currentRound).toBe(12);
+    const s = migrated(JSON.parse(JSON.stringify(v6)));
+    expect(backToV6(s)).toEqual(v6);
+    for (const k of [2, 3]) {
+      const league = s.leagues[k]!;
+      expect(league.currentRound, league.id).toBe(12);
+      league.rounds.forEach((r, n) => {
+        for (const m of r.matches) expect(m.result === null, `${league.id} rodada ${n + 1}`).toBe(n >= 12);
+      });
+      // Scores only, replayed here with door 2 over mix32(seed, 10), written out.
+      const players: Record<string, LivePlayer> = {};
+      for (const c of league.clubs) for (const p of c.players) players[p.id] = { ...p };
+      const clubs = new Map(league.clubs.map((c) => [c.id, c]));
+      const side = (id: string) => {
+        const club = clubs.get(id)!;
+        const lineup = aiLineup(club);
+        const starters = lineup.starters.map((pid) => (pid && isAvailable(club.players.find((p) => p.id === pid)!) ? pid : null));
+        return makeSide(id, formationSlots(lineup.formation), starters, club.players.filter((p) => !starters.includes(p.id)).map((p) => p.id), players, { formation: lineup.formation });
+      };
+      const base = mix32(mix32(mix32(seed, 10), 0xe0), k);
+      for (let n = 1; n <= 12; n++) {
+        const replay = runToEnd({
+          roundIndex: n - 1,
+          roundNumber: n,
+          minute: 0,
+          userClubId: null,
+          players,
+          matches: league.rounds[n - 1]!.matches.map((m, i) => makeMatch(m.id, side(m.homeId), side(m.awayId), mix32(base, n * 16 + i), league.id)),
+        }).matches.map((m) => [m.homeGoals, m.awayGoals]);
+        expect(league.rounds[n - 1]!.matches.map((m) => [m.result!.homeGoals, m.result!.awayGoals]), `${league.id} rodada ${n}`).toEqual(replay);
+      }
+      for (const c of league.clubs) {
+        const wages = c.players.reduce((sum, p) => sum + p.salary, 0);
+        expect(c.finance.cash, c.id).toBe(Math.round((wages * 10) / 100_000) * 100_000);
+        expect(c.finance.lastRound, c.id).toBeNull();
+        for (const p of c.players) expect(p.fitness, p.id).toBe(100);
+      }
     }
   });
 });

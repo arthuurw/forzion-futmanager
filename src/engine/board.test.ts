@@ -1,4 +1,4 @@
-import { combinedVerdict, cupGoalLabel, cupGoalMet, userCupGoal } from "./board";
+import { combinedVerdict, cupGoalLabel, cupGoalMet, divisionAt, goalLabel, jobOffers, userBoardGoal, userCupGoal, verdictFor } from "./board";
 import { cupReached } from "./cup";
 import { newGame } from "./generate";
 import type { Club, Cup, Tie, Verdict } from "./types";
@@ -94,5 +94,91 @@ describe("meta de copa", () => {
 
   test("rótulos da meta de copa", () => {
     expect([1, 2, 3, 4].map(cupGoalLabel)).toEqual(["chegar aos 16 avos", "chegar às oitavas", "chegar às quartas", "chegar à semifinal"]);
+  });
+});
+
+describe("diretoria nos países (paises)", () => {
+  const setRating = (club: Club, rating: number) => club.players.forEach((p) => (p.rating = rating));
+
+  test("meta em liga sem rebaixamento", () => {
+    // C13 (AC 13): min(20, rank + 3), label «até o Nº», by the rank in the league's strength ranking.
+    const rows: [number, number, string][] = [
+      [1, 4, "até o 4º"],
+      [10, 13, "até o 13º"],
+      [17, 20, "até o 20º"],
+      [20, 20, "até o 20º"],
+    ];
+    for (const k of [2, 3]) {
+      const s = newGame(71);
+      const clubs = s.leagues[k]!.clubs;
+      clubs.forEach((c, i) => setRating(c, 90 - i));
+      for (const [rank, goal, label] of rows) {
+        s.userClubId = clubs[rank - 1]!.id;
+        expect(userBoardGoal(s), `${s.leagues[k]!.id} posto ${rank}`).toBe(goal);
+        expect(goalLabel(divisionAt(s.leagues, k), goal), `${s.leagues[k]!.id} posto ${rank}`).toBe(label);
+      }
+    }
+  });
+
+  test("veredito em liga sem rebaixamento", () => {
+    // C14 (AC 14, L-007): only 5 or more places below the goal fires; the Série A contrasts.
+    const leagues = newGame(72).leagues;
+    const rows: [number, number, number, Verdict][] = [
+      [2, 16, 16, "met"],
+      [2, 16, 17, "missed"],
+      [2, 16, 20, "missed"],
+      [3, 16, 16, "met"],
+      [3, 16, 17, "missed"],
+      [3, 16, 20, "missed"],
+      [0, 16, 17, "fired"],
+      [2, 8, 13, "fired"],
+      [2, 8, 12, "missed"],
+      [3, 8, 13, "fired"],
+      [3, 8, 12, "missed"],
+    ];
+    for (const [k, goal, position, verdict] of rows) {
+      expect(verdictFor(divisionAt(leagues, k), goal, position), `liga ${k} meta ${goal} posição ${position}`).toBe(verdict);
+    }
+  });
+
+  test("propostas de emprego de qualquer país", () => {
+    // C15 (AC 15): the 3 just below in the ranking of all 80 clubs, by the mean of the best 11.
+    const s = newGame(73);
+    const all = s.leagues.flatMap((l) => l.clubs);
+    expect(all).toHaveLength(80);
+    const ranking = [...all].sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id)).map((c) => c.id);
+    const abroad = (id: string) => Number(id.slice(1)) >= 41;
+    let fromAbroad = 0;
+    for (let p = 0; p < 77; p++) {
+      const offers = jobOffers({ ...s, userClubId: ranking[p]! });
+      expect(offers, ranking[p]).toEqual(ranking.slice(p + 1, p + 4));
+      if (offers.some(abroad)) fromAbroad++;
+    }
+    // The 5th strongest of the Liga Portuguesa (plan, independent test).
+    const pt = [...s.leagues[3]!.clubs].sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id));
+    const fifth = pt[4]!.id;
+    const offers = jobOffers({ ...s, userClubId: fifth });
+    expect(offers).toHaveLength(3);
+    expect(fromAbroad).toBeGreaterThan(0);
+    const at = ranking.indexOf(fifth);
+    expect(offers).toEqual(ranking.slice(at + 1, at + 4));
+  });
+
+  test("meta de copa só com o Brasil", () => {
+    // C16 (AC 16, L-018): the rank among the 40 clubs of Brazil, never among the 80.
+    const s = newGame(74);
+    for (const l of s.leagues.slice(2)) for (const c of l.clubs) setRating(c, 95);
+    const brazil = s.leagues.slice(0, 2).flatMap((l) => l.clubs);
+    const preliminary = new Set(s.cups[0]!.seeding.slice(-16));
+    const rank = (clubs: Club[], id: string) =>
+      [...clubs].sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id)).findIndex((c) => c.id === id) + 1;
+    const goalOf = (r: number) => (r <= 4 ? 4 : r <= 8 ? 3 : 2);
+    const user = brazil.find((c) => !preliminary.has(c.id) && rank(brazil, c.id) === 2)!;
+    const among40 = goalOf(rank(brazil, user.id));
+    const among80 = goalOf(rank(s.leagues.flatMap((l) => l.clubs), user.id));
+    expect(among40).toBe(4);
+    expect(among80).not.toBe(among40);
+    expect(userCupGoal({ ...s, userClubId: user.id })).toBe(among40);
+    for (const l of s.leagues.slice(2)) for (const c of l.clubs) expect(userCupGoal({ ...s, userClubId: c.id }), c.id).toBe(-1);
   });
 });

@@ -529,3 +529,66 @@ describe("boletim na virada (gastos-da-ia)", () => {
     expect(state.market.transfers).toHaveLength(0);
   });
 });
+
+describe("demitido na virada (paises)", () => {
+  test("clube do demitido passa pela virada da IA", () => {
+    // C34 (AC 30): the club a fired manager picks goes through the turn as an AI club.
+    const before = ended(31, 0, 5);
+    const oldId = before.userClubId!;
+    const position = computeTable(before.leagues[0]!).findIndex((r) => r.clubId === oldId) + 1;
+    before.boardGoal = position - 5;
+    const pick = seasonReview(before).jobOffers[0]!;
+    const dest = clubOf(before, pick);
+    // Ten young players in their last season, which the AI renews (age 32 or less, written out),
+    // and one of 34 in his last season, which it does not (L-007).
+    const young = dest.players.slice(0, 10);
+    for (const p of young) Object.assign(p, { age: 24, contractSeasons: 1 });
+    const veteran = dest.players[10]!;
+    Object.assign(veteran, { age: 34, contractSeasons: 1 });
+    const { state } = nextSeason(before, pick);
+    expect(state.userClubId).toBe(pick);
+    const after = clubOf(state, pick);
+    expect(after.players.length).toBeGreaterThanOrEqual(22);
+    expect(clubOf(state, oldId).players.length).toBeGreaterThanOrEqual(22);
+    for (const p of young) {
+      const now = after.players.find((x) => x.id === p.id);
+      expect(now, p.id).toBeDefined();
+      expect(now!.contractSeasons, p.id).toBeGreaterThanOrEqual(1);
+    }
+    expect(after.players.some((x) => x.id === veteran.id)).toBe(false);
+  });
+});
+
+describe("virada por país (paises)", () => {
+  test("sobe e desce só no Brasil", () => {
+    // C11 (AC 11).
+    const before = ended();
+    const { state } = nextSeason(before);
+    const ids = (s: GameState, k: number) => new Set(s.leagues[k]!.clubs.map((c) => c.id));
+    for (const k of [0, 1]) {
+      const was = ids(before, k);
+      const now = ids(state, k);
+      expect(now.size).toBe(20);
+      expect([...now].filter((id) => !was.has(id)), `liga ${k}`).toHaveLength(4);
+    }
+    for (const k of [2, 3]) expect(ids(state, k), `liga ${k}`).toEqual(ids(before, k));
+  });
+
+  test("histórico com as quatro ligas", () => {
+    // C12 (AC 12).
+    const { state } = nextSeason(ended());
+    const record = state.history.at(-1)!;
+    expect(record.divisions.map((d) => d.leagueId)).toEqual(["l1", "l2", "l3", "l4"]);
+    for (const d of record.divisions) {
+      expect(d.championId, d.leagueId).toMatch(/^c\d+$/);
+      expect(d.topScorer, d.leagueId).not.toBeNull();
+      expect(d.topScorer!.goals, d.leagueId).toBeGreaterThan(0);
+    }
+    for (const d of record.divisions.slice(2)) {
+      expect(d.promotedIds, d.leagueId).toEqual([]);
+      expect(d.relegatedIds, d.leagueId).toEqual([]);
+    }
+    const abroad = ended().leagues.slice(2);
+    record.divisions.slice(2).forEach((d, i) => expect(abroad[i]!.clubs.map((c) => c.id), d.leagueId).toContain(d.championId));
+  });
+});

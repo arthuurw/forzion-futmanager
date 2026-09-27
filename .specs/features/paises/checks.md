@@ -35,56 +35,56 @@ Proof: `npx vitest run src/engine/generate.test.ts -t "Brasil igual ao snapshot 
 
 ### S2 - As quatro ligas jogam a mesma rodada · ~5 files · ~90 KB · ~23k
 
-**C7** - Depois de `playRound` num jogo novo, as 4 ligas têm `currentRound` 1 e as 10 partidas da rodada 1 de cada uma têm resultado (AC 7)
+**C7** ✓ - Depois de `playRound` num jogo novo, as 4 ligas têm `currentRound` 1 e as 10 partidas da rodada 1 de cada uma têm resultado (AC 7)
 Proof: `npx vitest run src/engine/season.test.ts -t "quatro ligas jogam a rodada"`
 
-**C8** - O placar da partida `i` da rodada 1 da Liga Argentina e da Liga Portuguesa (`k` 2 e 3) é o do motor da rodada ao vivo (`makeMatch` com os times da IA e `runToEnd`) com a semente `mix32(mix32(mix32(rngState, 0xE0), k), 1 * 16 + i)`, recalculada no teste pela fórmula literal; a semente rejeitada `mix32(rngState, 0xA + k)` dá placares diferentes em pelo menos uma partida. Os placares da Série A e da Série B nas rodadas 1 e 2 são iguais aos do snapshot v6 (AC 8, door 2; reescrito em 27/09/2026 pelo autor: `simulateMatch` não usa o banco e diverge da rodada real em 1 a 3 de 20 partidas)
+**C8** ✓ - O placar da partida `i` da rodada 1 da Liga Argentina e da Liga Portuguesa (`k` 2 e 3) é o do motor da rodada ao vivo (`makeMatch` com os times da IA e `runToEnd`) com a semente `mix32(mix32(mix32(rngState, 0xE0), k), 1 * 16 + i)`, recalculada no teste pela fórmula literal; a semente rejeitada `mix32(rngState, 0xA + k)` dá placares diferentes em pelo menos uma partida. Os placares da Série A e da Série B nas rodadas 1 e 2 são iguais aos do snapshot v6 (AC 8, door 2; reescrito em 27/09/2026 pelo autor: `simulateMatch` não usa o banco e diverge da rodada real em 1 a 3 de 20 partidas)
 Proof: `npx vitest run src/engine/live.test.ts -t "semente das ligas novas"`
 
-**C9** - Ao fechar a rodada 1, um clube da Liga Argentina e um da Liga Portuguesa têm `lastRound.sponsorship` igual ao `finance.sponsorship` inteiro. Ao fechar a rodada 38, o prêmio de cada clube das duas ligas é (21 − posição) × R$ 250.000 (AC 9)
+**C9** ✓ - Ao fechar a rodada 1, um clube da Liga Argentina e um da Liga Portuguesa têm `lastRound.sponsorship` igual ao `finance.sponsorship` inteiro. Ao fechar a rodada 38, o prêmio de cada clube das duas ligas é (21 − posição) × R$ 250.000 (AC 9)
 Proof: `npx vitest run src/engine/finance.test.ts -t "patrocínio e prêmio dos países novos"`
 
-**C10** - O chaveamento da copa nacional de um jogo novo tem 40 ids, todos das ligas `BR`; nenhum `c41`–`c80` aparece nele nem em nenhum confronto sorteado da temporada (AC 10)
+**C10** ✓ - O chaveamento da copa nacional de um jogo novo tem 40 ids, todos das ligas `BR`; nenhum `c41`–`c80` aparece nele nem em nenhum confronto sorteado da temporada (AC 10)
 Proof: `npx vitest run src/engine/cup.test.ts -t "copa nacional só com o Brasil"`
 
 ### S3 - Virada por país · ~2 files · ~40 KB · ~10k
 
-**C11** - Depois de uma temporada inteira e `nextSeason`, a Série A e a Série B trocaram 4 clubes cada uma, e os conjuntos de ids da Liga Argentina e da Liga Portuguesa são iguais aos de antes (AC 11)
+**C11** ✓ - Depois de uma temporada inteira e `nextSeason`, a Série A e a Série B trocaram 4 clubes cada uma, e os conjuntos de ids da Liga Argentina e da Liga Portuguesa são iguais aos de antes (AC 11)
 Proof: `npx vitest run src/engine/rollover.test.ts -t "sobe e desce só no Brasil"`
 
-**C12** - O registro da temporada no histórico tem 4 `divisions`, com `leagueId` `l1`–`l4`, campeão e artilheiro em cada; as de `l3` e `l4` têm `promotedIds` e `relegatedIds` vazios (AC 12)
+**C12** ✓ - O registro da temporada no histórico tem 4 `divisions`, com `leagueId` `l1`–`l4`, campeão e artilheiro em cada; as de `l3` e `l4` têm `promotedIds` e `relegatedIds` vazios (AC 12)
 Proof: `npx vitest run src/engine/rollover.test.ts -t "histórico com as quatro ligas"`
 
 ### S4 - Diretoria e emprego em qualquer país · ~3 files · ~45 KB · ~11k
 
-**C13** - Tabela da meta num clube da Liga Argentina ou da Liga Portuguesa pelo posto no ranking de força da liga: posto 1 → 4; posto 10 → 13; posto 17 → 20; posto 20 → 20. O rótulo é «até o 4º», «até o 13º», «até o 20º» (AC 13)
+**C13** ✓ - Tabela da meta num clube da Liga Argentina ou da Liga Portuguesa pelo posto no ranking de força da liga: posto 1 → 4; posto 10 → 13; posto 17 → 20; posto 20 → 20. O rótulo é «até o 4º», «até o 13º», «até o 20º» (AC 13)
 Proof: `npx vitest run src/engine/board.test.ts -t "meta em liga sem rebaixamento"`
 
-**C14** - Tabela do veredito numa liga sem rebaixamento, com meta 16: posição 16 → cumprida; 17 → não cumprida; 20 → não cumprida (na Série A, com meta 16, a posição 17 demite). Com meta 8: posição 13 → demitido; 12 → não cumprida (AC 14, L-007)
+**C14** ✓ - Tabela do veredito numa liga sem rebaixamento, com meta 16: posição 16 → cumprida; 17 → não cumprida; 20 → não cumprida (na Série A, com meta 16, a posição 17 demite). Com meta 8: posição 13 → demitido; 12 → não cumprida (AC 14, L-007)
 Proof: `npx vitest run src/engine/board.test.ts -t "veredito em liga sem rebaixamento"`
 
-**C15** - `jobOffers` rankeia os 80 clubes: para um usuário no posto `p` do ranking de força de todos, as ofertas são os postos `p+1` a `p+3`, calculados no teste a partir das médias dos 11 melhores. Numa seed escolhida pelo teste, pelo menos uma das 3 ofertas é de um clube `c41`–`c80` (AC 15)
+**C15** ✓ - `jobOffers` rankeia os 80 clubes: para um usuário no posto `p` do ranking de força de todos, as ofertas são os postos `p+1` a `p+3`, calculados no teste a partir das médias dos 11 melhores. Numa seed escolhida pelo teste, pelo menos uma das 3 ofertas é de um clube `c41`–`c80` (AC 15)
 Proof: `npx vitest run src/engine/board.test.ts -t "propostas de emprego de qualquer país"`
 
-**C16** - `userCupGoal` de um usuário da Série A usa o posto no ranking de força só dos 40 clubes do Brasil (fixture em que o posto entre os 80 e entre os 40 dão metas diferentes). Um usuário da Liga Argentina ou da Liga Portuguesa tem meta de copa -1 (AC 16, L-018)
+**C16** ✓ - `userCupGoal` de um usuário da Série A usa o posto no ranking de força só dos 40 clubes do Brasil (fixture em que o posto entre os 80 e entre os 40 dão metas diferentes). Um usuário da Liga Argentina ou da Liga Portuguesa tem meta de copa -1 (AC 16, L-018)
 Proof: `npx vitest run src/engine/board.test.ts -t "meta de copa só com o Brasil"`
 
-**C34** - Um usuário demitido que aceita a proposta de um clube cujo elenco tem jogadores no último ano de contrato: depois da virada, o clube de destino e o clube antigo têm pelo menos 22 jogadores cada, os contratos que a regra da IA renova foram renovados no destino, e `userClubId` é o destino. Pela tela Fim, o teste «demitido escolhe proposta» volta a escolher a proposta que leva a `c79` e passa sem mudar nenhum valor esperado (AC 30, L-007)
+**C34** ✓ - Um usuário demitido que aceita a proposta de um clube cujo elenco tem jogadores no último ano de contrato: depois da virada, o clube de destino e o clube antigo têm pelo menos 22 jogadores cada, os contratos que a regra da IA renova foram renovados no destino, e `userClubId` é o destino. Pela tela Fim, o teste «demitido escolhe proposta» volta a escolher a proposta que leva a `c79` e passa sem mudar nenhum valor esperado (AC 30, L-007)
 Proof: `npx vitest run src/engine/rollover.test.ts -t "clube do demitido passa pela virada da IA"`
 Proof: `npx vitest run src/ui/End.test.tsx -t "demitido escolhe proposta"`
 
 ### S5 - Mercado com o mundo · ~4 files · ~70 KB · ~18k
 
-**C17** - Com a janela aberta, um usuário da Série A compra um jogador da Liga Argentina pelo preço pedido: o jogador chega com `contractSeasons` 3, o caixa do usuário cai o preço e o do vendedor sobe o preço (AC 17)
+**C17** ✓ - Com a janela aberta, um usuário da Série A compra um jogador da Liga Argentina pelo preço pedido: o jogador chega com `contractSeasons` 3, o caixa do usuário cai o preço e o do vendedor sobe o preço (AC 17)
 Proof: `npx vitest run src/engine/market.test.ts -t "comprar de clube de outro país"`
 
 **C18** - Na lista «Comprar», o filtro de país começa no país do clube do usuário (Brasil para Série A ou B, Argentina, Portugal) e, ao trocar para «Portugal», lista só jogadores de clubes `c61`–`c80`: 20 × 22 linhas, contadas contra os elencos (AC 18, L-015)
 Proof: `npx vitest run src/ui/Market.test.tsx -t "filtro de país na lista comprar"`
 
-**C19** - Numa compra da IA de um clube do Brasil, o melhor candidato elegível está num clube da Argentina e o segundo num do Brasil: a IA compra o do Brasil. Na venda do vermelho de um clube de Portugal, o clube de maior sobra de todos é do Brasil e o de maior sobra de Portugal recebe a venda (AC 19, L-007)
+**C19** ✓ - Numa compra da IA de um clube do Brasil, o melhor candidato elegível está num clube da Argentina e o segundo num do Brasil: a IA compra o do Brasil. Na venda do vermelho de um clube de Portugal, o clube de maior sobra de todos é do Brasil e o de maior sobra de Portugal recebe a venda (AC 19, L-007)
 Proof: `npx vitest run src/engine/market.test.ts -t "IA negocia só no próprio país"`
 
-**C20** - Um usuário da Liga Portuguesa com jogadores à venda recebe propostas só de clubes `c61`–`c80`, em 20 rodadas de janela de uma seed fixa (AC 20)
+**C20** ✓ - Um usuário da Liga Portuguesa com jogadores à venda recebe propostas só de clubes `c61`–`c80`, em 20 rodadas de janela de uma seed fixa (AC 20)
 Proof: `npx vitest run src/engine/market.test.ts -t "propostas vêm da liga do usuário"`
 
 ### S6 - Telas com as quatro ligas · ~8 files · ~90 KB · ~23k
@@ -117,10 +117,10 @@ Proof: `npx vitest run src/engine/balance.test.ts -t "caixa equilibrado em uma t
 
 ### S8 - Save v7 · ~4 files · ~50 KB · ~13k
 
-**C27** - A fixture v6 na rodada 0 migrada vira `schemaVersion: 7`: `leagues[2]` e `leagues[3]` são iguais (`toEqual`) às de `newGame(seed)` da mesma seed; Série A e Série B ganham `country: "BR"` e `tier` 0 e 1; tirando esses campos e as duas ligas novas, o documento é igual ao v6 (AC 26, door 1, door 5)
+**C27** ✓ - A fixture v6 na rodada 0 migrada vira `schemaVersion: 7`: `leagues[2]` e `leagues[3]` são iguais (`toEqual`) às de `newGame(seed)` da mesma seed; Série A e Série B ganham `country: "BR"` e `tier` 0 e 1; tirando esses campos e as duas ligas novas, o documento é igual ao v6 (AC 26, door 1, door 5)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v6 vira v7 na rodada 0"`
 
-**C28** - A fixture v6 na rodada 12 migrada tem as ligas novas com `currentRound` 12; o placar da partida `i` da rodada `n < 12` de cada liga nova é o de `runToEnd` com a door 2 sobre `mix32(seed, 10)`, recalculado no teste; cada clube novo tem o caixa de `initialFinance` do elenco e todo jogador novo `fitness` 100; nada da Série A, Série B, mercado, copa e usuário muda (AC 27, door 5)
+**C28** ✓ - A fixture v6 na rodada 12 migrada tem as ligas novas com `currentRound` 12; o placar da partida `i` da rodada `n < 12` de cada liga nova é o de `runToEnd` com a door 2 sobre `mix32(seed, 10)`, recalculado no teste; cada clube novo tem o caixa de `initialFinance` do elenco e todo jogador novo `fitness` 100; nada da Série A, Série B, mercado, copa e usuário muda (AC 27, door 5)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v6 no meio da temporada ganha os países"`
 
 **C29** ✓ - Uma fixture de cada versão, v1 a v5, carregada vira `schemaVersion: 7` com 4 ligas (AC 28)
@@ -129,7 +129,7 @@ Proof: `npx vitest run src/engine/migrate.test.ts -t "cadeia até v7"`
 **C30** ✓ - Um save com `schemaVersion: 8` é recusado como incompatível, e um com 7 carrega (AC 29)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "versão acima de 7 incompatível"`
 
-**C31** - Um save v7 de um jogo novo com o usuário na Liga Argentina, gravado e relido pela camada de persistência (fake-indexeddb), volta igual, com `country` e `tier` nas 4 ligas (door 1)
+**C31** ✓ - Um save v7 de um jogo novo com o usuário na Liga Argentina, gravado e relido pela camada de persistência (fake-indexeddb), volta igual, com `country` e `tier` nas 4 ligas (door 1)
 Proof: `npx vitest run src/persistence/save.test.ts -t "save v7 com países"`
 
 **C32** ✓ - `SCHEMA_VERSION` vale 7 (door 1)

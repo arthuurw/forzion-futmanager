@@ -97,16 +97,13 @@ describe("fim de temporada com duas divisões", () => {
     offers.forEach((b, i) => expect(b.textContent!.startsWith(below[i]!.name)).toBe(true));
     const next = screen.getByRole("button", { name: "Próxima temporada" });
     expect(next).toBeDisabled();
-    // Paises: with 80 clubs the third offer of this fixture is a Liga Portuguesa club whose 13
-    // one-season contracts all end at the turn (the new club is the user's, so it neither renews
-    // nor refills from the academy); the first offer keeps the flow this test is about.
-    await user.click(offers[0]!);
+    await user.click(offers[2]!);
     expect(next).toBeEnabled();
     await user.click(next);
     expect(await screen.findByRole("heading", { name: "Nova temporada" })).toBeInTheDocument();
-    expect(useGame.getState().game!.userClubId).toBe(below[0]!.id);
+    expect(useGame.getState().game!.userClubId).toBe(below[2]!.id);
     await user.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(await screen.findByRole("heading", { name: below[0]!.name })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: below[2]!.name })).toBeInTheDocument();
     expect(screen.queryByText(/Faltam \d+ titulares/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
   }, 60_000);

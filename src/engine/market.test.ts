@@ -1172,3 +1172,82 @@ describe("ajustes-4a: filtros da compra da IA (engine)", () => {
     expect(run(-10_000)).toBe(false);
   });
 });
+
+describe("mercado com o mundo (paises)", () => {
+  test("comprar de clube de outro país", () => {
+    // C17 (AC 17): a Série A user buys from the Liga Argentina in the window.
+    const s = game(81);
+    const seller = s.leagues[2]!.clubs[3]!;
+    const player = seller.players[5]!;
+    const price = askingPrice(seller, player);
+    const me = user(s);
+    me.finance.cash = price + 1_000_000;
+    const cashBefore = me.finance.cash;
+    const sellerBefore = seller.finance.cash;
+    const after = ok(buyPlayer(s, player.id, price));
+    const mine = after.leagues[0]!.clubs.find((c) => c.id === me.id)!;
+    expect(mine.players.find((p) => p.id === player.id)?.contractSeasons).toBe(3);
+    expect(mine.finance.cash).toBe(cashBefore - price);
+    const sold = after.leagues[2]!.clubs.find((c) => c.id === seller.id)!;
+    expect(sold.finance.cash).toBe(sellerBefore + price);
+    expect(sold.players.some((p) => p.id === player.id)).toBe(false);
+  });
+
+  test("IA negocia só no próprio país", () => {
+    // C19 (AC 19, L-007). A purchase: the best candidate plays in Argentina, the second in Brazil.
+    const q = quiet(82);
+    cutTo21(q);
+    const argentine = q.s.leagues[2]!.clubs[0]!;
+    const brazilian = seller(q);
+    const best = reserve(argentine, "DF", 85, 25);
+    const second = reserve(brazilian, "DF", 80, 25);
+    close(q);
+    expect(has(q.s, q.buyer.id, second.id)).toBe(true);
+    expect(has(q.s, q.buyer.id, best.id)).toBe(false);
+    expect(has(q.s, argentine.id, best.id)).toBe(true);
+
+    // A sale from the red: the club with the most to spend is Brazilian; the Portuguese one with the most gets it.
+    const s = newGame(83);
+    s.userClubId = s.leagues[1]!.clubs[19]!.id;
+    for (const p of [...everyClub(s).flatMap((c) => c.players), ...s.market.freeAgents]) Object.assign(p, { rating: 50, age: 25 });
+    for (const c of everyClub(s)) c.finance.cash = 0;
+    const from = s.leagues[3]!.clubs[0]!;
+    from.players = from.players.slice(0, 20);
+    from.finance.cash = -1_000_000;
+    const star = plant(from, "DF", 80, 25);
+    star.salary = 20_000;
+    const rich = s.leagues[0]!.clubs[2]!;
+    const portuguese = s.leagues[3]!.clubs[5]!;
+    rich.finance.cash = cashFor(rich, 50_000_000, STAR_SALARY);
+    portuguese.finance.cash = cashFor(portuguese, 10_000_000, STAR_SALARY);
+    closeRoundMarket(s, s.rngState, 1);
+    expect(has(s, portuguese.id, star.id)).toBe(true);
+    expect(has(s, rich.id, star.id)).toBe(false);
+    expect(s.market.transfers.find((t) => t.playerId === star.id)).toMatchObject({ kind: "buy", fromId: from.id, toId: portuguese.id });
+  });
+
+  test("propostas vêm da liga do usuário", () => {
+    // C20 (AC 20): a Liga Portuguesa user, everyone for sale, 20 window rounds; clubs abroad are rich (L-007).
+    const s = newGame(84);
+    const me = s.leagues[3]!.clubs[0]!;
+    s.userClubId = me.id;
+    me.forSale = me.players.map((p) => p.id);
+    for (const l of s.leagues.slice(0, 3)) for (const c of l.clubs) c.finance.cash = 1_000_000_000;
+    for (const c of s.leagues[3]!.clubs) if (c.id !== me.id) c.finance.cash = 200_000_000;
+    const rounds = [0, 1, 2, 3, 4, 17, 18, 19, 20, 21];
+    const buyers: string[] = [];
+    let windows = 0;
+    for (const pass of [1, 2]) {
+      for (const r of rounds) {
+        expect(isWindowOpen(r + 1)).toBe(true);
+        windows++;
+        closeRoundMarket(s, mix32(s.rngState, pass * 100 + r), r);
+        buyers.push(...s.market.offers.map((o) => o.buyerId));
+      }
+    }
+    expect(windows).toBe(20);
+    expect(buyers.length).toBeGreaterThan(0);
+    for (const id of buyers) expect(Number(id.slice(1)), id).toBeGreaterThanOrEqual(61);
+    for (const id of buyers) expect(Number(id.slice(1)), id).toBeLessThanOrEqual(80);
+  });
+});

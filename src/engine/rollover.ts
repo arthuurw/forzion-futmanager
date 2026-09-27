@@ -205,21 +205,24 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   if (fired && jobClubId) {
     const old = allClubs(state).find((c) => c.id === input.userClubId);
     if (old) old.lineup = null;
-    state.userClubId = jobClubId;
   }
-  const userId = state.userClubId;
+  // Paises AC 30: after a sacking both clubs go through the turn as AI clubs (renewals and the
+  // academy); the manager takes the new club only after it.
+  const userId = fired && jobClubId ? jobClubId : state.userClubId;
+  const managed = fired ? null : userId;
   const userBefore = new Map((allClubs(state).find((c) => c.id === userId)?.players ?? []).map((p) => [p.id, p.rating]));
   const retired: RolloverReport["retired"] = [];
   const expired: RolloverReport["expired"] = [];
 
   // AC 16-18, 27, 28, 37: every player at a club.
   for (const club of allClubs(state)) {
-    const isUser = club.id === userId;
+    const isUser = club.id === managed;
+    const reported = club.id === userId;
     const stay: Player[] = [];
     for (const p of club.players) {
       const next = ageOneSeason(rng, p);
       if (!next) {
-        if (isUser) retired.push({ id: p.id, name: p.name });
+        if (reported) retired.push({ id: p.id, name: p.name });
         continue;
       }
       if (next.contractSeasons > 1) {
@@ -227,7 +230,7 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
       } else if (!isUser && p.age <= AI_RENEW_MAX_AGE) {
         stay.push({ ...next, contractSeasons: randInt(rng, AI_RENEW_SEASONS.min, AI_RENEW_SEASONS.max), salary: salaryFor(next.rating) });
       } else {
-        if (isUser) expired.push({ id: p.id, name: p.name });
+        if (reported) expired.push({ id: p.id, name: p.name });
         state.market.freeAgents.push({ ...next, contractSeasons: 0 });
       }
     }
@@ -244,9 +247,10 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
 
   const taken = takenNames(state);
   for (const club of allClubs(state)) {
-    if (club.id !== userId) refillFromAcademy(rng, club, season, taken);
+    if (club.id !== managed) refillFromAcademy(rng, club, season, taken);
   }
   topUpFreeAgents(rng, state, season, taken);
+  state.userClubId = userId;
 
   // AC 11, 13: new market window with 3 juniors, no offers; money, stadium and loans untouched.
   state.market.offers = [];

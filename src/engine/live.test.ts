@@ -1,14 +1,18 @@
+import { readFileSync } from "node:fs";
 import { newGame } from "./generate";
-import { AI_FORMATION, autoLineup, formationSlots } from "./lineup";
+import { AI_FORMATION, aiLineup, autoLineup, formationSlots } from "./lineup";
 import {
   MAX_SUBS,
   changeFormation,
+  makeMatch,
+  makeSide,
   runToEnd,
   sideStrength,
   startRound,
   step,
   substitute,
   userMatch,
+  type LivePlayer,
   type LiveRound,
   type LiveSide,
 } from "./live";
@@ -387,5 +391,45 @@ describe("disponibilidade na rodada da liga (copa-nacional)", () => {
     expect([...sideOf(ai.id).slots, ...sideOf(ai.id).bench]).not.toContain(leagueOnly.id);
     expect(sideOf(me.id).bench).toContain(benchCup.id);
     expect(sideOf(me.id).bench).not.toContain(benchLeague.id);
+  });
+});
+
+describe("sementes dos países (paises)", () => {
+  test("semente das ligas novas", () => {
+    // C8 (AC 8, door 2): the leagues abroad replayed here on the live engine with the seed
+    // written out; the Série A and the Série B against the v6 snapshot.
+    const s = newGame(1);
+    const after = playRound(s).state;
+    const players: Record<string, LivePlayer> = {};
+    for (const l of s.leagues) for (const c of l.clubs) for (const p of c.players) players[p.id] = { ...p };
+    for (const k of [2, 3]) {
+      const league = s.leagues[k]!;
+      const clubs = new Map(league.clubs.map((c) => [c.id, c]));
+      const side = (id: string) => {
+        const club = clubs.get(id)!;
+        const lineup = aiLineup(club);
+        const bench = club.players.filter((p) => !lineup.starters.includes(p.id)).map((p) => p.id);
+        return makeSide(id, formationSlots(lineup.formation), lineup.starters, bench, players, { formation: lineup.formation, posture: "balanced" });
+      };
+      const replay = (seedOf: (i: number) => number) =>
+        runToEnd({
+          roundIndex: 0,
+          roundNumber: 1,
+          minute: 0,
+          userClubId: null,
+          players,
+          matches: league.rounds[0]!.matches.map((m, i) => makeMatch(m.id, side(m.homeId), side(m.awayId), seedOf(i), league.id)),
+        }).matches.map((m) => [m.homeGoals, m.awayGoals]);
+      const stored = after.leagues[k]!.rounds[0]!.matches.map((m) => [m.result!.homeGoals, m.result!.awayGoals]);
+      expect(stored, league.id).toEqual(replay((i) => mix32(mix32(mix32(s.rngState, 0xe0), k), 1 * 16 + i)));
+      // The rejected seed (door 2) gives other scores.
+      expect(stored, league.id).not.toEqual(replay((i) => mix32(mix32(s.rngState, 0xa + k), 1 * 16 + i)));
+    }
+    const snapshot = JSON.parse(readFileSync(new URL("./__fixtures__/snapshot-v6.json", import.meta.url), "utf8")) as Record<string, { results: unknown }>;
+    for (const seed of [1, 2, 3]) {
+      const two = playRound(playRound(newGame(seed)).state).state;
+      const results = [0, 1].map((k) => [0, 1].map((r) => two.leagues[k]!.rounds[r]!.matches.map((m) => m.result)));
+      expect(results, `seed ${seed}`).toEqual(snapshot[seed]!.results);
+    }
   });
 });

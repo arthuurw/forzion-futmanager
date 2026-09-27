@@ -24,7 +24,7 @@ Reutiliza a geração de liga (`generate.generateLeague` com `DivisionSpec`), o 
 4. `engine/season.finishRound` (exists) - fecha cada liga com finanças pelo **nível** da liga, não pelo índice do array. A copa nacional continua só com os 40 clubes do Brasil (`cup.seedingByStrength` recebe só as ligas `BR`)
 5. `engine/market` (exists) - o usuário compra de qualquer clube. As compras da IA e a venda do vermelho só acontecem entre clubes do mesmo país
 6. rodada 38 -> `engine/season.seasonReview` (exists) e `engine/board` (exists) - veredito e meta pelo nível e pelo país da liga do usuário. As propostas de emprego vêm do ranking de todos os 80 clubes
-7. `engine/rollover.nextSeason` (exists) - sobe e desce só entre níveis consecutivos do mesmo país; Argentina e Portugal ficam com os mesmos 20
+7. `engine/rollover.nextSeason` (exists) - sobe e desce só entre níveis consecutivos do mesmo país; Argentina e Portugal ficam com os mesmos 20. Depois de uma demissão, o clube de destino e o antigo passam pela virada como clubes da IA, e só então o usuário assume o destino (AC 30)
 8. `persistence` (exists) grava o save v7 (door 1). As telas Tabela, Histórico, Fim e Mercado (exist) listam as quatro ligas
 
 ## Impact

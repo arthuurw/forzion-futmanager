@@ -114,3 +114,17 @@ describe("mercado da IA na rodada (gastos-da-ia)", () => {
     expect(state.market.transfers.some((t) => t.kind === "buy" && t.toId === club.id)).toBe(true);
   });
 });
+
+describe("países na rodada (paises)", () => {
+  test("quatro ligas jogam a rodada", () => {
+    // C7 (AC 7): every league plays its 10 matches and moves to round 1.
+    const s = playRound(newGame(61)).state;
+    expect(s.leagues.map((l) => l.id)).toEqual(["l1", "l2", "l3", "l4"]);
+    for (const league of s.leagues) {
+      expect(league.currentRound, league.id).toBe(1);
+      expect(league.rounds[0]!.matches, league.id).toHaveLength(10);
+      for (const m of league.rounds[0]!.matches) expect(m.result, `${league.id} ${m.id}`).not.toBeNull();
+      for (const m of league.rounds[1]!.matches) expect(m.result, `${league.id} ${m.id}`).toBeNull();
+    }
+  });
+});

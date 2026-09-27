@@ -1,7 +1,8 @@
 import { createRng, type Rng } from "../engine/rng";
 import type { MatchEvent, MatchEventType } from "../engine/types";
 import { createAudio } from "./audio";
-import { effects, fakeBackend, type Call } from "./test-backend";
+import type { EffectId } from "./backend";
+import { effects, fakeBackend, type Call, type FakeBackend } from "./test-backend";
 
 const constant = (v: number): Rng => ({ next: () => v, getState: () => 0 });
 
@@ -18,6 +19,20 @@ function started(rng: Rng = createRng(1)) {
 
 const wait = (ms: number) => vi.advanceTimersByTime(ms);
 
+/** Every effect the backend plays from now on, with the milliseconds since now (fake clock). */
+function timeline(backend: FakeBackend): [EffectId, number][] {
+  const t0 = Date.now();
+  const heard: [EffectId, number][] = [];
+  const play = backend.playEffect;
+  backend.playEffect = (id, variant, pitch) => {
+    heard.push([id, Date.now() - t0]);
+    play(id, variant, pitch);
+  };
+  return heard;
+}
+
+const at90 = (type: MatchEventType, clubId: string): MatchEvent => ({ minute: 90, type, clubId });
+
 beforeEach(() => {
   vi.useFakeTimers();
 });
@@ -28,14 +43,15 @@ afterEach(() => {
 
 describe("efeitos da partida (audio S2)", () => {
   test("efeito de cada tipo de evento", () => {
-    // C7: the 12 event types, both sides of a goal, one second apart.
+    // Audio C7: the 12 event types, both sides of a goal. Ajustes-audio C10: the shoot-out kicks
+    // sound in the shoot-out's sequence (1.5 s after they arrive) and a user's kick has no jingle.
     const table: [MatchEventType, string, string[]][] = [
       ["kickoff", "u", ["whistle-short"]],
       ["halftime", "u", ["whistle-double"]],
       ["fulltime", "u", ["whistle-long"]],
       ["goal", "u", ["crowd-roar", "goal-jingle"]],
       ["goal", "o", ["crowd-groan"]],
-      ["penalty_scored", "u", ["crowd-roar", "goal-jingle"]],
+      ["penalty_scored", "u", ["crowd-roar"]],
       ["penalty_scored", "o", ["crowd-groan"]],
       ["shot_saved", "u", ["crowd-ooh"]],
       ["shot_missed", "o", ["crowd-ooh"]],
@@ -51,9 +67,56 @@ describe("efeitos da partida (audio S2)", () => {
     for (const [type, side, expected] of table) {
       const before = backend.calls.length;
       send(type, side);
+      if (type === "penalty_scored" || type === "penalty_missed") {
+        expect(effects(backend.calls.slice(before)), `${type} ${side} na chegada`).toEqual([]);
+        wait(1500);
+      }
       expect(effects(backend.calls.slice(before)), `${type} ${side}`).toEqual(expected);
-      wait(1000);
+      // Long enough for a shoot-out's closing jingle to play before the next row.
+      wait(3000);
     }
+  });
+
+  test("disputa de pênaltis cobrança por cobrança", () => {
+    // Ajustes-audio C7 (AC 7): the whistle and four kicks in one tick; user scores, opponent
+    // scores, user misses, opponent misses.
+    const { audio, backend } = started();
+    const heard = timeline(backend);
+    audio.matchEvents([at90("fulltime", "u"), at90("penalty_scored", "u"), at90("penalty_scored", "o"), at90("penalty_missed", "u"), at90("penalty_missed", "o")], "u");
+    wait(20000);
+    expect(heard).toEqual([
+      ["whistle-long", 0],
+      ["crowd-roar", 1500],
+      ["crowd-groan", 2700],
+      ["crowd-ooh", 3900],
+      ["crowd-ooh", 5100],
+    ]);
+  });
+
+  test("vinheta só na vitória da disputa", () => {
+    // Ajustes-audio C8 (AC 8, AC 9): the user wins 2 x 1, then loses 0 x 1.
+    const won = started();
+    const wonHeard = timeline(won.backend);
+    won.audio.matchEvents([at90("fulltime", "u"), at90("penalty_scored", "u"), at90("penalty_scored", "o"), at90("penalty_scored", "u"), at90("penalty_missed", "o")], "u");
+    wait(20000);
+    expect(wonHeard).toEqual([
+      ["whistle-long", 0],
+      ["crowd-roar", 1500],
+      ["crowd-groan", 2700],
+      ["crowd-roar", 3900],
+      ["crowd-ooh", 5100],
+      ["goal-jingle", 5100 + 1200],
+    ]);
+
+    const lost = started();
+    const lostHeard = timeline(lost.backend);
+    lost.audio.matchEvents([at90("fulltime", "u"), at90("penalty_missed", "u"), at90("penalty_scored", "o")], "u");
+    wait(20000);
+    expect(lostHeard).toEqual([
+      ["whistle-long", 0],
+      ["crowd-ooh", 1500],
+      ["crowd-groan", 2700],
+    ]);
   });
 
   test("efeitos desligados não tocam", () => {

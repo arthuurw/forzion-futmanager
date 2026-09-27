@@ -454,6 +454,29 @@ describe("som ao vivo (audio)", () => {
     expect(heard).toContain("whistle-long");
   });
 
+  test("disputa de pênaltis soa pela tela ao vivo", async () => {
+    // Ajustes-audio C9 (AC 7, AC 9, L-003): seed 1, the user home in the third tie of the cup's
+    // second phase, level at 90' and through on penalties.
+    startOnFakeClock(1, cupGame(1, 1, (s) => s.cups[0]!.phases[1]!.ties[2]!.homeId));
+    runTo(89);
+    expect(userMatch(runToEnd(useGame.getState().live!))!.penalties).not.toBeNull();
+    const userId = useGame.getState().live!.userClubId!;
+    const from = backend.calls.length;
+    advance(300);
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+    // The kicks as the match played them.
+    const kicks = useGame.getState().lastRound!.userEvents.filter((e) => e.type === "penalty_scored" || e.type === "penalty_missed");
+    expect(kicks.length).toBeGreaterThanOrEqual(10);
+    const expected = kicks.map((k) => (k.type === "penalty_missed" ? "crowd-ooh" : k.clubId === userId ? "crowd-roar" : "crowd-groan"));
+    const heard = effects(backend.calls.slice(from));
+    const afterWhistle = heard.slice(heard.indexOf("whistle-long") + 1);
+    expect(afterWhistle.slice(0, kicks.length)).toEqual(expected);
+    const goals = (mine: boolean) => kicks.filter((k) => k.type === "penalty_scored" && (k.clubId === userId) === mine).length;
+    expect(afterWhistle.slice(kicks.length)).toEqual(goals(true) > goals(false) ? ["goal-jingle"] : []);
+  });
+
   test("áudio não mexe no sorteio do jogo", () => {
     // C14: the same match with the audio on and muted.
     startWithSound(7);

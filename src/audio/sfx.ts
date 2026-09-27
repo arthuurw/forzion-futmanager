@@ -39,8 +39,10 @@ export function effectsFor(e: MatchEvent, userClubId: string): EffectId[] {
     case "fulltime":
       return ["whistle-long"];
     case "goal":
-    case "penalty_scored":
       return e.clubId === userClubId ? ["crowd-roar", "goal-jingle"] : ["crowd-groan"];
+    // Ajustes-audio AC 9: a shoot-out kick has no jingle; the shoot-out's win has one (AC 8).
+    case "penalty_scored":
+      return e.clubId === userClubId ? ["crowd-roar"] : ["crowd-groan"];
     case "shot_saved":
     case "shot_missed":
     case "penalty_missed":

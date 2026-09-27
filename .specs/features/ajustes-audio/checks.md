@@ -33,16 +33,16 @@ Proof: `npx vitest run src/ui/Live.test.tsx -t "tick do minuto 90 toca os evento
 
 ### S3 - Pênaltis um a um · ~3 files · ~35 KB · ~9k
 
-**C7** - Dado um `fulltime` e uma disputa de 4 cobranças que chegam no mesmo tick (usuário marca, adversário marca, usuário perde, adversário perde), o backend falso registra, com o relógio falso: `whistle-long` em 0 s; `crowd-roar` em 1,5 s; `crowd-groan` em 2,7 s; `crowd-ooh` em 3,9 s; `crowd-ooh` em 5,1 s; e nada entre esses instantes (AC 7)
+**C7** - ✓ Dado um `fulltime` e uma disputa de 4 cobranças que chegam no mesmo tick (usuário marca, adversário marca, usuário perde, adversário perde), o backend falso registra, com o relógio falso: `whistle-long` em 0 s; `crowd-roar` em 1,5 s; `crowd-groan` em 2,7 s; `crowd-ooh` em 3,9 s; `crowd-ooh` em 5,1 s; e nada entre esses instantes (AC 7)
 Proof: `npx vitest run src/audio/sfx.test.ts -t "disputa de pênaltis cobrança por cobrança"`
 
-**C8** - Uma disputa em que o usuário vence registra `goal-jingle` exatamente uma vez, 1,2 s depois da última cobrança; uma em que ele perde não registra `goal-jingle`; em nenhuma das duas uma cobrança registra `goal-jingle` (AC 8, AC 9)
+**C8** - ✓ Uma disputa em que o usuário vence registra `goal-jingle` exatamente uma vez, 1,2 s depois da última cobrança; uma em que ele perde não registra `goal-jingle`; em nenhuma das duas uma cobrança registra `goal-jingle` (AC 8, AC 9)
 Proof: `npx vitest run src/audio/sfx.test.ts -t "vinheta só na vitória da disputa"`
 
-**C9** - Pela tela ao vivo, numa partida de mata-mata da copa do usuário empatada aos 90' que vai à disputa: os efeitos registrados depois do apito final são um por cobrança, na ordem das cobranças da partida (lidas no teste do evento, não recalculadas), sem `goal-jingle` entre elas (AC 7, AC 9, L-003)
+**C9** - ✓ Pela tela ao vivo, numa partida de mata-mata da copa do usuário empatada aos 90' que vai à disputa: os efeitos registrados depois do apito final são um por cobrança, na ordem das cobranças da partida (lidas no teste do evento, não recalculadas), sem `goal-jingle` entre elas (AC 7, AC 9, L-003)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "disputa de pênaltis soa pela tela ao vivo"`
 
-**C10** - A tabela do audio C7 continua cobrindo os 12 tipos de evento, com as linhas de `penalty_scored` e `penalty_missed` agora pela sequência da disputa: `penalty_scored` do usuário → `crowd-roar` sem `goal-jingle`; do adversário → `crowd-groan`; `penalty_missed` → `crowd-ooh` (AC 7, AC 9)
+**C10** - ✓ A tabela do audio C7 continua cobrindo os 12 tipos de evento, com as linhas de `penalty_scored` e `penalty_missed` agora pela sequência da disputa: `penalty_scored` do usuário → `crowd-roar` sem `goal-jingle`; do adversário → `crowd-groan`; `penalty_missed` → `crowd-ooh` (AC 7, AC 9)
 Proof: `npx vitest run src/audio/sfx.test.ts -t "efeito de cada tipo de evento"`
 
 ### S4 - Liga e campeões nas telas de temporada · ~4 files · ~40 KB · ~10k

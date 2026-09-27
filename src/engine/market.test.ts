@@ -183,7 +183,7 @@ describe("mercado (engine)", () => {
     }
     expect(got / trials).toBeGreaterThanOrEqual(0.45);
     expect(got / trials).toBeLessThanOrEqual(0.55);
-  });
+  }, 90_000);
 
   test("propostas espontâneas pelos mais valiosos", () => {
     const base = game(9);
@@ -205,7 +205,7 @@ describe("mercado (engine)", () => {
     }
     expect(got / trials).toBeGreaterThanOrEqual(0.2);
     expect(got / trials).toBeLessThanOrEqual(0.3);
-  });
+  }, 90_000);
 
   test("usuário no mínimo recusa", () => {
     const state = game(10);

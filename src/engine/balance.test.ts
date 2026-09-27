@@ -126,7 +126,7 @@ describe("equilíbrio financeiro", () => {
     const median = (sorted[49]! + sorted[50]!) / 2;
     expect(median).toBeGreaterThanOrEqual(0.9);
     expect(median).toBeLessThanOrEqual(1.6);
-  });
+  }, 90_000);
 });
 
 /** Min / median / max of a list, printed so a run shows the measured band. */

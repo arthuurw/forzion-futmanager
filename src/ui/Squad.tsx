@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { divisionOf, goalLabel } from "../engine/board";
 import { CONTRACT_RENEWAL, isMarketOpen, releaseCost, renewalSalary } from "../engine/market";
-import { formationSlots, isAvailable, validateLineup } from "../engine/lineup";
+import { nextCompetition } from "../engine/calendar";
+import { formationSlots, isAvailableFor, validateLineup } from "../engine/lineup";
 import { userLeague } from "../engine/season";
 import { FORMATION_NAMES, POSITIONS, POSTURES, type FormationName, type Position, type Posture } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { FitnessBar, MoraleArrow, StatusBadge } from "./Condition";
+import { nextDateLabel } from "./Cup";
 import { formatMoney } from "./money";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
@@ -50,6 +52,7 @@ export function Squad() {
   const goToMarket = useGame((s) => s.goToMarket);
   const goToFinance = useGame((s) => s.goToFinance);
   const goToHistory = useGame((s) => s.goToHistory);
+  const goToCup = useGame((s) => s.goToCup);
   const renewContract = useGame((s) => s.renewContract);
   const message = useGame((s) => s.marketMessage);
   const [tab, setTab] = useState<SquadTab>("pitch");
@@ -60,7 +63,10 @@ export function Squad() {
   if (!club) return null;
   const league = userLeague(game);
   const lineup = club.lineup;
-  const validation = validateLineup(club, lineup);
+  // Copa-nacional AC 23, 29: availability is for the next date's competition.
+  const competition = nextCompetition(game);
+  const isAvailable = (p: (typeof club.players)[number]) => isAvailableFor(p, competition);
+  const validation = validateLineup(club, lineup, competition);
   const slots = lineup ? formationSlots(lineup.formation) : [];
   const coords = slotCoordinates(slots);
   const starterIds = new Set(lineup?.starters.filter((id): id is string => !!id));
@@ -216,7 +222,7 @@ export function Squad() {
                       <MoraleArrow value={p.morale} />
                     </td>
                     <td className="row-actions">
-                      <StatusBadge player={p} />
+                      <StatusBadge player={p} competition={competition} />
                       {marketOpen && (
                         <>
                           <label className="for-sale" title="À venda">
@@ -286,14 +292,13 @@ export function Squad() {
       )}
 
       <div className="action-bar">
-        <span className="matchday">
-          Rodada {league.currentRound + 1} de {league.rounds.length}
-        </span>
+        <span className="matchday">{nextDateLabel(game, league.rounds.length, league.currentRound)}</span>
         <span className="goal">Meta: {goalLabel(divisionOf(game, club.id), game.boardGoal)}</span>
         <span className="cash">{formatMoney(club.finance.cash)}</span>
         <button onClick={goToMarket}>Mercado</button>
         <button onClick={goToFinance}>Finanças</button>
         <button onClick={goToHistory}>Histórico</button>
+        <button onClick={goToCup}>Copa</button>
         {message && (
           <p role="status" className="missing">
             {message}

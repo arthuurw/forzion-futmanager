@@ -35,6 +35,7 @@ describe("tela Fim", () => {
 
 /** Written out here, not imported (L-004). */
 const brl = (n: number) => `R$ ${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 const best11 = (c: Club) => [...c.players].map((p) => p.rating).sort((a, b) => b - a).slice(0, 11).reduce((a, b) => a + b, 0) / 11;
 
 let ended: GameState | null = null;
@@ -120,3 +121,60 @@ describe("veredito na tela", () => {
   });
 });
 
+
+describe("copa no fim (copa-nacional)", () => {
+  const PHASES = ["Preliminar", "16 avos", "Oitavas", "Quartas", "Semifinal", "Final"];
+  /** The last phase the club played, 6 for the champion, read off the ties here (L-004). */
+  const reachedBy = (game: GameState, clubId: string) => {
+    const cup = game.cups[0]!;
+    if (cup.phases[5]!.ties[0]!.winnerId === clubId) return 6;
+    let reached = -1;
+    cup.phases.forEach((p, k) => {
+      if (p.ties.some((t) => t.homeId === clubId || t.awayId === clubId)) reached = k;
+    });
+    return reached;
+  };
+  const nameIn = (game: GameState, id: string) => game.leagues.flatMap((l) => l.clubs).find((c) => c.id === id)!.name;
+
+  test("copa salva o emprego", async () => {
+    const user = userEvent.setup();
+    const game = endedSeason();
+    const tableA = computeTable(game.leagues[0]!);
+    game.userClubId = tableA[9]!.clubId;
+    game.boardGoal = 5;
+    game.cupGoal = reachedBy(game, game.userClubId);
+    expect(game.cupGoal).toBeGreaterThanOrEqual(1);
+    useGame.setState({ phase: "end", game, hasSave: true });
+    render(<App />);
+    expect(screen.getByText("Meta não cumprida")).toBeInTheDocument();
+    expect(screen.queryByText("Demitido")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Propostas de emprego" })).not.toBeInTheDocument();
+    const next = screen.getByRole("button", { name: "Próxima temporada" });
+    expect(next).toBeEnabled();
+    await user.click(next);
+    expect(await screen.findByRole("heading", { name: "Nova temporada" })).toBeInTheDocument();
+    const after = useGame.getState().game!;
+    expect(after.userClubId).toBe(tableA[9]!.clubId);
+    expect(after.history[0]!.verdict).toBe("missed");
+  }, 60_000);
+
+  test("copa no fim da temporada", () => {
+    const base = endedSeason();
+    const final = base.cups[0]!.phases[5]!.ties[0]!;
+    const runnerUp = final.winnerId === final.homeId ? final.awayId : final.homeId;
+    const userId = computeTable(base.leagues[0]!).map((r) => r.clubId).find((id) => id !== final.winnerId)!;
+    const game = { ...clone(base), userClubId: userId };
+    useGame.setState({ phase: "end", game, hasSave: true });
+    const view = render(<App />);
+    const section = screen.getByRole("region", { name: "Copa Nacional" });
+    expect(within(section).getByText(`Campeão: ${nameIn(game, final.winnerId!)}`)).toBeInTheDocument();
+    expect(within(section).getByText(`Vice: ${nameIn(game, runnerUp)}`)).toBeInTheDocument();
+    expect(within(section).getByText(`Sua campanha: ${PHASES[reachedBy(game, userId)]}`)).toBeInTheDocument();
+    view.unmount();
+    resetAll();
+
+    useGame.setState({ phase: "end", game: { ...clone(base), userClubId: final.winnerId }, hasSave: true });
+    render(<App />);
+    expect(within(screen.getByRole("region", { name: "Copa Nacional" })).getByText("Sua campanha: Campeão")).toBeInTheDocument();
+  }, 60_000);
+});

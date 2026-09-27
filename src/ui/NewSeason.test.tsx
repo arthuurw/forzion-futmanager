@@ -66,3 +66,35 @@ describe("tela Nova temporada", () => {
     expect(within(screen.getByRole("region", { name: "Fim de contrato" })).getByText("Nenhum contrato encerrado")).toBeInTheDocument();
   }, 60_000);
 });
+
+describe("meta de copa na nova temporada (copa-nacional)", () => {
+  test("meta na copa", async () => {
+    const labels: [number, string][] = [
+      [1, "Meta na copa: chegar aos 16 avos"],
+      [2, "Meta na copa: chegar às oitavas"],
+      [3, "Meta na copa: chegar às quartas"],
+      [4, "Meta na copa: chegar à semifinal"],
+    ];
+    const game = endedSeason();
+    for (const [cupGoal, text] of labels) {
+      resetAll();
+      useGame.setState({
+        phase: "newSeason",
+        game: { ...game, cupGoal },
+        rolloverReport: { season: 2, retired: [], expired: [], changes: [], divisionIndex: 1, boardGoal: 4, cupGoal },
+      });
+      const view = render(<App />);
+      expect(screen.getByText(new RegExp(text)), `nova temporada ${cupGoal}`).toBeInTheDocument();
+      view.unmount();
+      useGame.setState({ phase: "cup" });
+      const cup = render(<App />);
+      expect(screen.getByText(new RegExp(text)), `copa ${cupGoal}`).toBeInTheDocument();
+      cup.unmount();
+    }
+    // Wired through «Próxima temporada» (L-003): the screen shows the new season's goal.
+    resetAll();
+    const after = await turnSeason(endedSeason());
+    const label = labels.find(([g]) => g === after.cupGoal)![1];
+    expect(screen.getByText(new RegExp(label))).toBeInTheDocument();
+  }, 60_000);
+});

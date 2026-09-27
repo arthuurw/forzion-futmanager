@@ -15,7 +15,9 @@ import {
 } from "./engine/live";
 import * as finance from "./engine/finance";
 import * as market from "./engine/market";
-import { userBoardGoal } from "./engine/board";
+import { userBoardGoal, userCupGoal } from "./engine/board";
+import { nextDate } from "./engine/calendar";
+import { finishCupDate, startCupDate } from "./engine/cup";
 import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
 import type { Club, Finance, FormationName, GameState, Posture } from "./engine/types";
@@ -33,7 +35,8 @@ export type Phase =
   | "round"
   | "end"
   | "newSeason"
-  | "history";
+  | "history"
+  | "cup";
 export type SaveStatus = "ok" | "failed" | "unavailable";
 export type LastRound = Omit<RoundOutcome, "state">;
 export type Clock = "running" | "paused" | "halftime";
@@ -114,8 +117,11 @@ export interface GameStore {
   setFormation(formation: FormationName): void;
   setPosture(posture: Posture): void;
   assignStarter(slotIndex: number, playerId: string): void;
-  /** Starts the live round. */
-  playRound(): void;
+  /**
+   * Plays the next date: a league round or a cup phase the user plays opens the live screen; a cup
+   * phase without the user closes at once and shows its results (copa-nacional AC 44).
+   */
+  playRound(): Promise<void>;
   tick(): void;
   pause(): void;
   resume(): void;
@@ -143,6 +149,7 @@ export interface GameStore {
   /** «Próxima temporada» (AC 10-15, 35): saves the new season, then shows «Nova temporada». */
   nextSeason(jobClubId?: string): Promise<void>;
   goToHistory(): void;
+  goToCup(): void;
   continueGame(): void;
   goToSquad(): void;
   goHome(): void;
@@ -205,7 +212,7 @@ export const useGame = create<GameStore>()((set, get) => {
     const { game, live, finishing } = get();
     if (!game || !live || finishing) return;
     set({ finishing: true });
-    const { state, ...lastRound } = finishRound(game, live);
+    const { state, ...lastRound } = live.cup ? finishCupDate(game, live) : finishRound(game, live);
     set({ game: state, lastRound });
     await persist(state, set);
     set({ phase: isSeasonOver(userLeague(state)) ? "end" : "round", live: null, finishing: false });
@@ -262,7 +269,7 @@ export const useGame = create<GameStore>()((set, get) => {
       if (!game) return;
       const chosen = editUserClub({ ...game, userClubId: clubId }, (club) => ({ ...club, lineup: autoLineup(club, AI_FORMATION) }));
       // AC 30: the board sets the goal when the manager arrives.
-      const next = { ...chosen, boardGoal: userBoardGoal(chosen) };
+      const next = { ...chosen, boardGoal: userBoardGoal(chosen), cupGoal: userCupGoal(chosen) };
       set({ game: next });
       await persist(next, set);
       set({ phase: "squad" });
@@ -291,10 +298,23 @@ export const useGame = create<GameStore>()((set, get) => {
       });
     },
 
-    playRound() {
-      const game = get().game;
-      if (!game || isSeasonOver(userLeague(game))) return;
-      set({ live: startRound(game), phase: "live", clock: "running", speed: 1, liveMessage: null, finishing: false, lastRound: null });
+    async playRound() {
+      const { game, finishing } = get();
+      if (!game || finishing) return;
+      const date = nextDate(game);
+      if (date.kind === "over") return;
+      const goLive = (live: LiveRound) =>
+        set({ live, phase: "live", clock: "running", speed: 1, liveMessage: null, finishing: false, lastRound: null });
+      if (date.kind === "league") return goLive(startRound(game));
+      const live = startCupDate(game);
+      const plays = game.cups[date.cupIndex]!.phases[date.phase]!.ties.some((t) => t.homeId === game.userClubId || t.awayId === game.userClubId);
+      if (plays) return goLive(live);
+      // AC 44: the user is out of this cup date, so it closes without the live screen.
+      set({ finishing: true, lastRound: null });
+      const { state, ...lastRound } = finishCupDate(game, live);
+      set({ game: state, lastRound });
+      await persist(state, set);
+      set({ phase: "round", live: null, finishing: false });
     },
 
     tick() {
@@ -372,6 +392,10 @@ export const useGame = create<GameStore>()((set, get) => {
 
     goToHistory() {
       set({ phase: "history", marketMessage: null });
+    },
+
+    goToCup() {
+      set({ phase: "cup", marketMessage: null });
     },
 
     continueGame() {

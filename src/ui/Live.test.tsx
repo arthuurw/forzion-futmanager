@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
-import { userMatch, type LiveSide } from "../engine/live";
+import { startCupDate } from "../engine/cup";
+import { runToEnd, userMatch, type LiveSide } from "../engine/live";
+import type { GameState } from "../engine/types";
 import { narrate, narrationContext } from "../engine/narration";
 import { App } from "../App";
 import { useGame } from "../store";
-import { resetAll, seededGame, seededGameIn } from "./test-utils";
+import { Live } from "./Live";
+import { cupGame, resetAll, seededGame, seededGameIn } from "./test-utils";
 
 const scrollIntoView = vi.fn();
 
@@ -268,5 +271,37 @@ describe("ao vivo com duas divisões", () => {
       }
       view.unmount();
     }
+  });
+});
+
+describe("ao vivo na copa (copa-nacional)", () => {
+  const nameIn = (s: GameState, id: string) => s.leagues.flatMap((l) => l.clubs).find((c) => c.id === id)!.name;
+
+  test("ao vivo da copa", async () => {
+    const user = userEvent.setup();
+    const game = cupGame(121, 2, (s) => s.cups[0]!.phases[2]!.ties[3]!.awayId);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ao vivo · Copa Nacional · Oitavas");
+    const items = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem");
+    expect(items).toHaveLength(8);
+    game.cups[0]!.phases[2]!.ties.forEach((t, i) => {
+      expect(items[i]).toHaveTextContent(nameIn(game, t.homeId));
+      expect(items[i]).toHaveTextContent(nameIn(game, t.awayId));
+    });
+  });
+
+  test("placar com pênaltis ao vivo", () => {
+    const game = cupGame(122, 0, (s) => s.cups[0]!.phases[0]!.ties[0]!.homeId);
+    const live = runToEnd(startCupDate(game));
+    const mine = userMatch(live)!;
+    Object.assign(mine, { homeGoals: 1, awayGoals: 1, penalties: { home: 4, away: 3 } });
+    useGame.setState({ phase: "live", game, live, clock: "paused", finishing: false });
+    render(<Live />);
+    expect(screen.getByRole("timer", { name: "Relógio" })).toHaveTextContent("90'");
+    expect(within(screen.getByRole("region", { name: "Partida ao vivo" })).getByRole("heading")).toHaveTextContent("1 x 1 (pên. 4 x 3)");
+    const item = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem")[0]!;
+    expect(item).toHaveTextContent(`${nameIn(game, mine.home.clubId)} 1 x 1 (pên. 4 x 3) ${nameIn(game, mine.away.clubId)}`);
   });
 });

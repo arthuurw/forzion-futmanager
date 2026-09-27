@@ -67,6 +67,7 @@ export function Finance() {
         ["Compras", formatMoney(-last.transfersOut)],
         ["Vendas", formatMoney(last.transfersIn)],
         ...(last.prize !== undefined ? ([["Prêmio", formatMoney(last.prize)]] as [string, string][]) : []),
+        ...((last.cupPrize ?? 0) > 0 ? ([["Prêmio da copa", formatMoney(last.cupPrize!)]] as [string, string][]) : []),
         ["Saldo", formatMoney(ledgerBalance(last))],
       ]
     : [];

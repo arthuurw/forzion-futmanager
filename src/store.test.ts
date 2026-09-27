@@ -5,6 +5,7 @@ import { useGame, userClub, type GameStore } from "./store";
 import { render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { Banner } from "./ui/Banner";
+import { expectedCupGoal } from "./engine/test-fixtures";
 import { resetAll, seededGame } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can look at the store mid-save. */
@@ -202,5 +203,37 @@ describe("store: temporada e contratos", () => {
     // Only the last year renews: a second try is refused with the exact text.
     expect(await useGame.getState().renewContract(p.id)).toBe(false);
     expect(useGame.getState().marketMessage).toBe("Só renova no último ano de contrato");
+  });
+});
+
+describe("copa pelo store (copa-nacional)", () => {
+  test("fim da temporada com a copa decidida", async () => {
+    const game = seededGame(98, 0, 37);
+    expect(game.leagues[0]!.currentRound).toBe(37);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    await useGame.getState().playRound();
+    expect(useGame.getState().phase).toBe("live");
+    await useGame.getState().skipToEnd();
+    const s = useGame.getState();
+    expect(s.phase).toBe("end");
+    expect(s.game!.leagues.map((l) => l.currentRound)).toEqual([38, 38]);
+    expect(s.game!.cups[0]!.phases[5]!.ties[0]!.winnerId).not.toBeNull();
+  }, 60_000);
+
+  test("meta de copa ao escolher clube", async () => {
+    useGame.getState().newGame(99);
+    const game = useGame.getState().game!;
+    expect(game.cupGoal).toBe(-1);
+    // A Série B club in the preliminary, and the strongest Série A club.
+    const preliminary = game.cups[0]!.phases[0]!.ties[0]!.awayId;
+    await useGame.getState().chooseClub(preliminary);
+    expect(useGame.getState().game!.cupGoal).toBe(1);
+    expect(useGame.getState().game!.cupGoal).toBe(expectedCupGoal(useGame.getState().game!));
+    useGame.getState().newGame(99);
+    const strongest = useGame.getState().game!.cups[0]!.seeding[0]!;
+    await useGame.getState().chooseClub(strongest);
+    const chosen = useGame.getState().game!;
+    expect(chosen.cupGoal).toBe(expectedCupGoal(chosen));
+    expect(chosen.cupGoal).toBeGreaterThanOrEqual(3);
   });
 });

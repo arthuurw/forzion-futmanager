@@ -298,3 +298,5 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 - Risco anotado: a banda de caixa de 5 temporadas (multiplas-temporadas C34) agora inclui o dinheiro da copa. Se alguma seed sair da banda, o builder para e pergunta; não mexe na banda
 
 - **Closed with the engine commit (`feat(engine): national cup, calendar, penalties and save v5`):** C1–C5, C8–C19, C21–C34, C36–C39, C41, C43, C44, C54–C63
+- **Closed with the UI commit (`feat(ui): cup screen, cup dates in live and results, cup goal`):** C6, C7, C20, C35, C40, C42, C45–C53
+- **Gate:** the full suite ran as `npx vitest run --maxWorkers=2`, as the orchestrator allowed. With the default workers, the baseline already timed out under load in `app.test.tsx` and `Market.test.tsx`; no timeout was raised and no flaky test was edited.

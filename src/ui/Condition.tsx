@@ -1,4 +1,4 @@
-import type { Condition } from "../engine/types";
+import { LEAGUE, type Competition, type Condition, type CupDiscipline } from "../engine/types";
 
 /** AC 41: morale as a PES-style 5-level arrow. */
 export const MORALE_ARROW: Record<number, string> = { [-2]: "↓", [-1]: "↘", 0: "→", 1: "↗", 2: "↑" };
@@ -30,9 +30,22 @@ export function FitnessBar({ value }: { value: number }) {
   );
 }
 
-/** AC 29 / AC 34: why a player cannot be picked. Nothing when available. */
-export function StatusBadge({ player }: { player: Pick<Condition, "injuryRounds" | "suspendedRounds"> }) {
+/**
+ * AC 29 / AC 34: why a player cannot be picked for the next date. Nothing when available. A cup
+ * date reads the cup's suspension, a league round the league's (copa-nacional AC 29).
+ */
+export function StatusBadge({
+  player,
+  competition = LEAGUE,
+}: {
+  player: Pick<Condition, "injuryRounds" | "suspendedRounds"> & { cupDiscipline?: Record<string, CupDiscipline> };
+  competition?: Competition;
+}) {
   if (player.injuryRounds > 0) return <span className="badge les">LES {player.injuryRounds}</span>;
+  if (competition.kind === "cup") {
+    if ((player.cupDiscipline?.[competition.cupId]?.suspendedRounds ?? 0) > 0) return <span className="badge sus">Suspenso (copa)</span>;
+    return null;
+  }
   if (player.suspendedRounds > 0) return <span className="badge sus">SUS</span>;
   return null;
 }

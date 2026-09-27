@@ -281,3 +281,25 @@ describe("duas divisões e várias temporadas", () => {
   }, 60_000);
 });
 });
+
+describe("copa no app (copa-nacional)", () => {
+  test("data de copa sem o usuário fecha direto", async () => {
+    const user = userEvent.setup();
+    const game = seededGame(161, 0, 4);
+    // A Série A club: the preliminary is the 16 last of the seeding, all from the Série B.
+    expect(game.cups[0]!.phases[0]!.ties.some((t) => t.homeId === game.userClubId || t.awayId === game.userClubId)).toBe(false);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Copa Nacional · Preliminar" })).toBeInTheDocument();
+    expect(screen.queryByRole("timer", { name: "Relógio" })).not.toBeInTheDocument();
+    expect(useGame.getState().live).toBeNull();
+    const ties = useGame.getState().game!.cups[0]!.phases[0]!.ties;
+    expect(ties).toHaveLength(8);
+    for (const t of ties) expect(t.winnerId, t.id).not.toBeNull();
+    const loaded = await loadGame();
+    if (loaded.kind !== "ok") throw new Error("no save");
+    expect(loaded.state.cups[0]!.currentPhase).toBe(1);
+    expect(loaded.state.leagues.map((l) => l.currentRound)).toEqual([4, 4]);
+  });
+});

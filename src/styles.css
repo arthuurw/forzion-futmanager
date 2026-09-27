@@ -1560,6 +1560,17 @@ td.contract button.contract-n.last {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr);
 }
 
+/* Copa-nacional: the six phases in two rows of three; each list scrolls inside its panel. */
+.cup-body {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.pens {
+  font-size: 0.8em;
+  opacity: 0.85;
+}
+
 tr.up td:last-child {
   color: #7dffa9;
 }
@@ -2312,6 +2323,14 @@ button.mini {
 }
 
 @media (max-width: 900px) {
+  /* One column; the phases scroll inside the body instead of pushing the page (AD-010). */
+  .cup-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: min-content;
+    overflow-y: auto;
+  }
+
   .new-season-body {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr);

@@ -1,5 +1,6 @@
 import { goalLabel } from "../engine/board";
 import { useGame } from "../store";
+import { cupGoalText } from "./Cup";
 import { POSITION_LABEL } from "./Squad";
 
 /** AC 14: who retired, whose contract ended, how each player's rating moved, and the new goal. */
@@ -14,6 +15,7 @@ export function NewSeason() {
         <h1 className="title-bar">Nova temporada</h1>
         <span className="goal">
           Temporada {report.season} · Meta: {goalLabel(report.divisionIndex, report.boardGoal)}
+          {report.cupGoal >= 0 && ` · ${cupGoalText(report.cupGoal)}`}
         </span>
       </div>
       <div className="screen-body new-season-body">

@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { finishCupDate, startCupDate } from "../engine/cup";
 import { playRound } from "../engine/season";
+import type { GameState } from "../engine/types";
 import { useGame } from "../store";
 import { App } from "../App";
 import { Round } from "./Round";
-import { resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
+import { cupGame, resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
 import { computeTable } from "../engine/table";
 
 const ctl = vi.hoisted(() => ({ fail: false }));
@@ -67,16 +69,18 @@ describe("tela Rodada", () => {
     expect(useGame.getState().game!.leagues[0]!.currentRound).toBe(1);
   });
 
+  // Copa-nacional (Superseded checks, playRound): after round 4 the next date is the cup's
+  // Preliminar, so this starts after round 5, where the next two dates are league rounds.
   test("mostra Rodada N de 38", async () => {
     const user = userEvent.setup();
-    useGame.setState({ phase: "squad", game: seededGame(2, 0, 4), hasSave: true });
+    useGame.setState({ phase: "squad", game: seededGame(2, 0, 5), hasSave: true });
     render(<App />);
-    expect(screen.getByText("Rodada 5 de 38")).toBeInTheDocument();
+    expect(screen.getByText("Rodada 6 de 38")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
     await screen.findByRole("region", { name: "Sua partida" });
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Rodada 5");
-    expect(screen.getByText("Rodada 6 de 38")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Rodada 6");
+    expect(screen.getByText("Rodada 7 de 38")).toBeInTheDocument();
   });
 
   test("público e bilheteria do jogo em casa", () => {
@@ -127,5 +131,54 @@ describe("rodada com duas divisões", () => {
     const items = within(screen.getByRole("region", { name: "Outros resultados" })).getAllByRole("listitem");
     expect(items).toHaveLength(9);
     for (const li of items) expect(bNames.has(li.querySelector(".h")!.textContent!)).toBe(true);
+  });
+});
+
+describe("resultados da copa (copa-nacional)", () => {
+  const nameIn = (s: GameState, id: string) => s.leagues.flatMap((l) => l.clubs).find((c) => c.id === id)!.name;
+
+  test("resultados da data de copa", () => {
+    const before = cupGame(131, 0, (s) => s.cups[0]!.phases[0]!.ties[1]!.homeId);
+    const { state, ...lastRound } = finishCupDate(before, startCupDate(before));
+    useGame.setState({ phase: "round", game: state, lastRound });
+    const { unmount } = render(<Round />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Copa Nacional · Preliminar");
+    const ties = within(screen.getByRole("region", { name: "Confrontos" })).getAllByRole("listitem");
+    expect(ties).toHaveLength(8);
+    state.cups[0]!.phases[0]!.ties.forEach((t, i) => {
+      expect(ties[i]).toHaveTextContent(nameIn(state, t.homeId));
+      expect(ties[i]).toHaveTextContent(nameIn(state, t.awayId));
+    });
+    const next = within(screen.getByRole("region", { name: "Próxima fase" })).getAllByRole("listitem");
+    expect(next).toHaveLength(16);
+    state.cups[0]!.phases[1]!.ties.forEach((t, i) => expect(next[i]).toHaveTextContent(`${nameIn(state, t.homeId)} x ${nameIn(state, t.awayId)}`));
+    expect(screen.queryByText(/^Campeão:/)).not.toBeInTheDocument();
+    unmount();
+
+    // After the final: the champion instead of the next phase.
+    const final = cupGame(131, 5, (s) => s.cups[0]!.phases[5]!.ties[0]!.homeId);
+    const done = finishCupDate(final, startCupDate(final));
+    const { state: ended, ...last } = done;
+    useGame.setState({ phase: "round", game: ended, lastRound: last });
+    render(<Round />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Copa Nacional · Final");
+    expect(screen.getByText(`Campeão: ${nameIn(ended, ended.cups[0]!.phases[5]!.ties[0]!.winnerId!)}`)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Próxima fase" })).not.toBeInTheDocument();
+  }, 60_000);
+
+  test("placar com pênaltis nos resultados", () => {
+    const before = cupGame(132, 0, (s) => s.cups[0]!.phases[0]!.ties[0]!.homeId);
+    const { state, ...lastRound } = finishCupDate(before, startCupDate(before));
+    const mine = lastRound.results[0]!;
+    mine.result = { homeGoals: 1, awayGoals: 1, goals: [] };
+    mine.penalties = { home: 4, away: 3 };
+    useGame.setState({ phase: "round", game: state, lastRound });
+    render(<Round />);
+    expect(within(screen.getByRole("region", { name: "Sua partida" })).getByRole("heading")).toHaveTextContent(
+      `${nameIn(state, mine.homeId)} 1 x 1 (pên. 4 x 3) ${nameIn(state, mine.awayId)}`,
+    );
+    expect(within(screen.getByRole("region", { name: "Confrontos" })).getAllByRole("listitem")[0]!).toHaveTextContent(
+      `${nameIn(state, mine.homeId)} 1 x 1 (pên. 4 x 3) ${nameIn(state, mine.awayId)}`,
+    );
   });
 });

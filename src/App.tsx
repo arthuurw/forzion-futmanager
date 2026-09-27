@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useGame } from "./store";
 import { Banner } from "./ui/Banner";
 import { ChooseClub } from "./ui/ChooseClub";
+import { Cup } from "./ui/Cup";
 import { End } from "./ui/End";
 import { Finance } from "./ui/Finance";
 import { History } from "./ui/History";
@@ -44,6 +45,7 @@ export function App() {
         {phase === "end" && <End />}
         {phase === "newSeason" && <NewSeason />}
         {phase === "history" && <History />}
+        {phase === "cup" && <Cup />}
       </div>
     </main>
   );

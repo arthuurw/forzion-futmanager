@@ -3,6 +3,7 @@ import { DIVISION_LABEL, VERDICT_TEXT, divisionOf, goalLabel } from "../engine/b
 import { bestElevenMean } from "../engine/lineup";
 import { findAnyClub, seasonReview } from "../engine/season";
 import { useGame } from "../store";
+import { reachedText } from "./Cup";
 import { formatMoney } from "./money";
 import { NewGameButton } from "./NewGameButton";
 import { DivisionTable } from "./Table";
@@ -32,6 +33,14 @@ export function End() {
               <span className="division-name">{d.label}</span>
               <p className="champion">Campeão: {name(d.championId)}</p>
             </div>
+          ))}
+          {review.cups.map((c) => (
+            <section key={c.cupId} aria-label={c.name} className="division-result">
+              <h2 className="division-name">{c.name}</h2>
+              {c.championId && <p className="champion">Campeão: {name(c.championId)}</p>}
+              {c.runnerUpId && <p>Vice: {name(c.runnerUpId)}</p>}
+              {review.user && <p>Sua campanha: {reachedText(c.userReached)}</p>}
+            </section>
           ))}
           </div>
           <div className="moves">

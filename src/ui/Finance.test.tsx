@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { finishCupDate, startCupDate } from "../engine/cup";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
 import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Finance } from "./Finance";
-import { resetAll, seededGame, seededGameIn } from "./test-utils";
+import { cupGame, resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -153,4 +154,29 @@ describe("finanças com divisões e prêmio", () => {
     expect(cells.find((c) => c[0] === "Prêmio")).toEqual(["Prêmio", brl(l.prize!)]);
     expect(cells.at(-1)).toEqual(["Saldo", brl(l.tickets + l.sponsorship + l.transfersIn - l.salaries - l.interest - l.transfersOut + l.prize!)]);
   }, 60_000);
+});
+
+describe("finanças da copa (copa-nacional)", () => {
+  test("linha prêmio da copa", () => {
+    const before = cupGame(151, 0, (s) => s.cups[0]!.phases[0]!.ties[0]!.homeId);
+    const played = finishCupDate(before, startCupDate(before)).state;
+    const tie = played.cups[0]!.phases[0]!.ties[0]!;
+    const loser = tie.winnerId === tie.homeId ? tie.awayId : tie.homeId;
+    const rowsOf = () =>
+      within(screen.getByRole("table", { name: "Registro da rodada" }))
+        .getAllByRole("row")
+        .map((r) => [r.querySelector("th")!.textContent, r.querySelector("td")!.textContent]);
+
+    show({ ...played, userClubId: tie.winnerId });
+    const winnerLedger = played.leagues.flatMap((l) => l.clubs).find((c) => c.id === tie.winnerId)!.finance.lastRound!;
+    expect(winnerLedger.cupPrize).toBe(150_000);
+    const rows = rowsOf();
+    expect(rows.find((c) => c[0] === "Prêmio da copa")).toEqual(["Prêmio da copa", "R$ 150.000"]);
+    const l = winnerLedger;
+    expect(rows.at(-1)).toEqual(["Saldo", brl(l.tickets + l.transfersIn - l.transfersOut + 150_000)]);
+    cleanup();
+
+    show({ ...played, userClubId: loser });
+    expect(rowsOf().find((c) => c[0] === "Prêmio da copa")).toBeUndefined();
+  });
 });

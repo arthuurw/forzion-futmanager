@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { MATCH_MINUTES, MAX_SUBS, userMatch, type LiveMatch, type LiveSide } from "../engine/live";
 import { narrate, narrationContext } from "../engine/narration";
-import { findClub, userLeague } from "../engine/season";
+import { allClubs, findAnyClub } from "../engine/season";
 import { FORMATION_NAMES, POSTURES, type FormationName, type Posture } from "../engine/types";
 import { BASE_TICK_MS, useGame, type Speed } from "../store";
 import { FitnessBar, MoraleArrow } from "./Condition";
+import { cupPhaseTitle, scoreText } from "./Cup";
 import { Flag } from "./Flag";
 import { ScreenTabs } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
@@ -85,9 +86,10 @@ export function Live() {
   }, [eventCount]);
 
   if (!game || !live || !game.userClubId || !mine) return null;
-  const league = userLeague(game);
-  const ctx = narrationContext(league.clubs);
-  const name = (id: string) => findClub(league, id).name;
+  // A cup date mixes both divisions (copa-nacional AC 45).
+  const ctx = narrationContext(allClubs(game));
+  const name = (id: string) => findAnyClub(game, id).name;
+  const cup = live.cup ? game.cups[live.cup.cupIndex] : undefined;
   const side = mySide(mine, game.userClubId);
   const stopped = clock !== "running" && !finishing;
   const panelClass = (id: LiveTab) => `panel${tab === id ? " m-active" : ""}`;
@@ -99,7 +101,7 @@ export function Live() {
   return (
     <div className="screen live-screen">
       <div className="screen-head">
-        <h1 className="title-bar">Ao vivo · Rodada {live.roundNumber}</h1>
+        <h1 className="title-bar">Ao vivo · {cup && live.cup ? cupPhaseTitle(cup, live.cup.phase) : `Rodada ${live.roundNumber}`}</h1>
         <ScreenTabs
           hideOnDesktop
           active={tab}
@@ -119,7 +121,8 @@ export function Live() {
             <span className="team home">{name(mine.home.clubId)}</span>{" "}
             <span className={`score${flash[mine.matchId] ? " flash" : ""}`}>{mine.homeGoals}</span>
             <span className="vs"> x </span>
-            <span className={`score${flash[mine.matchId] ? " flash" : ""}`}>{mine.awayGoals}</span>{" "}
+            <span className={`score${flash[mine.matchId] ? " flash" : ""}`}>{mine.awayGoals}</span>
+            {mine.penalties && <span className="pens"> (pên. {mine.penalties.home} x {mine.penalties.away})</span>}{" "}
             <span className="team">{name(mine.away.clubId)}</span>
             <Flag clubId={mine.away.clubId} name={name(mine.away.clubId)} size={20} />
           </h2>
@@ -145,9 +148,7 @@ export function Live() {
               <li key={m.matchId} data-match={m.matchId} className={[m === mine ? "mine" : "", flash[m.matchId] ? "flash" : ""].filter(Boolean).join(" ") || undefined}>
                 <Flag clubId={m.home.clubId} name={name(m.home.clubId)} size={13} />
                 <span className="h">{name(m.home.clubId)}</span>{" "}
-                <b>
-                  {m.homeGoals} x {m.awayGoals}
-                </b>{" "}
+                <b>{scoreText(m, m.penalties)}</b>{" "}
                 <span className="a">{name(m.away.clubId)}</span>
                 <Flag clubId={m.away.clubId} name={name(m.away.clubId)} size={13} />
               </li>

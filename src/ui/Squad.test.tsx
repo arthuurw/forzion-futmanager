@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { POSITIONS } from "../engine/types";
+import { App } from "../App";
+import { playDate } from "../engine/season";
+import { POSITIONS, type GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Squad } from "./Squad";
 import { resetAll, seededGame, seededGameIn } from "./test-utils";
@@ -295,5 +297,61 @@ describe("elenco com divisões, contratos e meta", () => {
       expect(screen.getByText(text)).toBeInTheDocument();
       view.unmount();
     }
+  });
+});
+
+describe("elenco com a copa (copa-nacional)", () => {
+  test("próxima data de copa no elenco", () => {
+    const game = seededGame(101, 0, 4);
+    useGame.setState({ phase: "squad", game });
+    const { unmount } = render(<Squad />);
+    expect(screen.getByText("Copa Nacional · Preliminar")).toBeInTheDocument();
+    expect(screen.queryByText(/^Rodada \d+ de 38$/)).not.toBeInTheDocument();
+    unmount();
+    useGame.setState({ game: playDate(game).state });
+    render(<Squad />);
+    expect(screen.getByText("Rodada 5 de 38")).toBeInTheDocument();
+    expect(screen.queryByText(/Copa Nacional ·/)).not.toBeInTheDocument();
+  });
+
+  test("suspensões pela próxima data", () => {
+    const rowOf = (name: string) => within(screen.getByRole("table", { name: "Elenco" })).getByText(name).closest("tr")!;
+    const mark = (game: GameState) => {
+      const club = userClub(game)!;
+      const bench = club.players.filter((p) => !club.lineup!.starters.includes(p.id) && p.injuryRounds === 0);
+      const [cupOnly, leagueOnly] = [bench[0]!, bench[1]!];
+      cupOnly.cupDiscipline = { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } };
+      cupOnly.suspendedRounds = 0;
+      leagueOnly.suspendedRounds = 1;
+      return { cupOnly, leagueOnly };
+    };
+    // Next date: the cup's preliminary.
+    const cupNext = seededGame(102, 0, 4);
+    const a = mark(cupNext);
+    useGame.setState({ phase: "squad", game: cupNext });
+    const { unmount } = render(<Squad />);
+    expect(within(rowOf(a.cupOnly.name)).getByText("Suspenso (copa)")).toBeInTheDocument();
+    expect(rowOf(a.cupOnly.name)).toHaveClass("out");
+    expect(within(rowOf(a.leagueOnly.name)).queryByText(/SUS|Suspenso/)).not.toBeInTheDocument();
+    expect(rowOf(a.leagueOnly.name)).not.toHaveClass("out");
+    unmount();
+    // Next date: a league round.
+    const leagueNext = seededGame(102, 0, 5);
+    const b = mark(leagueNext);
+    useGame.setState({ phase: "squad", game: leagueNext });
+    render(<Squad />);
+    expect(within(rowOf(b.leagueOnly.name)).getByText("SUS")).toBeInTheDocument();
+    expect(rowOf(b.leagueOnly.name)).toHaveClass("out");
+    expect(within(rowOf(b.cupOnly.name)).queryByText(/SUS|Suspenso/)).not.toBeInTheDocument();
+    expect(rowOf(b.cupOnly.name)).not.toHaveClass("out");
+  });
+
+  test("botão copa", async () => {
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game: seededGame(103), hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Copa" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Copa Nacional" })).toBeInTheDocument();
+    expect(useGame.getState().phase).toBe("cup");
   });
 });

@@ -6,6 +6,7 @@ import { userBoardGoal } from "../engine/board";
 import { newGame } from "../engine/generate";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
 import { playRound } from "../engine/season";
+import { atCupDate } from "../engine/test-fixtures";
 import type { GameState } from "../engine/types";
 import { useGame } from "../store";
 
@@ -42,4 +43,18 @@ export function seededGameIn(division: number, seed = 1, clubIndex = 0, roundsPl
 /** Since partida-ao-vivo, «Jogar rodada» opens the live screen; this jumps to the final whistle. */
 export async function skipLive(user: UserEvent): Promise<void> {
   await user.click(await screen.findByRole("button", { name: "Pular para o fim" }));
+}
+
+/**
+ * Copa-nacional: a game stopped right before cup phase `phase`, played with no user until then;
+ * the user then takes the club `pick` chooses, with an eleven available for the cup.
+ */
+export function cupGame(seed: number, phase: number, pick: (s: GameState) => string): GameState {
+  const state = atCupDate(seed, phase);
+  state.userClubId = pick(state);
+  state.boardGoal = userBoardGoal(state);
+  state.cupGoal = 2;
+  const club = state.leagues.flatMap((l) => l.clubs).find((c) => c.id === state.userClubId)!;
+  club.lineup = autoLineup(club, AI_FORMATION, "balanced", 0, { kind: "cup", cupId: "cup-nat" });
+  return state;
 }

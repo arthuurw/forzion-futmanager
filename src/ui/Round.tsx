@@ -1,8 +1,11 @@
 import { useState } from "react";
+import { nextCompetition, nextDate } from "../engine/calendar";
+import { cupChampion } from "../engine/cup";
 import { validateLineup } from "../engine/lineup";
 import { narrate, narrationContext } from "../engine/narration";
-import { findClub, userLeague } from "../engine/season";
+import { allClubs, findAnyClub, userLeague } from "../engine/season";
 import { useGame, userClub } from "../store";
+import { cupPhaseTitle, nextDateLabel, scoreText } from "./Cup";
 import { Flag } from "./Flag";
 import { formatMoney, formatNumber } from "./money";
 import { ScreenTabs } from "./ScreenTabs";
@@ -10,7 +13,10 @@ import { DivisionTable } from "./Table";
 
 type RoundTab = "match" | "results" | "table";
 
-/** AC 18, AC 28: the round just played, the user's match narrated, every other score, the table. */
+/**
+ * AC 18, AC 28: the round just played, the user's match narrated, every other score, the table.
+ * A cup date (copa-nacional AC 46) shows the phase's ties and the next draw, or the champion.
+ */
 export function Round() {
   const game = useGame((s) => s.game);
   const lastRound = useGame((s) => s.lastRound);
@@ -21,17 +27,21 @@ export function Round() {
   const club = userClub(game);
   if (!club) return null;
   const league = userLeague(game);
-  const ctx = narrationContext(league.clubs);
+  const cupDate = lastRound.cup;
+  const cup = cupDate ? game.cups[cupDate.cupIndex] : undefined;
+  const ctx = narrationContext(cup ? allClubs(game) : league.clubs);
   const mine = lastRound.results.find((r) => r.homeId === club.id || r.awayId === club.id);
-  const others = lastRound.results.filter((r) => r !== mine);
-  const canPlay = validateLineup(club, club.lineup).ok && league.currentRound < league.rounds.length;
-  const name = (id: string) => findClub(league, id).name;
+  const others = cup ? lastRound.results : lastRound.results.filter((r) => r !== mine);
+  const canPlay = validateLineup(club, club.lineup, nextCompetition(game)).ok && nextDate(game).kind !== "over";
+  const name = (id: string) => findAnyClub(game, id).name;
+  const nextPhase = cup && cupDate ? cup.phases[cupDate.phase + 1] : undefined;
+  const champion = cup ? cupChampion(cup) : null;
   const panelClass = (id: RoundTab) => `panel${tab === id ? " m-active" : ""}`;
 
   return (
     <div className="screen">
       <div className="screen-head">
-        <h1 className="title-bar">Rodada {lastRound.roundNumber}</h1>
+        <h1 className="title-bar">{cup && cupDate ? cupPhaseTitle(cup, cupDate.phase) : `Rodada ${lastRound.roundNumber}`}</h1>
         <ScreenTabs
           hideOnDesktop
           active={tab}
@@ -39,7 +49,7 @@ export function Round() {
           tabs={[
             { id: "match", label: "Partida" },
             { id: "results", label: "Resultados" },
-            { id: "table", label: "Classificação" },
+            { id: "table", label: cup ? "Próxima fase" : "Classificação" },
           ]}
         />
       </div>
@@ -52,7 +62,8 @@ export function Round() {
               <span className="team home">{name(mine.homeId)}</span>{" "}
               <span className="score">{mine.result.homeGoals}</span>
               <span className="vs"> x </span>
-              <span className="score">{mine.result.awayGoals}</span>{" "}
+              <span className="score">{mine.result.awayGoals}</span>
+              {mine.penalties && <span className="pens"> (pên. {mine.penalties.home} x {mine.penalties.away})</span>}{" "}
               <span className="team">{name(mine.awayId)}</span>
               <Flag clubId={mine.awayId} name={name(mine.awayId)} size={20} />
             </h2>
@@ -75,16 +86,14 @@ export function Round() {
           </section>
         )}
 
-        <section aria-label="Outros resultados" className={panelClass("results")} style={{ "--i": 1 } as React.CSSProperties}>
-          <h2 className="title-bar">Outros resultados</h2>
+        <section aria-label={cup ? "Confrontos" : "Outros resultados"} className={panelClass("results")} style={{ "--i": 1 } as React.CSSProperties}>
+          <h2 className="title-bar">{cup ? "Confrontos" : "Outros resultados"}</h2>
           <ul className="results fill">
             {others.map((r) => (
               <li key={r.matchId}>
                 <Flag clubId={r.homeId} name={name(r.homeId)} size={13} />
                 <span className="h">{name(r.homeId)}</span>{" "}
-                <b>
-                  {r.result.homeGoals} x {r.result.awayGoals}
-                </b>{" "}
+                <b>{scoreText(r.result, r.penalties)}</b>{" "}
                 <span className="a">{name(r.awayId)}</span>
                 <Flag clubId={r.awayId} name={name(r.awayId)} size={13} />
               </li>
@@ -92,18 +101,35 @@ export function Round() {
           </ul>
         </section>
 
-        <section className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
-          <h2 className="title-bar">Classificação</h2>
-          <div className="fill">
-            <DivisionTable game={game} highlightClubId={club.id} />
-          </div>
-        </section>
+        {cup ? (
+          <section aria-label={champion ? "Campeão" : "Próxima fase"} className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
+            <h2 className="title-bar">{champion ? cup.name : "Próxima fase"}</h2>
+            {champion ? (
+              <p className="champion">Campeão: {name(champion)}</p>
+            ) : (
+              <ul className="results fill">
+                {nextPhase?.ties.map((t) => (
+                  <li key={t.id}>
+                    <Flag clubId={t.homeId} name={name(t.homeId)} size={13} />
+                    <span className="h">{name(t.homeId)}</span> <b>x</b> <span className="a">{name(t.awayId)}</span>
+                    <Flag clubId={t.awayId} name={name(t.awayId)} size={13} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : (
+          <section className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
+            <h2 className="title-bar">Classificação</h2>
+            <div className="fill">
+              <DivisionTable game={game} highlightClubId={club.id} />
+            </div>
+          </section>
+        )}
       </div>
 
       <div className="action-bar">
-        <span className="matchday">
-          Rodada {league.currentRound + 1} de {league.rounds.length}
-        </span>
+        <span className="matchday">{nextDateLabel(game, league.rounds.length, league.currentRound)}</span>
         <button onClick={goToSquad}>Escalação</button>
         <button className="primary" disabled={!canPlay} onClick={() => void playRound()}>
           Jogar rodada

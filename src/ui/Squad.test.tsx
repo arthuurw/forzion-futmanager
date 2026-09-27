@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { POSITIONS } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Squad } from "./Squad";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, seededGameIn } from "./test-utils";
+import { computeTable } from "../engine/table";
 
 beforeEach(resetAll);
 
@@ -207,4 +208,84 @@ describe("tela Elenco", () => {
     expect(after.market.freeAgents.map((p) => p.id)).toContain(player.id);
   });
 
+});
+
+/** Written out here, not imported (L-004). */
+const expectedSalary = (rating: number) => Math.round((2000 * 1.09 ** (rating - 40)) / 100) * 100;
+
+describe("elenco com divisões, contratos e meta", () => {
+  test("classificação com seletor de divisão", async () => {
+    const user = userEvent.setup();
+    const game = seededGameIn(1, 26, 3, 2);
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    const names = () => within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row").slice(1).map((r) => r.querySelector(".club-name-text")!.textContent);
+    const select = screen.getByLabelText("Divisão") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual(["Série A", "Série B"]);
+    expect(select.selectedOptions[0]!.textContent).toBe("Série B");
+    expect(names()).toEqual(computeTable(game.leagues[1]!).map((r) => r.name));
+    await user.selectOptions(select, "Série A");
+    expect(names()).toEqual(computeTable(game.leagues[0]!).map((r) => r.name));
+    expect(names()).toHaveLength(20);
+  });
+
+  test("coluna contrato e último ano", () => {
+    const game = seededGame(27);
+    userClub(game)!.players.forEach((p, i) => (p.contractSeasons = 1 + (i % 4)));
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    const table = screen.getByRole("table", { name: "Elenco" });
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+    const col = headers.indexOf("Contr.");
+    expect(col).toBe(headers.indexOf("Salário") + 1);
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(22);
+    let lastYear = 0;
+    for (const r of rows) {
+      const cells = within(r).getAllByRole("cell");
+      const p = userClub(game)!.players.find((x) => x.name === cells[0]!.textContent)!;
+      const cell = cells[col]!;
+      expect(cell.textContent!.startsWith(String(p.contractSeasons)), p.name).toBe(true);
+      expect(within(cell).queryByText("Último ano") !== null, p.name).toBe(p.contractSeasons === 1);
+      if (p.contractSeasons === 1) lastYear++;
+    }
+    expect(lastYear).toBeGreaterThan(0);
+  });
+
+  test("renovar mostra salário novo", async () => {
+    const user = userEvent.setup();
+    const game = seededGame(28);
+    const [last, other] = userClub(game)!.players;
+    Object.assign(last!, { contractSeasons: 1, rating: 77, salary: 5_000 });
+    Object.assign(other!, { contractSeasons: 2 });
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<Squad />);
+    expect(screen.queryByRole("button", { name: `Renovar ${other!.name}` })).not.toBeInTheDocument();
+    const y = expectedSalary(77);
+    await user.click(screen.getByRole("button", { name: `Renovar ${last!.name}` }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(`Renovar ${last!.name} por 3 temporadas com salário ${brl(y)} por rodada. Confirmar?`);
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(userClub(useGame.getState().game!)!.players[0]).toMatchObject({ contractSeasons: 1, salary: 5_000 });
+    await user.click(screen.getByRole("button", { name: `Renovar ${last!.name}` }));
+    await user.click(screen.getByRole("button", { name: "Confirmar" }));
+    await vi.waitFor(() => expect(userClub(useGame.getState().game!)!.players[0]).toMatchObject({ contractSeasons: 3, salary: y }));
+    expect(screen.queryByRole("button", { name: `Renovar ${last!.name}` })).not.toBeInTheDocument();
+  });
+
+  test("meta da temporada", () => {
+    const cases: [number, number, string][] = [
+      [0, 8, "Meta: até o 8º"],
+      [0, 16, "Meta: não cair"],
+      [1, 4, "Meta: subir"],
+    ];
+    for (const [division, goal, text] of cases) {
+      resetAll();
+      const game = seededGameIn(division, 29);
+      game.boardGoal = goal;
+      useGame.setState({ phase: "squad", game });
+      const view = render(<Squad />);
+      expect(screen.getByText(text)).toBeInTheDocument();
+      view.unmount();
+    }
+  });
 });

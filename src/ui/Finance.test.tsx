@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
 import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Finance } from "./Finance";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -127,4 +127,30 @@ describe("tela Finanças", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Já há uma obra em andamento");
     expect(userClub(useGame.getState().game!)!.finance.cash).toBe(10_000_000);
   });
+});
+
+describe("finanças com divisões e prêmio", () => {
+  test("patrocínio da série B", () => {
+    const game = seededGameIn(1, 32, 4);
+    const f = userClub(game)!.finance;
+    expect(f.sponsorship).toBeGreaterThan(0);
+    show(game);
+    expect(valueOf("Patrocínio por rodada")).toHaveTextContent(brl(Math.round(f.sponsorship * 0.6)));
+  });
+
+  test("linha do prêmio", () => {
+    const before = seededGame(33, 2, 37);
+    show(before);
+    expect(within(screen.getByRole("table", { name: "Registro da rodada" })).queryByText("Prêmio")).not.toBeInTheDocument();
+    cleanup();
+    userClub(before)!.lineup = autoLineup(userClub(before)!, AI_FORMATION);
+    const game = playRound(before).state;
+    const l = userClub(game)!.finance.lastRound!;
+    expect(l.prize).toBeGreaterThan(0);
+    show(game);
+    const rows = within(screen.getByRole("table", { name: "Registro da rodada" })).getAllByRole("row");
+    const cells = rows.map((r) => [r.querySelector("th")!.textContent, r.querySelector("td")!.textContent]);
+    expect(cells.find((c) => c[0] === "Prêmio")).toEqual(["Prêmio", brl(l.prize!)]);
+    expect(cells.at(-1)).toEqual(["Saldo", brl(l.tickets + l.sponsorship + l.transfersIn - l.salaries - l.interest - l.transfersOut + l.prize!)]);
+  }, 60_000);
 });

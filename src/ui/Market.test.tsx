@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { Club, GameState, Player } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Market } from "./Market";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -180,4 +180,26 @@ describe("tela Mercado", () => {
     await user.click(screen.getByRole("tab", { name: "Base" }));
     expect(screen.getByText("Nenhum júnior na base")).toBeInTheDocument();
   });
+});
+
+describe("mercado com duas divisões", () => {
+  test("mercado com as duas divisões", () => {
+    const game = seededGameIn(1, 31, 7);
+    const me = userClub(game)!;
+    show(game);
+    const rows = within(screen.getByRole("table", { name: "Mercado" })).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(39 * 22 + 40);
+    const clubCells = rows.map((r) => within(r).getAllByRole("cell")[4]!.textContent);
+    const counts = new Map<string, number>();
+    for (const c of clubCells) counts.set(c!, (counts.get(c!) ?? 0) + 1);
+    for (const league of game.leagues) {
+      for (const c of league.clubs) {
+        if (c.id === me.id) expect(counts.has(c.name)).toBe(false);
+        else expect(counts.get(c.name), c.name).toBe(22);
+      }
+    }
+    expect(counts.get("Livre")).toBe(40);
+    const names = new Set(rows.map((r) => within(r).getAllByRole("cell")[0]!.textContent));
+    for (const p of me.players) expect(names.has(p.name)).toBe(false);
+  }, 60_000);
 });

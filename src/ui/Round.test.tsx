@@ -5,7 +5,8 @@ import { playRound } from "../engine/season";
 import { useGame } from "../store";
 import { App } from "../App";
 import { Round } from "./Round";
-import { resetAll, seededGame, skipLive } from "./test-utils";
+import { resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
+import { computeTable } from "../engine/table";
 
 const ctl = vi.hoisted(() => ({ fail: false }));
 vi.mock("../persistence/save", async (importOriginal) => {
@@ -104,4 +105,27 @@ describe("tela Rodada", () => {
     expect(seen).toEqual({ home: true, away: true });
   });
 
+});
+
+describe("rodada com duas divisões", () => {
+  test("classificação com seletor de divisão", async () => {
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game: seededGameIn(1, 30, 5, 2), hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
+    await screen.findByRole("heading", { name: "Rodada 3" });
+    const game = useGame.getState().game!;
+    const names = () => within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row").slice(1).map((r) => r.querySelector(".club-name-text")!.textContent);
+    const select = screen.getByLabelText("Divisão") as HTMLSelectElement;
+    expect(select.selectedOptions[0]!.textContent).toBe("Série B");
+    expect(names()).toEqual(computeTable(game.leagues[1]!).map((r) => r.name));
+    await user.selectOptions(select, "Série A");
+    expect(names()).toEqual(computeTable(game.leagues[0]!).map((r) => r.name));
+    // The other results are the user's division too.
+    const bNames = new Set(game.leagues[1]!.clubs.map((c) => c.name));
+    const items = within(screen.getByRole("region", { name: "Outros resultados" })).getAllByRole("listitem");
+    expect(items).toHaveLength(9);
+    for (const li of items) expect(bNames.has(li.querySelector(".h")!.textContent!)).toBe(true);
+  });
 });

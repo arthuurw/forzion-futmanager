@@ -5,7 +5,7 @@ import { userMatch, type LiveSide } from "../engine/live";
 import { narrate, narrationContext } from "../engine/narration";
 import { App } from "../App";
 import { useGame } from "../store";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, seededGameIn } from "./test-utils";
 
 const scrollIntoView = vi.fn();
 
@@ -242,5 +242,31 @@ describe("tela Ao vivo", () => {
     await user.selectOptions(within(team).getByLabelText("Formação"), "3-5-2");
     expect(within(team).getAllByText("fora de posição")).toHaveLength(1);
     expect(within(within(team).getByRole("table", { name: "Em campo" })).getAllByRole("row")).toHaveLength(11);
+  });
+});
+
+describe("ao vivo com duas divisões", () => {
+  test("jogos da rodada só da divisão do usuário", async () => {
+    for (const division of [1, 0]) {
+      resetAll();
+      const user = userEvent.setup();
+      const game = seededGameIn(division, 25, 6);
+      useGame.setState({ phase: "squad", game, hasSave: true });
+      const view = render(<App />);
+      await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+      await user.click(await screen.findByRole("button", { name: "Pausar" }));
+      expect(useGame.getState().live!.matches).toHaveLength(20);
+      const names = new Set(game.leagues[division]!.clubs.map((c) => c.name));
+      const others = game.leagues[1 - division]!.clubs.map((c) => c.name);
+      const games = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem");
+      expect(games, `divisão ${division}`).toHaveLength(10);
+      for (const g of games) {
+        const home = g.querySelector(".h")!.textContent!;
+        const away = g.querySelector(".a")!.textContent!;
+        expect(names.has(home) && names.has(away), `${home} x ${away}`).toBe(true);
+        for (const other of others) expect(g.textContent).not.toContain(other);
+      }
+      view.unmount();
+    }
   });
 });

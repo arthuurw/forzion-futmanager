@@ -257,6 +257,23 @@ describe("equilíbrio em várias temporadas", () => {
     }
   }, 120_000);
 
+  test("uma compra por jogador por temporada", () => {
+    // Ajustes-4a AC 8: the list is read just before each turn of the season.
+    let most = 0;
+    for (const [k, run] of multiSeason().entries()) {
+      expect(run.transfers).toHaveLength(SEASONS);
+      for (const [season, list] of run.transfers.entries()) {
+        const buys = new Map<string, number>();
+        for (const t of list) if (t.kind === "buy") buys.set(t.playerId, (buys.get(t.playerId) ?? 0) + 1);
+        expect(buys.size, `seed ${MULTI_SEEDS[k]} temporada ${season + 1}`).toBeGreaterThan(0);
+        const max = Math.max(...buys.values());
+        most = Math.max(most, max);
+        expect(max, `seed ${MULTI_SEEDS[k]} temporada ${season + 1}`).toBeLessThanOrEqual(1);
+      }
+    }
+    console.log(`AC 8 maior número de compras de um jogador numa temporada: ${most}`);
+  }, 120_000);
+
   test("boletim só com os três tipos", () => {
     for (const [k, run] of multiSeason().entries()) {
       expect(run.transfers).toHaveLength(SEASONS);

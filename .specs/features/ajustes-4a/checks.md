@@ -30,25 +30,25 @@ Proof: `npx vitest run src/store.test.ts -t "eliminado com suspenso de copa joga
 
 ### S2 - A IA não compra lesionado nem revende quem acabou de comprar · ~3 files · ~70 KB · ~18k
 
-**C5** - Numa compra da IA, o candidato mais forte tem `injuryRounds` 1 e o segundo tem 0: a IA compra o segundo. Com o mais forte em `injuryRounds` 0, compra o mais forte (AC 5, L-007)
+**C5** ✓ - Numa compra da IA, o candidato mais forte tem `injuryRounds` 1 e o segundo tem 0: a IA compra o segundo. Com o mais forte em `injuryRounds` 0, compra o mais forte (AC 5, L-007)
 Proof: `npx vitest run src/engine/market.test.ts -t "IA não compra lesionado"`
 
-**C6** - Tabela de candidatos para uma compra da IA, todos elegíveis fora isto: com linha `buy` para um clube da IA nesta temporada → fora; com linha `buy` de proposta aceita (destino clube da IA) → fora; com linha `free` → dentro; com linha `release` → dentro; sem linha → dentro (AC 6)
+**C6** ✓ - Tabela de candidatos para uma compra da IA, todos elegíveis fora isto: com linha `buy` para um clube da IA nesta temporada → fora; com linha `buy` de proposta aceita (destino clube da IA) → fora; com linha `free` → dentro; com linha `release` → dentro; sem linha → dentro (AC 6)
 Proof: `npx vitest run src/engine/market.test.ts -t "IA não revende quem comprou na temporada"`
 
-**C7** - Um clube da IA no vermelho cujo jogador mais valioso está lesionado vende esse jogador. Se o mais valioso já tem linha `buy` para um clube da IA nesta temporada, vende o segundo mais valioso (AC 7, L-007)
+**C7** ✓ - Um clube da IA no vermelho cujo jogador mais valioso está lesionado vende esse jogador. Se o mais valioso já tem linha `buy` para um clube da IA nesta temporada, vende o segundo mais valioso (AC 7, L-007)
 Proof: `npx vitest run src/engine/market.test.ts -t "venda do vermelho com lesionado e com comprado"`
 
-**C8** - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, nenhum jogador tem mais de uma linha `buy` no boletim de uma mesma temporada, contado antes de cada virada (AC 8)
+**C8** ✓ - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, nenhum jogador tem mais de uma linha `buy` no boletim de uma mesma temporada, contado antes de cada virada (AC 8)
 Proof: `npx vitest run src/engine/balance.test.ts -t "uma compra por jogador por temporada"`
 
-**C9** - As faixas de gastos-da-ia continuam valendo depois dos filtros novos: caixa em 5 temporadas (C19), compras em 5 temporadas (C20), força estável (C21) e resultado corrente de uma temporada (C34), sem mudar nenhum limite (AC 8)
+**C9** ✓ - As faixas de gastos-da-ia continuam valendo depois dos filtros novos: caixa em 5 temporadas (C19), compras em 5 temporadas (C20), força estável (C21) e resultado corrente de uma temporada (C34), sem mudar nenhum limite (AC 8)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "compras da IA em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa equilibrado em uma temporada"`
 
-**C10** - Os proofs de gastos-da-ia C1–C24 continuam verdes; nenhum valor esperado deles muda (Impact)
+**C10** ✓ - Os proofs de gastos-da-ia C1–C24 continuam verdes; nenhum valor esperado deles muda (Impact)
 Proof: `npx vitest run src/engine/market.test.ts -t "sobra da IA|compra no limite da sobra|chance de compra pelo fluxo da door 3|candidatos da compra da IA|escolha do reforço da IA|vermelho vende o mais valioso|boletim registra cada movimento da IA"`
 
 ### S3 - A sobra da compra fica travada por teste · ~1 file · ~20 KB · ~5k

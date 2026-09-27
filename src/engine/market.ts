@@ -323,6 +323,11 @@ function aiClubs(state: GameState): Club[] {
 
 const weakestFirst = (a: Player, b: Player) => a.rating - b.rating || a.id.localeCompare(b.id);
 
+/** Ajustes-4a AC 6, AC 7: players an AI club bought this season, read from the transfer list. */
+function boughtByAi(state: GameState): Set<string> {
+  return new Set(state.market.transfers.filter((t) => t.kind === "buy" && t.toId !== null && t.toId !== state.userClubId).map((t) => t.playerId));
+}
+
 /** Gastos-da-ia AC 5: the larger of the current salary and 1,2 × the table salary, to R$ 100. */
 function arrivalSalary(p: Player): number {
   return Math.max(p.salary, roundTo(AI_SALARY_RAISE * salaryFor(p.rating), 100));
@@ -357,11 +362,16 @@ function aiSign(state: GameState, roundNumber: number, buyer: Club, player: Play
 /**
  * Gastos-da-ia AC 9-11: an AI club in the red with more than 18 players sells its most valuable
  * player at market value to the AI club under 30 players with the most to spend on them, ties by id.
+ * Ajustes-4a AC 7: injured or not, but never one an AI club bought this season.
  */
 function sellFromTheRed(state: GameState, roundNumber: number): void {
   for (const seller of aiClubs(state)) {
     if (seller.finance.cash >= 0 || seller.players.length <= SQUAD_MIN) continue;
-    const player = [...seller.players].sort((a, b) => marketValue(b) - marketValue(a) || a.id.localeCompare(b.id))[0]!;
+    const bought = boughtByAi(state);
+    const player = seller.players
+      .filter((p) => !bought.has(p.id))
+      .sort((a, b) => marketValue(b) - marketValue(a) || a.id.localeCompare(b.id))[0];
+    if (!player) continue;
     const price = marketValue(player);
     const salary = arrivalSalary(player);
     const buyer = aiClubs(state)
@@ -395,7 +405,10 @@ function tryAiPurchase(state: GameState, roundNumber: number, buyer: Club): void
     }
   }
   if (position === null) return;
-  const fits = (p: Player) => p.position === position && p.rating >= rating + AI_BUY_MIN_GAIN && p.age <= AI_BUY_MAX_AGE;
+  // Ajustes-4a AC 5, AC 6: not injured, and not bought by an AI club this season.
+  const bought = boughtByAi(state);
+  const fits = (p: Player) =>
+    p.position === position && p.rating >= rating + AI_BUY_MIN_GAIN && p.age <= AI_BUY_MAX_AGE && p.injuryRounds === 0 && !bought.has(p.id);
   const candidates: Candidate[] = aiClubs(state)
     .filter((c) => c.id !== buyer.id && c.players.length > AI_SELLER_ABOVE)
     .flatMap((c) => {

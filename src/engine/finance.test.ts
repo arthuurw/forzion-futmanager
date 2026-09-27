@@ -18,7 +18,7 @@ import { migrateSave } from "./migrate";
 import { createRng } from "./rng";
 import { playRound } from "./season";
 import { computeTable } from "./table";
-import { busySeason } from "./test-fixtures";
+import { busySeason, zeroAiSurplus } from "./test-fixtures";
 import type { Club, GameState } from "./types";
 
 /** Written out here, not imported: the test must not share the production formula (L-004). */
@@ -328,6 +328,9 @@ describe("finanças com duas divisões", () => {
     let state = game(15);
     for (let r = 0; r < 37; r++) state = playRound(state).state;
     for (const c of all(state)) expect(c.finance.lastRound!.prize, `${c.id} rodada 37`).toBeUndefined();
+    // Ajustes-4a: the AI's new purchases leave c8 able to expand in round 38; the rule for older
+    // tests of gastos-da-ia keeps the works out of this ledger.
+    zeroAiSurplus(state);
     const after = playRound(state).state;
     for (const [division, perPlace] of [[0, 250_000], [1, 62_500]] as const) {
       const table = computeTable(after.leagues[division]!);

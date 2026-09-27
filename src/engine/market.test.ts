@@ -460,8 +460,9 @@ const has = (s: GameState, clubId: string, playerId: string) => anyClub(s, clubI
 
 /**
  * A world where every AI club has a candidate and a surplus: everyone rated 60 at 25, every AI
- * club with R$ 100.000.000, and every AI club's third goalkeeper rated 90 and injured, so he never
- * starts for his own club and is a candidate for everyone else's weakest starter.
+ * club with R$ 100.000.000, and every AI club's third goalkeeper rated 90 and suspended in the league
+ * (not injured, ajustes-4a AC 5), so he never starts for his own club and is a candidate for everyone
+ * else's weakest starter.
  */
 function everyoneBuys(seed: number, userAt: [number, number] = [1, 19]): GameState {
   const s = newGame(seed);
@@ -469,7 +470,7 @@ function everyoneBuys(seed: number, userAt: [number, number] = [1, 19]): GameSta
   for (const p of everyClub(s).flatMap((c) => c.players)) Object.assign(p, { rating: 60, age: 25 });
   for (const c of aiOrder(s)) {
     c.finance.cash = 100_000_000;
-    Object.assign(c.players.filter((p) => p.position === "GK")[2]!, { rating: 90, injuryRounds: 5 });
+    Object.assign(c.players.filter((p) => p.position === "GK")[2]!, { rating: 90, suspendedRounds: 5 });
   }
   return s;
 }
@@ -534,8 +535,8 @@ describe("gastos da IA: compras (engine)", () => {
   });
 
   test("compras da IA não mudam os outros sorteios", () => {
-    // Everyone rated 60; each AI club has 21 players and an injured goalkeeper rated 90, the only
-    // candidates there are. A buyer ends with 22 (no release) and its eleven does not change.
+    // Everyone rated 60; each AI club has 21 players and a goalkeeper rated 90 suspended in the
+    // league (not injured, ajustes-4a AC 5), the only candidates there are. A buyer ends with 22 (no release) and its eleven does not change.
     const variant = (rich: boolean) => {
       const s = game(42);
       for (const p of everyClub(s).flatMap((c) => c.players)) Object.assign(p, { rating: 60, age: 25 });
@@ -544,7 +545,7 @@ describe("gastos da IA: compras (engine)", () => {
       me.forSale = me.players.map((p) => p.id).slice(8);
       for (const c of aiOrder(s)) {
         c.players = c.players.slice(0, 21);
-        Object.assign(c.players.filter((p) => p.position === "GK")[2]!, { rating: 90, injuryRounds: 5 });
+        Object.assign(c.players.filter((p) => p.position === "GK")[2]!, { rating: 90, suspendedRounds: 5 });
         // Without surplus: 5 rounds of payroll, enough to bid for the user's players.
         c.finance.cash = rich ? 100_000_000 : 5 * wages(c);
       }
@@ -1063,4 +1064,88 @@ describe("gastos da IA: boletim (engine)", () => {
       expect(after.market.transfers, what).toEqual([earlier]);
     }
   });
+});
+
+describe("ajustes-4a: filtros da compra da IA (engine)", () => {
+  test("IA não compra lesionado", () => {
+    const buy = (injured: number) => {
+      const q = quiet(70);
+      cutTo21(q);
+      const c = seller(q);
+      const strong = reserve(c, "DF", 70, 25, 4);
+      const next = reserve(c, "DF", 66, 25, 5);
+      strong.injuryRounds = injured;
+      close(q);
+      return { strong: has(q.s, q.buyer.id, strong.id), next: has(q.s, q.buyer.id, next.id) };
+    };
+    expect(buy(1)).toEqual({ strong: false, next: true });
+    expect(buy(0)).toEqual({ strong: true, next: false });
+  });
+
+  test("IA não revende quem comprou na temporada", () => {
+    type Row = [string, (q: Quiet, holder: Club, p: Player) => TransferRecord | null, boolean];
+    const line = (kind: TransferRecord["kind"], p: Player, fromId: string | null, toId: string | null): TransferRecord => ({
+      round: 1,
+      kind,
+      playerId: p.id,
+      playerName: p.name,
+      fromId,
+      toId,
+      amount: 500_000,
+    });
+    const other = (q: Quiet, holder: Club) => q.s.leagues[0]!.clubs.find((c) => c.id !== q.buyer.id && c.id !== holder.id)!;
+    const rows: Row[] = [
+      ["buy para um clube da IA", (q, holder, p) => line("buy", p, other(q, holder).id, holder.id), false],
+      ["buy de proposta aceita", (q, holder, p) => line("buy", p, q.s.userClubId, holder.id), false],
+      ["free", (q, holder, p) => line("free", p, null, holder.id), true],
+      ["release", (q, holder, p) => line("release", p, other(q, holder).id, null), true],
+      ["sem linha", () => null, true],
+    ];
+    expect(rows).toHaveLength(5);
+    for (const [what, make, bought] of rows) {
+      const q = quiet(71);
+      cutTo21(q);
+      const holder = seller(q);
+      const p = reserve(holder, "DF", 64, 25);
+      const t = make(q, holder, p);
+      q.s.market.transfers = t ? [t] : [];
+      close(q);
+      expect(has(q.s, q.buyer.id, p.id), what).toBe(bought);
+      expect(has(q.s, holder.id, p.id), what).toBe(!bought);
+    }
+  });
+
+  test("venda do vermelho com lesionado e com comprado", () => {
+    const run = (setup: (s: GameState, from: Club, star: Player) => void) => {
+      const { s, from, star } = redWorld(72);
+      const second = plant(from, "MF", 75, 25);
+      expect(valueOf(75, 25)).toBeLessThan(valueOf(80, 25));
+      const buyer = s.leagues[0]!.clubs[9]!;
+      buyer.players = buyer.players.slice(0, 21);
+      buyer.finance.cash = cashFor(buyer, 20_000_000, STAR_SALARY);
+      setup(s, from, star);
+      closeRoundMarket(s, s.rngState, 1);
+      return { s, from, buyer, star, second };
+    };
+    // The most valuable is injured: he is sold all the same.
+    {
+      const { s, from, buyer, star, second } = run((_, __, star) => (star.injuryRounds = 3));
+      expect(has(s, buyer.id, star.id)).toBe(true);
+      expect(has(s, from.id, second.id)).toBe(true);
+      expect(s.market.transfers.find((t) => t.playerId === star.id)).toMatchObject({ kind: "buy", fromId: from.id, toId: buyer.id, amount: 3_770_000 });
+    }
+    // The most valuable was bought by an AI club this season: the second most valuable goes.
+    {
+      const { s, from, buyer, star, second } = run((s, from, star) => {
+        const earlier = s.leagues[0]!.clubs[12]!.id;
+        s.market.transfers = [{ round: 1, kind: "buy", playerId: star.id, playerName: star.name, fromId: earlier, toId: from.id, amount: 3_000_000 }];
+      });
+      expect(has(s, from.id, star.id)).toBe(true);
+      expect(has(s, buyer.id, second.id)).toBe(true);
+      expect(s.market.transfers.filter((t) => t.playerId === second.id)).toEqual([
+        { round: 1, kind: "buy", playerId: second.id, playerName: second.name, fromId: from.id, toId: buyer.id, amount: valueOf(75, 25) },
+      ]);
+    }
+  });
+
 });

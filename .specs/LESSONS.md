@@ -126,6 +126,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C25 / src/ui/Market.test.tsx:249 (ui)
 - last seen: 2026-09-27T17:37:46Z
 
+### L-020 - List in the Superseded table every old assertion over a per-league collection, such as history division records, not only league and club counts.
+- signal: `spec_deviation` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: paises
+- evidence: src/engine/rollover.test.ts:402 (verification.md Finding 1) (checks)
+- last seen: 2026-09-27T20:03:35Z
+
+### L-021 - Derive superseded expected values under the plan's new defaults, such as a list filter that starts on the user's own country.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: paises
+- evidence: checks.md Superseded row 2 vs AC 18 (verification.md Finding 2) (checks)
+- last seen: 2026-09-27T20:03:35Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

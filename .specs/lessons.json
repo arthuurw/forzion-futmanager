@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 20,
+  "next_id": 22,
   "lessons": [
     {
       "id": "L-001",
@@ -354,6 +354,42 @@
       ],
       "created": "2026-09-27T17:37:46Z",
       "last_seen": "2026-09-27T17:37:46Z"
+    },
+    {
+      "id": "L-020",
+      "key": "spec_deviation::list in the superseded table every old assertion over a per league collection such as history division records not only league and club counts",
+      "text": "List in the Superseded table every old assertion over a per-league collection, such as history division records, not only league and club counts.",
+      "signal": "spec_deviation",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "paises"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "src/engine/rollover.test.ts:402 (verification.md Finding 1) (checks)"
+      ],
+      "created": "2026-09-27T20:03:35Z",
+      "last_seen": "2026-09-27T20:03:35Z"
+    },
+    {
+      "id": "L-021",
+      "key": "spec_precision_gap::derive superseded expected values under the plan s new defaults such as a list filter that starts on the user s own country",
+      "text": "Derive superseded expected values under the plan's new defaults, such as a list filter that starts on the user's own country.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "paises"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "checks.md Superseded row 2 vs AC 18 (verification.md Finding 2) (checks)"
+      ],
+      "created": "2026-09-27T20:03:35Z",
+      "last_seen": "2026-09-27T20:03:35Z"
     }
   ]
 }

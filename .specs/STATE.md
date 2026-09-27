@@ -19,14 +19,14 @@
 | AD-013 | Competições além da liga vivem em `GameState.cups[]` (a copa nacional é `cups[0]`, id `"cup-nat"`); a disciplina de copa fica em `Player.cupDiscipline[cupId]`, e `yellowCards`/`suspendedRounds` de topo são só da liga | a copa continental (4c) entra como mais um elemento sem save novo; plano de copa-nacional (doors 1 e 6) | active | 2026-09-26 |
 | AD-014 | O calendário não é gravado: a próxima data sai de `League.currentRound` e de `CupPhase.afterLeagueRound` (`engine/calendar.nextDate`) | um ponteiro próprio duplicaria o estado e poderia divergir; plano de copa-nacional (door 4) | active | 2026-09-26 |
 | AD-015 | Nome do produto é «Forzion FutManager» (marca do autor); o banco IndexedDB passa de `brasfoot` para `forzion-futmanager`, sem cópia do banco antigo. Substitui só o nome do banco na door 1 de nucleo-liga-partida (C15); store, chave e documento continuam iguais | «Brasfoot» é marca de terceiros; antes do lançamento não há save de usuário real a preservar | active | 2026-09-27 |
-| AD-016 | Cada `League` tem `country` (`"BR"`, `"AR"`, `"PT"`) e `tier` (0 = primeira divisão); `leagues` continua plano, com a Série A e a Série B em 0 e 1 e os países novos depois; clube só muda de divisão dentro do país; a copa nacional é só `BR` | o 4c escolhe os classificados da copa continental por país; mantém AD-003 e a door 4 de multiplas-temporadas; plano de paises (door 1) | approved - build pending | 2026-09-27 |
+| AD-016 | Cada `League` tem `country` (`"BR"`, `"AR"`, `"PT"`) e `tier` (0 = primeira divisão); `leagues` continua plano, com a Série A e a Série B em 0 e 1 e os países novos depois; clube só muda de divisão dentro do país; a copa nacional é só `BR` | o 4c escolhe os classificados da copa continental por país; mantém AD-003 e a door 4 de multiplas-temporadas; plano de paises (door 1) | active | 2026-09-27 |
 
 ## Handoff
 
-**Feature**: ajustes-4a verificada (PASS, 7f09c28..8050291); paises (4b) em build
-**Where**: ajustes-4a C1–C12 fechados e verificados; paises C1–C33 (~123k), base 8050291+relatório
-**In progress**: build de paises com um builder
-**Next step**: Verifier de paises; AD-016 vira `active` quando paises for verificada
+**Feature**: paises (4b) verificada (PASS, 889aa71..f29bd26, 34 checks); audio em build
+**Where**: ajustes-4a e paises verificadas; AD-016 ativa. audio: plano e checks aprovados (C1–C26, ~45k)
+**In progress**: build de audio com um builder
+**Next step**: Verifier de audio. Pendências: as 5 faixas de música (pergunta aberta 1 do plano de audio, bloqueia o lançamento); o AC 22 do paises não tem check para a liga do usuário no Histórico nem campeões na Nova temporada (observação do Verifier)
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

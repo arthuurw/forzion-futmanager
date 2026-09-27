@@ -22,10 +22,10 @@
 
 ## Handoff
 
-**Feature**: gastos-da-ia (depois de copa-nacional, sub-projeto 4a, verificada PASS em 27/09/2026, `2681ca6`)
-**Where**: plano e checks aprovados (C1–C33, `6bfea94`); build começando com um builder (~64k, budget 150k), depois o Verifier
-**In progress**: build de gastos-da-ia
-**Next step**: Verifier de gastos-da-ia; depois 4b países. Pendência de plano da copa: L-017 (AC 23 × AC 44 - usuário eliminado precisa tirar suspenso de copa da escalação nas datas de copa que não joga)
+**Feature**: nenhuma em andamento. gastos-da-ia verificada PASS em 27/09/2026 (`be16c96`, save v6); copa-nacional (4a) PASS em `2681ca6`
+**Where**: sub-projeto 4a e gastos-da-ia concluídos
+**In progress**: nada
+**Next step**: 4b países. Pendências anotadas: L-017 (copa - usuário eliminado precisa tirar suspenso de copa da escalação nas datas que não joga); gastos-da-ia - IA compra lesionado e o mesmo jogador pode passar por vários clubes na mesma rodada (proibir pede nova medição das faixas); nota 1 do Verifier - nenhum check separa salário atual e salário do AC 5 na sobra da compra do AC 3
 **Blockers**: none
 **Uncommitted**: none
 **Branch**: main

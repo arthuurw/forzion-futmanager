@@ -76,7 +76,7 @@ Proof: `npx vitest run src/engine/cup.test.ts -t "regras da disputa de pênaltis
 **C17** - A chance de gol no pênalti segue esta tabela: batedor 80 e goleiro 80 → 0,75; 70 e 80 → 0,70; 90 e 70 → 0,85; 95 e 40 → 0,92 (limite); 40 e 95 → 0,55 (limite) (AC 13)
 Proof: `npx vitest run src/engine/cup.test.ts -t "chance do pênalti"`
 
-**C18** - Com um time em campo no 90' de 2 FW (80, 75), 3 MF, 4 DF, 1 GK, mais um FW expulso e um FW substituído, os batedores seguem FW 80, FW 75, depois os MF por força, os DF por força e o GK. Nem o expulso nem o substituído batem, e a 12ª cobrança é de novo do FW 80 (AC 14)
+**C18** - Com um time em campo no 90' de 2 FW (80, 75), 3 MF, 4 DF, 1 GK, mais um FW expulso e um FW substituído, os batedores seguem FW 80, FW 75, depois os MF por força, os DF por força e o GK. Nem o expulso nem o substituído batem, e a 11ª cobrança é de novo do FW 80, porque há 10 em campo (AC 14; corrigido de «12ª» pelo autor em 27/09/2026)
 Proof: `npx vitest run src/engine/cup.test.ts -t "ordem dos batedores"`
 
 **C19** - Cada cobrança vira um evento `penalty_scored` ou `penalty_missed` com `playerId` do batedor, e o número de eventos é igual ao total de cobranças. A narração é «Pênalti convertido por X.» e «X perde o pênalti.» (AC 15)
@@ -274,6 +274,7 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 | multiplas-temporadas C50 (versão 5 incompatível) | a versão 5 passa a ser a atual; o teste `migrateSave({ schemaVersion: 5 })` e o `save de versão 5 incompatível` da Home passam a usar a versão 6 | C61 |
 | multiplas-temporadas C51 (documento gravado v4; v4 passa direto) | o documento é v5; `save.test` e `migrate.test` passam de `toBe(4)` para `toBe(5)`, e o v4 passa a ser migrado | C56, C59 |
 | multiplas-temporadas C48, C49 (v3, v2 e v1 viram v4) | viram v5 passando pela v4; as asserções da v4 continuam valendo sobre o resultado | C60 |
+| elenco-mercado-financas C13 (caixa de uma temporada entre 50% e 250%, mediana entre 90% e 160%, sem o prêmio da liga) | o teste `caixa equilibrado em uma temporada` passa a descontar também a bilheteria e o prêmio da copa, como já desconta o prêmio da liga: ele mede o custo corrente. As faixas não mudam. Medido no build (seeds 1–5): com a copa, máx 2,81 e mediana 1,74; sem a receita da copa, 0,98 / 1,48 / 2,25. Escolha do autor em 27/09/2026 | C38 |
 | `playRound` do engine (usado em loops de 38 rodadas em `balance`, `rollover`, `finance` e `save`) | passa a jogar também as datas de copa pendentes; 38 chamadas continuam sendo uma temporada. Testes que fixam números literais depois da rodada 4 são recalculados a partir do estado, sem mudar o que asseguram | C5 |
 
 ## Swept

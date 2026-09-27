@@ -24,13 +24,16 @@ export function End() {
       <div className="screen-body end-body">
         <section className="panel champion-card" style={{ "--i": 0 } as React.CSSProperties}>
           <h1>Fim da temporada {review.season}</h1>
+          <div className="end-summary">
           <div className="trophy" aria-hidden="true" />
+          <div className="champions">
           {review.divisions.map((d) => (
             <div key={d.leagueId} className="division-result">
               <span className="division-name">{d.label}</span>
               <p className="champion">Campeão: {name(d.championId)}</p>
             </div>
           ))}
+          </div>
           <div className="moves">
             {b && (
               <section aria-label="Sobem">
@@ -60,7 +63,7 @@ export function End() {
               </p>
               <p>Prêmio: {formatMoney(review.user.prize)}</p>
               <p>Meta: {goalLabel(review.user.divisionIndex, review.user.goal)}</p>
-              <p className={`verdict-text ${review.user.verdict}`}>{VERDICT_TEXT[review.user.verdict]}</p>
+              <p className={`verdict-text v-${review.user.verdict}`}>{VERDICT_TEXT[review.user.verdict]}</p>
             </div>
           )}
           {fired && (
@@ -80,6 +83,7 @@ export function End() {
               </ul>
             </section>
           )}
+          </div>
           <div className="champion-actions">
             <button className="primary" disabled={saving || (fired && !job)} onClick={() => void nextSeason(job ?? undefined)}>
               Próxima temporada

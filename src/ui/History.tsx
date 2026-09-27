@@ -118,7 +118,7 @@ export function History() {
                 <table aria-label="Campeões" className="compact">
                   <thead>
                     <tr>
-                      <th className="num">Temporada</th>
+                      <th className="num" title="Temporada">Temp.</th>
                       <th>Campeão Série A</th>
                       <th>Artilheiro Série A</th>
                       <th>Campeão Série B</th>

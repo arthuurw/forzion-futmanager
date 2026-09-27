@@ -199,15 +199,15 @@ export function Squad() {
                     </td>
                     <td className="num">{formatMoney(p.salary)}</td>
                     <td className="num contract">
-                      {p.contractSeasons}
-                      {p.contractSeasons === 1 && (
-                        <>
-                          <span className="last-year">Último ano</span>
-                          <button className="mini" aria-label={`Renovar ${p.name}`} title="Renovar" onClick={() => setRenewing(p.id)}>
-                            Renovar
-                          </button>
-                        </>
+                      {p.contractSeasons === 1 ? (
+                        // The last year's number is the renewal button (AC 26).
+                        <button className="link contract-n last" aria-label={`Renovar ${p.name}`} title="Renovar contrato" onClick={() => setRenewing(p.id)}>
+                          {p.contractSeasons}
+                        </button>
+                      ) : (
+                        <span className="contract-n">{p.contractSeasons}</span>
                       )}
+                      {p.contractSeasons === 1 && <span className="last-year">Último ano</span>}
                     </td>
                     <td className="num">
                       <FitnessBar value={p.fitness} />

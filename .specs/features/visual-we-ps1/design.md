@@ -29,7 +29,7 @@ Pesquisa na web rendeu pouco material textual sobre a interface. Único dado con
 
 ## Telas
 
-- **Início**: tela-título. Logo "BRASFOOT" gigante itálico com contorno amarelo, faixa "TEMPORADA 1", menu vertical de barras chanfradas.
+- **Início**: tela-título. Logo "FORZION" gigante com "FUTMANAGER" menor embaixo, itálico com contorno amarelo, faixa "TEMPORADA 1", menu vertical de barras chanfradas.
 - **Escolher clube**: cabeçalho "SELEÇÃO DE TIME"; grade de cartões com bandeira, nome e barra de força.
 - **Elenco**: esquerda, campo com a formação e um token por titular (círculo numerado + placa com seletor); direita, lista do elenco com chip de posição e barra de força. Barra de ação embaixo com "Jogar rodada" em amarelo.
 - **Rodada**: placar de transmissão no topo com bandeiras e relógio; narração como lance a lance com minuto em caixa digital e gol em destaque amarelo; quadro de resultados; tabela.

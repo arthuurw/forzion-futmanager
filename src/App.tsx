@@ -27,7 +27,7 @@ export function App() {
       {!onTitle && (
         <div className="top-strip">
           <span className="logo" aria-hidden="true">
-            Brasfoot
+            Forzion FutManager
           </span>
           {season !== undefined && <span className="season">Temporada {season}</span>}
         </div>

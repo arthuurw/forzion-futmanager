@@ -10,7 +10,9 @@ export function Home() {
 
   return (
     <div className="title-screen">
-      <h1 className="logo-big">Brasfoot</h1>
+      <h1 className="logo-big">
+        Forzion <span className="logo-sub">FutManager</span>
+      </h1>
       <div className="tagline">Manager de futebol</div>
       {phase === "loading" ? (
         <p className="loading blink">Carregando…</p>

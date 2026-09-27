@@ -550,6 +550,13 @@ select option {
   animation: logo-in 0.8s var(--ease) both;
 }
 
+.title-screen .logo-sub {
+  display: block;
+  font-size: 0.4em;
+  letter-spacing: 0.08em;
+  margin-top: 0.12em;
+}
+
 @keyframes logo-in {
   from {
     opacity: 0;

@@ -338,3 +338,13 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 - Total ≈ 137k, abaixo do budget de 150k: one builder
 
 - **Renegotiated mid-build (visible):** C34 and C53, after the author's answer on 26/09/2026. Measured over 5 seasons in 3 seeds (final cash ÷ initial, min / median / max): with no prize −2,1 / 4,3 / 23,5; with the planned prize 4,7 / 11,3 / 25,9; with a quarter of it −0,4 / 6,1 / 24,0. The author chose a quarter: R$ 250.000 per place in the A and R$ 62.500 in the B. The band became −2× to 30×, with a median of 3× to 10×. The plan's AC 29 and AC 43 carry the same change.
+
+- **Boundary:** C1–C55 closed at `dca05d2` (feature base `b2f4973`, the plan commit)
+- **Settled mid-build:**
+  - Prize ÷4 and the new 5-season cash band, chosen by the author (bullet above).
+  - Door 5 (streams of the new game and of the migration) was added to `Landing` before its code.
+  - Bids for the user's players still come only from the user's own division, as in sub-project 2. AC 6 covers only the list, and bidding from 39 clubs would have broken C28 of sub-project 2.
+  - `RoundOutcome.results` keeps only the user's division (10 results). The Round screen's «Outros resultados» stays at 9.
+  - The live tick shares the players' snapshot instead of copying it: 20 matches made a tick twice as expensive, and the 4x live test timed out under the parallel suite. Two heavy UI tests got longer timeouts, with the same assertions.
+  - In the squad list, the number of a last-year contract is the «Renovar» button, so the list keeps its width. On a phone, «Último ano» is visually hidden and the number turns orange.
+- **Abandoned:** measuring the cash band with the sponsorship recomputed every season. It fixed the minimum (−2× → 1×) but not the median or the maximum, because the AI never spends.

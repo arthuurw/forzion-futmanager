@@ -14,6 +14,8 @@
 | AD-008 | Times e jogadores fictícios, gerados por seed; nenhum nome real | lançar publicamente sem risco de licença (CBF, clubes, FIFPro) | active | 2026-09-26 |
 | AD-009 | A liga tem 20 identidades fixas inspiradas na Série A (apelido + cidade/estado + cores), definidas em `CLUB_IDENTITIES`; a seed só embaralha ordem e força | pedido do autor por nomes fiéis à Série A, mantendo AD-008 (nenhum nome ou escudo real) | active | 2026-09-26 |
 | AD-010 | Toda tela cabe na janela sem rolagem de página; em telas estreitas (≤ 900 px) um painel por vez via abas | pedido do autor; visual estilo PS2 | active | 2026-09-26 |
+| AD-011 | A Série B tem 20 identidades fixas inspiradas na Série B (apelido + cidade/estado + cores), em `SERIE_B_IDENTITIES`; clubes mudam de divisão mantendo id e identidade | mesmo padrão da AD-009, sem nome ou escudo real (AD-008); plano de multiplas-temporadas | active | 2026-09-26 |
+| AD-012 | O valor de mercado segue a força atual (`salaryFor(força) × 50 × fator de idade`), não o salário guardado; o salário só muda na contratação ou na renovação | com evolução por idade, um jovem que cresce precisa valer mais; plano de multiplas-temporadas (AC 21) | active | 2026-09-26 |
 
 ## Handoff
 

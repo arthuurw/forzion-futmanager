@@ -300,3 +300,10 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 - **Closed with the engine commit (`feat(engine): national cup, calendar, penalties and save v5`):** C1–C5, C8–C19, C21–C34, C36–C39, C41, C43, C44, C54–C63
 - **Closed with the UI commit (`feat(ui): cup screen, cup dates in live and results, cup goal`):** C6, C7, C20, C35, C40, C42, C45–C53
 - **Gate:** the full suite ran as `npx vitest run --maxWorkers=2`, as the orchestrator allowed. With the default workers, the baseline already timed out under load in `app.test.tsx` and `Market.test.tsx`; no timeout was raised and no flaky test was edited.
+- **Boundary:** C1–C63 closed at `69eaa2a` (engine at `ac0b16d`); feature range `1417b07..HEAD`
+- **Settled mid-build:**
+  - The one-season cash test leaves cup income out, and C18 counts the 11th kick. Both were the author's choices on 27/09/2026, committed in `ba274c2`.
+  - The shoot-out lives in `engine/live` (minute-90 step), which already owns the match's `Rng`; `Flow` says so.
+  - `MATCH_EVENT_TYPES` stays the 10 events of play; the two penalty events are `PENALTY_EVENT_TYPES`, so the earlier checks that pin 10 types do not move.
+  - `playDate` and `playRound` live in `engine/season`, since `engine/cup` already imports the live engine.
+- **Abandoned:** nothing.

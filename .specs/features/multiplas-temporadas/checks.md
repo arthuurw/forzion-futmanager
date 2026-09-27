@@ -206,6 +206,7 @@ Proof: `npx vitest run src/ui/Squad.test.tsx -t "meta da temporada"`
 
 (AC 32, AC 33)
 Proof: `npx vitest run src/engine/season.test.ts -t "veredito da diretoria"`
+Proof: `npx vitest run src/ui/End.test.tsx -t "textos do veredito"`
 
 **C39** - Demitido, o usuário recebe 3 propostas: os 3 clubes logo abaixo do seu no ranking de força das 40 equipes. Se ele é o 39º, recebe os 3 mais fracos entre os outros (37º, 38º e 40º). Na tela Fim, «Propostas de emprego» lista os 3, e «Próxima temporada» fica desabilitado até ele escolher um (AC 34, L-006)
 Proof: `npx vitest run src/engine/season.test.ts -t "propostas de emprego"`
@@ -233,6 +234,7 @@ Proof: `npx vitest run src/engine/rollover.test.ts -t "histórico da temporada"`
 
 **C44** - O botão «Histórico» da tela Elenco abre a tela «Histórico». A aba «Artilharia» lista os 10 maiores artilheiros da divisão do usuário na temporada, por gols decrescentes e depois nome, com nome, clube e gols. «Voltar ao elenco» volta (AC 39)
 Proof: `npx vitest run src/ui/History.test.tsx -t "artilharia top 10"`
+Proof: `npx vitest run src/ui/History.test.tsx -t "artilharia da série B"`
 
 **C45** - A aba «Estatísticas» tem uma linha por jogador do elenco com jogos e gols na temporada e jogos e gols na carreira. A carreira inclui a temporada atual. A fixture tem os 4 números ≠ 0 (AC 39, L-010)
 Proof: `npx vitest run src/ui/History.test.tsx -t "estatísticas do elenco"`
@@ -280,6 +282,7 @@ Proof: `npx vitest run src/engine/rollover.test.ts -t "contrato de clube nunca a
 
 **C55** - `history` só cresce: `nextSeason` nunca altera um registro existente, e o save gravado depois de duas viradas tem os 2 registros na ordem das temporadas (Relations)
 Proof: `npx vitest run src/engine/rollover.test.ts -t "histórico da temporada"`
+Proof: `npx vitest run src/persistence/save.test.ts -t "histórico gravado com duas temporadas"`
 
 ## Coverage
 
@@ -359,4 +362,12 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 - **C56 (new):** the check that door 5's contract stream (`mix32(seed, 5)`) owed (L-009).
 - **C19, stronger fixture, same claim:** the first player of the first club that stays up is young with a long contract, and the assertion lost its `if` guard.
 - Both new migration tests were run against injected faults (Série A seed scheme; stream 6) and failed as expected.
+
+### Precision notes of round 1 (after `31cae35`, at the author's request)
+
+- **C38:** gained a second `Proof:` line, `textos do veredito`. It checks the on-screen text of each verdict, one at a time, on the End screen with the same final position. Before, the proof only checked the verdict codes.
+- **C31, stronger fixture, same claim:** the contracts spread over 1 to 4. «Renovar» is checked on every row: present exactly where the contract is 1.
+- **C44:** gained `artilharia da série B`. With the user in the B, the list is the Série B's top 10 and no Série A club appears.
+- **C55:** gained `histórico gravado com duas temporadas`. After two real rollovers, it saves and reloads through IndexedDB, with the 2 records in order and the first one unchanged.
+- Faults injected: the scorer list read from the Série A, and «Demitido» swapped for another text. The new tests failed on both, as expected.
 

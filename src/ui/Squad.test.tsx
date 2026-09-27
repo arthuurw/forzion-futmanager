@@ -258,9 +258,17 @@ describe("elenco com divisões, contratos e meta", () => {
     const [last, other] = userClub(game)!.players;
     Object.assign(last!, { contractSeasons: 1, rating: 77, salary: 5_000 });
     Object.assign(other!, { contractSeasons: 2 });
+    // The rest spread over 1 to 4, so the rule is checked on every row, not on one sample.
+    userClub(game)!.players.slice(2).forEach((p, i) => (p.contractSeasons = 1 + (i % 4)));
     useGame.setState({ phase: "squad", game, hasSave: true });
     render(<Squad />);
     expect(screen.queryByRole("button", { name: `Renovar ${other!.name}` })).not.toBeInTheDocument();
+    // Every row: «Renovar» exactly on the last-year contracts.
+    for (const p of userClub(game)!.players) {
+      const has = screen.queryByRole("button", { name: `Renovar ${p.name}` }) !== null;
+      expect(has, `${p.name} contrato ${p.contractSeasons}`).toBe(p.contractSeasons === 1);
+    }
+    expect(screen.getAllByRole("button", { name: /^Renovar / })).toHaveLength(userClub(game)!.players.filter((p) => p.contractSeasons === 1).length);
     const y = expectedSalary(77);
     await user.click(screen.getByRole("button", { name: `Renovar ${last!.name}` }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent(`Renovar ${last!.name} por 3 temporadas com salário ${brl(y)} por rodada. Confirmar?`);

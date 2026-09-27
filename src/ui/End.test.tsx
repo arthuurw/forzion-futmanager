@@ -94,3 +94,29 @@ describe("fim de temporada com duas divisões", () => {
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
   }, 60_000);
 });
+
+describe("veredito na tela", () => {
+  test("textos do veredito", () => {
+    const base = endedSeason();
+    const tableA = computeTable(base.leagues[0]!);
+    // The user finishes 10th of the Série A; the goal decides the verdict (C38, the on-screen text).
+    const cases: [number, string][] = [
+      [10, "Meta cumprida"],
+      [8, "Meta não cumprida"],
+      [5, "Demitido"],
+    ];
+    for (const [goal, text] of cases) {
+      resetAll();
+      const game = JSON.parse(JSON.stringify(base)) as GameState;
+      game.userClubId = tableA[9]!.clubId;
+      game.boardGoal = goal;
+      useGame.setState({ phase: "end", game, hasSave: true });
+      const view = render(<App />);
+      expect(screen.getByText("Sua posição: 10º na Série A")).toBeInTheDocument();
+      const shown = ["Meta cumprida", "Meta não cumprida", "Demitido"].filter((t) => screen.queryByText(t));
+      expect(shown, `meta ${goal}`).toEqual([text]);
+      view.unmount();
+    }
+  });
+});
+

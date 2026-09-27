@@ -3,6 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { openDB } from "idb";
 import { newGame } from "../engine/generate";
 import { autoLineup } from "../engine/lineup";
+import { nextSeason } from "../engine/rollover";
 import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
 import { v1Document } from "../engine/test-fixtures";
@@ -104,3 +105,29 @@ describe("save (door 1, door 7)", () => {
     expect(loaded.state.leagues[0]!.clubs[0]!.players[0]).toMatchObject({ fitness: 100, morale: 0, idleRounds: 0 });
   });
 });
+
+describe("histórico no save", () => {
+  test("histórico gravado com duas temporadas", async () => {
+    let state = newGame(43);
+    state.userClubId = state.leagues[0]!.clubs[0]!.id;
+    const season = () => {
+      for (let r = 0; r < 38; r++) {
+        const me = state.leagues.flatMap((l) => l.clubs).find((c) => c.id === state.userClubId)!;
+        me.lineup = autoLineup(me, "4-4-2");
+        state = playRound(state).state;
+      }
+      state.boardGoal = 20;
+      state = nextSeason(state).state;
+    };
+    season();
+    const first = JSON.parse(JSON.stringify(state.history[0]));
+    season();
+    await saveGame(state);
+    const loaded = await loadGame();
+    if (loaded.kind !== "ok") throw new Error("no save");
+    expect(loaded.state.history.map((h) => h.season)).toEqual([1, 2]);
+    expect(loaded.state.history[0]).toEqual(first);
+    expect(loaded.state.history).toEqual(state.history);
+  }, 60_000);
+});
+

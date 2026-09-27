@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import type { GameState, SeasonRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 
@@ -38,6 +38,22 @@ describe("tela Histórico", () => {
     expect(cellsOf(screen.getByRole("table", { name: "Artilharia" }))).toEqual(expected.map((s, i) => [String(i + 1), s.name, s.club, String(s.goals)]));
     await user.click(screen.getByRole("button", { name: "Voltar ao elenco" }));
     expect(await screen.findByRole("table", { name: "Elenco" })).toBeInTheDocument();
+  });
+
+  test("artilharia da série B", async () => {
+    const game = seededGameIn(1, 42, 3, 8);
+    await openHistory(game);
+    // Written out (L-004): the Série B's scorers only, goals descending, then name.
+    const expected = game.leagues[1]!.clubs
+      .flatMap((c) => c.players.map((p) => ({ name: p.name, club: c.name, goals: p.seasonGoals })))
+      .filter((s) => s.goals > 0)
+      .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "pt-BR"))
+      .slice(0, 10);
+    expect(expected).toHaveLength(10);
+    const rows = cellsOf(screen.getByRole("table", { name: "Artilharia" }));
+    expect(rows).toEqual(expected.map((s, i) => [String(i + 1), s.name, s.club, String(s.goals)]));
+    const serieA = new Set(game.leagues[0]!.clubs.map((c) => c.name));
+    for (const r of rows) expect(serieA.has(r[2]!)).toBe(false);
   });
 
   test("estatísticas do elenco", async () => {

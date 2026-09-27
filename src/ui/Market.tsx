@@ -1,19 +1,62 @@
 import { useState } from "react";
 import { FEE_ROUNDS, isMarketOpen, marketValue, nextRoundNumber, nextWindowStart } from "../engine/market";
 import { allClubs, findAnyClub } from "../engine/season";
-import { POSITIONS, type Player, type Position } from "../engine/types";
+import { POSITIONS, type GameState, type Player, type Position } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { formatMoney } from "./money";
 import { ScreenTabs } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
-type MarketTab = "buy" | "offers" | "youth";
+type MarketTab = "buy" | "offers" | "youth" | "transfers";
 
 interface Listing {
   player: Player;
   /** null for a free agent. */
   clubId: string | null;
   clubName: string;
+}
+
+/**
+ * Gastos-da-ia AC 19-21: this season's AI moves, the most recent first, scrolling inside the panel.
+ * A null club is a free agent: «Livre».
+ */
+function Transfers({ game }: { game: GameState }) {
+  const names = new Map(allClubs(game).map((c) => [c.id, c.name]));
+  const clubName = (id: string | null) => (id === null ? "Livre" : (names.get(id) ?? id));
+  const lines = [...game.market.transfers].reverse();
+  return (
+    <section aria-label="Transferências" className="panel" style={{ "--i": 1 } as React.CSSProperties}>
+      <h2 className="title-bar">Transferências</h2>
+      {lines.length === 0 ? (
+        <p className="empty">Nenhuma transferência nesta temporada</p>
+      ) : (
+        <div className="fill">
+          <table aria-label="Transferências" className="compact">
+            <thead>
+              <tr>
+                <th className="num">Rodada</th>
+                <th>Jogador</th>
+                <th>De</th>
+                <th>Para</th>
+                <th className="num">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lines.map((t, i) => (
+                <tr key={`${lines.length - i}-${t.playerId}`}>
+                  <td className="num">{t.round}</td>
+                  <td>{t.playerName}</td>
+                  <td>{clubName(t.fromId)}</td>
+                  <td>{clubName(t.toId)}</td>
+                  <td className="num">{formatMoney(t.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
 }
 
 /** AC 16-40: buy from other clubs, answer offers, sign free agents, promote juniors. */
@@ -58,12 +101,13 @@ export function Market() {
     return (
       <div className="screen">
         {head}
-        <div className="screen-body">
+        <div className="screen-body closed-body">
           <section className="panel closed-market">
             <p className="empty">
               {reopens === null ? "Mercado fechado - reabre na próxima temporada" : `Mercado fechado - reabre antes da rodada ${reopens}`}
             </p>
           </section>
+          <Transfers game={game} />
         </div>
         {back}
       </div>
@@ -94,6 +138,7 @@ export function Market() {
           { id: "buy", label: "Comprar" },
           { id: "offers", label: `Propostas (${game.market.offers.length})` },
           { id: "youth", label: "Base" },
+          { id: "transfers", label: "Transferências" },
         ]}
       />
 
@@ -271,6 +316,12 @@ export function Market() {
               </ul>
             )}
           </section>
+        </div>
+      )}
+
+      {tab === "transfers" && (
+        <div className="screen-body">
+          <Transfers game={game} />
         </div>
       )}
 

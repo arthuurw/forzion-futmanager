@@ -2158,6 +2158,11 @@ table.compact tbody td {
   justify-content: center;
 }
 
+/* Gastos-da-ia AC 19: the closed-market notice beside this season's AI transfers. */
+.closed-body {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+}
+
 .closed-market .empty {
   font-family: var(--font-display);
   font-weight: 800;
@@ -2261,6 +2266,11 @@ button.mini {
   .finance-body,
   .market-body {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .closed-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .market-body .deal {

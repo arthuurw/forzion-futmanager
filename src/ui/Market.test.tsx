@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Club, GameState, Player } from "../engine/types";
+import type { Club, GameState, Player, TransferRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Market } from "./Market";
 import { resetAll, seededGame, seededGameIn } from "./test-utils";
@@ -202,4 +202,70 @@ describe("mercado com duas divisões", () => {
     const names = new Set(rows.map((r) => within(r).getAllByRole("cell")[0]!.textContent));
     for (const p of me.players) expect(names.has(p.name)).toBe(false);
   }, 60_000);
+});
+
+/** Three AI moves in rounds 1, 2 and 3 of a game `currentRound` rounds in, oldest first as the save keeps them. */
+function withTransfers(currentRound: number): { game: GameState; a: Club; b: Club } {
+  const game = seededGame(3);
+  for (const l of game.leagues) l.currentRound = currentRound;
+  const [a, b] = [game.leagues[0]!.clubs[4]!, game.leagues[1]!.clubs[7]!];
+  const lines: TransferRecord[] = [
+    { round: 1, kind: "free", playerId: "fa-1", playerName: "Livre Contratado", fromId: null, toId: a.id, amount: 44_000 },
+    { round: 2, kind: "buy", playerId: "p-2", playerName: "Reforço Comprado", fromId: a.id, toId: b.id, amount: 1_990_000 },
+    { round: 3, kind: "release", playerId: "p-3", playerName: "Sobra Dispensada", fromId: b.id, toId: null, amount: 60_000 },
+  ];
+  game.market.transfers = lines;
+  return { game, a, b };
+}
+
+const transferRows = () => {
+  const table = screen.getByRole("table", { name: "Transferências" });
+  expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Rodada", "Jogador", "De", "Para", "Valor"]);
+  return within(table)
+    .getAllByRole("row")
+    .slice(1)
+    .map((r) => within(r).getAllByRole("cell").map((c) => c.textContent));
+};
+
+describe("tela Mercado: transferências da IA (gastos-da-ia)", () => {
+  test("aba transferências", async () => {
+    const user = userEvent.setup();
+    const { game, a, b } = withTransfers(3);
+    const expected = [
+      ["3", "Sobra Dispensada", b.name, "Livre", brl(60_000)],
+      ["2", "Reforço Comprado", a.name, b.name, brl(1_990_000)],
+      ["1", "Livre Contratado", "Livre", a.name, brl(44_000)],
+    ];
+    show(game);
+    await user.click(screen.getByRole("tab", { name: "Transferências" }));
+    expect(transferRows()).toEqual(expected);
+
+    // Next round 6, out of the window: no tabs, the notice and the same list beside it.
+    cleanup();
+    const closed = withTransfers(5).game;
+    show(closed);
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.getByText("Mercado fechado - reabre antes da rodada 18")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Transferências" })).toBeInTheDocument();
+    expect(transferRows()).toEqual(expected);
+  });
+
+  test("transferências vazio", async () => {
+    const user = userEvent.setup();
+    const game = seededGame(3);
+    expect(game.market.transfers).toEqual([]);
+    show(game);
+    await user.click(screen.getByRole("tab", { name: "Transferências" }));
+    expect(screen.getByText("Nenhuma transferência nesta temporada")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Transferências" })).not.toBeInTheDocument();
+  });
+
+  test("transferências rolam no painel", async () => {
+    const user = userEvent.setup();
+    show(withTransfers(3).game);
+    await user.click(screen.getByRole("tab", { name: "Transferências" }));
+    const table = screen.getByRole("table", { name: "Transferências" });
+    expect(table.parentElement!.classList.contains("fill")).toBe(true);
+    expect(table.closest(".fill")).not.toBeNull();
+  });
 });

@@ -415,10 +415,18 @@ function stepInPlace(live: LiveRound): void {
   }
 }
 
+/**
+ * A copy for one more minute: matches are copied, the players' snapshot is shared, since nothing
+ * writes to it during a round (40 squads make copying it the main cost of a tick).
+ */
+function forNextMinutes(input: LiveRound): LiveRound {
+  return { ...input, matches: clone(input.matches) };
+}
+
 /** Advances every match by one minute. Pure: returns a new LiveRound. */
 export function step(input: LiveRound): LiveRound {
   if (input.minute >= MATCH_MINUTES) return input;
-  const live = clone(input);
+  const live = forNextMinutes(input);
   stepInPlace(live);
   return live;
 }
@@ -426,7 +434,7 @@ export function step(input: LiveRound): LiveRound {
 /** Plays every minute left. Same result as calling step() until 90, with one copy instead of ninety. */
 export function runToEnd(input: LiveRound): LiveRound {
   if (input.minute >= MATCH_MINUTES) return input;
-  const live = clone(input);
+  const live = forNextMinutes(input);
   while (live.minute < MATCH_MINUTES) stepInPlace(live);
   return live;
 }

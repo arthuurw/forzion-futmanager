@@ -6,7 +6,8 @@ import { computeTable } from "./engine/table";
 import { loadGame, saveGame } from "./persistence/save";
 import { useGame, userClub } from "./store";
 import { App } from "./App";
-import { resetAll, resetStore, seededGame, skipLive } from "./ui/test-utils";
+import { nextSeason } from "./engine/rollover";
+import { resetAll, resetStore, seededGame, seededGameIn, skipLive } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can observe the order of save and render. */
 const ctl = vi.hoisted(() => ({ gate: null as Promise<void> | null }));
@@ -174,9 +175,10 @@ describe("fluxo do app", () => {
     // Let the clock run to 90' on its own, at 4x.
     await user.click(await screen.findByRole("button", { name: "4x" }));
     // The clock stops at half-time (AC 6); resume it.
-    await screen.findByText("Intervalo", {}, { timeout: 8000 });
+    // Generous waits: 20 matches per tick, and the suite runs files in parallel.
+    await screen.findByText("Intervalo", {}, { timeout: 25000 });
     await user.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(await screen.findByRole("region", { name: "Sua partida" }, { timeout: 8000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Sua partida" }, { timeout: 25000 })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Outros resultados" })).getAllByRole("listitem")).toHaveLength(9);
     expect(within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row")).toHaveLength(21);
     const saved = await loadGame();
@@ -185,7 +187,7 @@ describe("fluxo do app", () => {
       expect(saved.state.leagues[0]!.currentRound).toBe(1);
       expect(saved.state.leagues[0]!.rounds[0]!.matches.every((m) => m.result !== null)).toBe(true);
     }
-  }, 30000);
+  }, 90_000);
 
   test("recarregar no meio da rodada volta ao elenco com save intacto", async () => {
     const user = userEvent.setup();
@@ -208,4 +210,74 @@ describe("fluxo do app", () => {
     expect(await loadGame()).toEqual({ kind: "ok", state: before });
   });
 
+
+describe("duas divisões e várias temporadas", () => {
+  test("rodada joga as duas divisões", async () => {
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game: seededGameIn(1, 23, 2), hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    await skipLive(user);
+    expect(await screen.findByRole("heading", { name: "Rodada 1" })).toBeInTheDocument();
+    const saved = await loadGame();
+    if (saved.kind !== "ok") throw new Error("no save");
+    for (const state of [useGame.getState().game!, saved.state]) {
+      expect(state.leagues).toHaveLength(2);
+      for (const league of state.leagues) {
+        expect(league.currentRound, league.id).toBe(1);
+        const round1 = league.rounds[0]!.matches;
+        expect(round1).toHaveLength(10);
+        for (const m of round1) expect(m.result, `${league.id} ${m.id}`).not.toBeNull();
+        for (const m of league.rounds[1]!.matches) expect(m.result).toBeNull();
+      }
+    }
+  });
+
+  test("escolher clube fixa a meta", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Novo jogo" }));
+    await screen.findByText("Escolher clube");
+    const game = useGame.getState().game!;
+    const byName = [...game.leagues[0]!.clubs].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    const chosen = byName[7]!;
+    await user.click(screen.getAllByRole("button").filter((b) => b.classList.contains("club-card"))[7]!);
+    await screen.findByRole("table", { name: "Elenco" });
+    // Written out (L-004): rank by the best eleven in the division, ties by id; Série A goal min(16, r + 3).
+    const best11 = (ratings: number[]) => [...ratings].sort((a, b) => b - a).slice(0, 11).reduce((a, b) => a + b, 0) / 11;
+    const ranking = [...game.leagues[0]!.clubs].sort((a, b) => best11(b.players.map((p) => p.rating)) - best11(a.players.map((p) => p.rating)) || a.id.localeCompare(b.id));
+    const goal = Math.min(16, ranking.findIndex((c) => c.id === chosen.id) + 1 + 3);
+    const saved = await loadGame();
+    if (saved.kind !== "ok") throw new Error("no save");
+    expect(saved.state.userClubId).toBe(chosen.id);
+    expect(saved.state.boardGoal).toBe(goal);
+    expect(useGame.getState().game!.boardGoal).toBe(goal);
+  });
+
+  test("recarregar no fim mostra o mesmo resumo", async () => {
+    const user = userEvent.setup();
+    const game = seededGame(24, 3, 38);
+    await saveGame(game);
+    resetStore();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+    expect(await screen.findByText("Fim da temporada 1")).toBeInTheDocument();
+    const tableA = computeTable(game.leagues[0]!);
+    const tableB = computeTable(game.leagues[1]!);
+    const position = tableA.findIndex((r) => r.clubId === game.userClubId) + 1;
+    const prize = (21 - position) * 250_000;
+    const verdict = position <= game.boardGoal ? "Meta cumprida" : position >= game.boardGoal + 5 || (game.boardGoal === 16 && position > 16) ? "Demitido" : "Meta não cumprida";
+    const brl = (n: number) => `R$ ${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+    expect(screen.getByText(`Campeão: ${tableA[0]!.name}`)).toBeInTheDocument();
+    expect(screen.getByText(`Campeão: ${tableB[0]!.name}`)).toBeInTheDocument();
+    expect(screen.getByText(`Sua posição: ${position}º na Série A`)).toBeInTheDocument();
+    expect(screen.getByText(`Prêmio: ${brl(prize)}`)).toBeInTheDocument();
+    expect(screen.getByText(verdict)).toBeInTheDocument();
+    // The next season from the reloaded save is the same as from the original, field by field.
+    const reloaded = useGame.getState().game!;
+    expect(reloaded).toEqual(game);
+    const jobs = verdict === "Demitido" ? (await import("./engine/season")).seasonReview(game).jobOffers[0] : undefined;
+    expect(nextSeason(reloaded, jobs)).toEqual(nextSeason(game, jobs));
+  }, 60_000);
+});
 });

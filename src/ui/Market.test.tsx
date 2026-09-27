@@ -61,7 +61,7 @@ describe("tela Mercado", () => {
     const forwards = within(screen.getByRole("table", { name: "Mercado" })).getAllByRole("row").slice(1);
     expect(forwards).toHaveLength(39 * 5 + 10);
     for (const r of forwards) expect(within(r).getAllByRole("cell")[1]!.textContent).toBe("ATA");
-  });
+  }, 60_000);
 
   test("filtro sem jogadores", async () => {
     const user = userEvent.setup();

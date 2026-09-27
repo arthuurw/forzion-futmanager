@@ -339,7 +339,7 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 
 - **Renegotiated mid-build (visible):** C34 and C53, after the author's answer on 26/09/2026. Measured over 5 seasons in 3 seeds (final cash ÷ initial, min / median / max): with no prize −2,1 / 4,3 / 23,5; with the planned prize 4,7 / 11,3 / 25,9; with a quarter of it −0,4 / 6,1 / 24,0. The author chose a quarter: R$ 250.000 per place in the A and R$ 62.500 in the B. The band became −2× to 30×, with a median of 3× to 10×. The plan's AC 29 and AC 43 carry the same change.
 
-- **Boundary:** C1–C55 closed at `dca05d2` (feature base `b2f4973`, the plan commit)
+- **Boundary:** C1–C55 closed at `dca05d2`; feature range `66c86da..HEAD` (the plan landed in `b2f4973`)
 - **Settled mid-build:**
   - Prize ÷4 and the new 5-season cash band, chosen by the author (bullet above).
   - Door 5 (streams of the new game and of the migration) was added to `Landing` before its code.

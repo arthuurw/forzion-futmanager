@@ -1,4 +1,6 @@
-import { userBoardGoal } from "./board";
+import { userBoardGoal, userCupGoal } from "./board";
+import { nextDate } from "./calendar";
+import { catchUpPhase, newCup, seedingByStrength } from "./cup";
 import { generateFreeAgents, generateSerieB, takenNames } from "./generate";
 import { initialFinance, salaryFor } from "./finance";
 import { aiLineup, formationSlots, isAvailable } from "./lineup";
@@ -97,21 +99,45 @@ function v3ToV4(doc: OldDocument): GameState {
   };
   const serieB = generateSerieB(state.seed, takenNames(state));
   catchUp(serieB, serieA.currentRound, state.seed);
-  const migrated: GameState = { ...state, schemaVersion: SCHEMA_VERSION, leagues: [serieA, serieB], history: [], boardGoal: 0 };
+  const migrated = { ...state, schemaVersion: 4, leagues: [serieA, serieB], history: [], boardGoal: 0 } as unknown as GameState;
   migrated.boardGoal = userBoardGoal(migrated);
   return migrated;
 }
 
+/** Door 5 (copa-nacional): the draws' state and the matches' state of a migrated cup. */
+const CUP_DRAW_SALT = 6;
+const CUP_MATCH_SALT = 7;
+
 /**
- * Door 1: reads any stored document. v4 passes through; v3, v2 and v1 migrate forward (AC 41);
- * anything else is incompatible (AC 42).
+ * v4 -> v5 (copa-nacional AC 51, 52, door 5): an empty cup discipline on every player, `cups: []`
+ * on every closed season, and this season's cup seeded by strength. The phases the calendar has
+ * already passed are drawn and played with scores only - no money, no condition.
+ */
+function v4ToV5(doc: GameState): GameState {
+  const state = doc;
+  const players = [...state.leagues.flatMap((l) => l.clubs.flatMap((c) => c.players)), ...state.market.freeAgents, ...state.market.juniors];
+  for (const p of players) p.cupDiscipline = {};
+  state.history = state.history.map((r) => ({ ...r, cups: [] }));
+  const drawState = mix32(state.seed, CUP_DRAW_SALT);
+  const matchState = mix32(state.seed, CUP_MATCH_SALT);
+  state.cups = [newCup(seedingByStrength(state.leagues), drawState)];
+  while (nextDate(state).kind === "cup") catchUpPhase(state, 0, matchState, drawState);
+  state.schemaVersion = SCHEMA_VERSION;
+  state.cupGoal = userCupGoal(state);
+  return state;
+}
+
+/**
+ * Door 1: reads any stored document. v5 passes through; v4 to v1 migrate forward, each through
+ * the next (copa-nacional AC 51, 53); anything else is incompatible (AC 54).
  */
 export function migrateSave(doc: unknown): MigrationResult {
   const version = typeof doc === "object" && doc !== null ? (doc as { schemaVersion?: unknown }).schemaVersion : undefined;
   if (version === SCHEMA_VERSION) return { kind: "ok", state: doc as GameState };
-  if (version !== 1 && version !== 2 && version !== 3) return { kind: "incompatible", version };
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return { kind: "incompatible", version };
   let old = JSON.parse(JSON.stringify(doc)) as OldDocument;
   if (version === 1) v1ToV2(old);
   if (version <= 2) old = v2ToV3(old);
-  return { kind: "ok", state: v3ToV4(old) };
+  const v4 = version <= 3 ? v3ToV4(old) : (old as unknown as GameState);
+  return { kind: "ok", state: v4ToV5(v4) };
 }

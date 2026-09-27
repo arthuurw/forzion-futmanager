@@ -296,3 +296,5 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
 - Soma por fatia: S1 ≈ 24k; S2 fica em 39k acumulado, S3 em 59k, S4 em 82k, S5 em 92k, S6 em 106k, S7 em 127k e S8 em 141k. As fatias se sobrepõem nos mesmos arquivos, então o total real fica perto de ~91k
 - Total ≈ 91k (limite superior 141k), abaixo do budget de 150k: one builder
 - Risco anotado: a banda de caixa de 5 temporadas (multiplas-temporadas C34) agora inclui o dinheiro da copa. Se alguma seed sair da banda, o builder para e pergunta; não mexe na banda
+
+- **Closed with the engine commit (`feat(engine): national cup, calendar, penalties and save v5`):** C1–C5, C8–C19, C21–C34, C36–C39, C41, C43, C44, C54–C63

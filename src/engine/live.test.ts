@@ -293,12 +293,12 @@ describe("rodada ao vivo (engine)", () => {
   });
 
   test("condição 50 rende 85%", () => {
-    const p: Player = { id: "x", name: "x", position: "MF", age: 25, rating: 80, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0, contractSeasons: 1, seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0 };
+    const p: Player = { id: "x", name: "x", position: "MF", age: 25, rating: 80, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0, contractSeasons: 1, seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0, cupDiscipline: {} };
     expect(effectiveRating({ ...p, fitness: 50 }, "MF") / effectiveRating(p, "MF")).toBeCloseTo(0.85, 10);
   });
 
   test("moral +2 rende 6% a mais", () => {
-    const p: Player = { id: "x", name: "x", position: "FW", age: 25, rating: 70, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0, contractSeasons: 1, seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0 };
+    const p: Player = { id: "x", name: "x", position: "FW", age: 25, rating: 70, fitness: 100, morale: 0, injuryRounds: 0, suspendedRounds: 0, yellowCards: 0, idleRounds: 0, salary: 0, contractSeasons: 1, seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0, cupDiscipline: {} };
     expect(effectiveRating({ ...p, morale: 2 }, "FW") / effectiveRating(p, "FW")).toBeCloseTo(1.06, 10);
   });
 
@@ -361,4 +361,30 @@ describe("duas divisões na rodada", () => {
       expect(played, league.id).toHaveLength(380);
     }
   }, 60_000);
+});
+
+describe("disponibilidade na rodada da liga (copa-nacional)", () => {
+  test("suspenso na copa joga a liga", () => {
+    const state = game(87);
+    const me = state.leagues[0]!.clubs[0]!;
+    const ai = state.leagues[0]!.clubs[1]!;
+    const fws = ai.players.filter((p) => p.position === "FW").sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id));
+    const cupOnly = fws[0]!;
+    const leagueOnly = fws[1]!;
+    cupOnly.cupDiscipline = { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } };
+    leagueOnly.suspendedRounds = 1;
+    const benchCup = me.players.find((p) => !me.lineup!.starters.includes(p.id))!;
+    benchCup.cupDiscipline = { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } };
+    const benchLeague = me.players.find((p) => p !== benchCup && !me.lineup!.starters.includes(p.id))!;
+    benchLeague.suspendedRounds = 1;
+    const live = startRound(state);
+    const sideOf = (id: string) => {
+      const m = live.matches.find((x) => x.home.clubId === id || x.away.clubId === id)!;
+      return m.home.clubId === id ? m.home : m.away;
+    };
+    expect(sideOf(ai.id).slots).toContain(cupOnly.id);
+    expect([...sideOf(ai.id).slots, ...sideOf(ai.id).bench]).not.toContain(leagueOnly.id);
+    expect(sideOf(me.id).bench).toContain(benchCup.id);
+    expect(sideOf(me.id).bench).not.toContain(benchLeague.id);
+  });
 });

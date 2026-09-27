@@ -41,5 +41,9 @@ export function narrate(event: MatchEvent, ctx: NarrationContext): string {
       return `${player} (${club}) se machuca e deixa o campo.`;
     case "substitution":
       return `Substituição no ${club}: sai ${player || "—"}, entra ${nameOf(event.playerInId)}.`;
+    case "penalty_scored":
+      return `Pênalti convertido por ${player}.`;
+    case "penalty_missed":
+      return `${player} perde o pênalti.`;
   }
 }

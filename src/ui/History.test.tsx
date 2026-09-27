@@ -82,6 +82,8 @@ describe("tela Histórico", () => {
       userPosition: 4 + k,
       verdict: "met",
       prize: 1,
+      // Seasons without a cup (copa-nacional C54 adds its column, «-» here).
+      cups: [],
       divisions: [
         { leagueId: "l1", championId: a!.clubs[k]!.id, promotedIds: [], relegatedIds: [], topScorer: { name: `Artilheiro A${season}`, clubName: a!.clubs[k]!.name, goals: 20 + k } },
         { leagueId: "l2", championId: b!.clubs[k]!.id, promotedIds: [], relegatedIds: [], topScorer: { name: `Artilheiro B${season}`, clubName: b!.clubs[k]!.name, goals: 15 + k } },
@@ -99,6 +101,7 @@ describe("tela Histórico", () => {
           `Artilheiro A${season} (${a!.clubs[k]!.name}) · ${20 + k} gols`,
           b!.clubs[k]!.name,
           `Artilheiro B${season} (${b!.clubs[k]!.name}) · ${15 + k} gols`,
+          "-",
           `${4 + k}º na Série A`,
         ];
       }),
@@ -110,5 +113,39 @@ describe("tela Histórico", () => {
     expect(within(screen.getByRole("region", { name: "Artilharia" })).getByText("Nenhum gol ainda")).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "Campeões" }));
     expect(within(screen.getByRole("region", { name: "Campeões" })).getByText("Nenhuma temporada encerrada")).toBeInTheDocument();
+  });
+});
+
+describe("copa no histórico (copa-nacional)", () => {
+  test("campeão da copa no histórico", async () => {
+    const game = seededGame(141);
+    const [a, b] = game.leagues;
+    const record = (season: number, cups: SeasonRecord["cups"]): SeasonRecord => ({
+      season,
+      userClubId: game.userClubId,
+      userLeagueId: "l1",
+      userPosition: 3,
+      verdict: "met",
+      prize: 1,
+      cups,
+      divisions: [
+        { leagueId: "l1", championId: a!.clubs[0]!.id, promotedIds: [], relegatedIds: [], topScorer: null },
+        { leagueId: "l2", championId: b!.clubs[0]!.id, promotedIds: [], relegatedIds: [], topScorer: null },
+      ],
+    });
+    // Season 1 was migrated (no cup); season 2 had one, won by a Série B club.
+    const champion = b!.clubs[7]!;
+    game.history = [record(1, []), record(2, [{ cupId: "cup-nat", championId: champion.id, runnerUpId: a!.clubs[2]!.id, userReached: 2 }])];
+    const user = await openHistory(game);
+    await user.click(screen.getByRole("tab", { name: "Campeões" }));
+    const table = screen.getByRole("table", { name: "Campeões" });
+    const headers = within(table).getAllByRole("columnheader").map((h) => h.textContent);
+    const col = headers.indexOf("Copa Nacional");
+    expect(col).toBeGreaterThan(0);
+    const rows = cellsOf(table);
+    expect(rows.map((r) => [r[0], r[col]])).toEqual([
+      ["2", champion.name],
+      ["1", "-"],
+    ]);
   });
 });

@@ -3,7 +3,7 @@
  * Door 5 (discipline) and door 7 (idle rounds) live here.
  */
 import type { LiveMatch, LiveSide } from "./live";
-import type { Club, Player } from "./types";
+import { LEAGUE, type Club, type Competition, type CupDiscipline, type Player } from "./types";
 
 export const RECOVERY_RESTED = 30;
 export const RECOVERY_PLAYED = 15;
@@ -18,19 +18,39 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-/** One player's condition and season numbers after a round (AC 36). Pure. */
-export function playerAfterRound(p: Player, side: LiveSide | null, outcome: Outcome | null, goals = 0): Player {
+/**
+ * One player's condition and season numbers after a date (AC 36). In a cup date (copa-nacional S4)
+ * the cards and the suspension are the cup's, the season numbers do not move, and a club that did
+ * not play (`side` null) only rests and heals. Pure.
+ */
+export function playerAfterRound(
+  p: Player,
+  side: LiveSide | null,
+  outcome: Outcome | null,
+  goals = 0,
+  competition: Competition = LEAGUE,
+): Player {
   const next: Player = { ...p };
-  next.seasonGoals = (p.seasonGoals ?? 0) + goals;
-  const wasOut = p.injuryRounds > 0 || p.suspendedRounds > 0;
+  const cupId = competition.kind === "cup" ? competition.cupId : null;
+  const discipline: CupDiscipline =
+    cupId === null
+      ? { yellowCards: p.yellowCards, suspendedRounds: p.suspendedRounds }
+      : { yellowCards: 0, suspendedRounds: 0, ...p.cupDiscipline?.[cupId] };
+  if (cupId === null) next.seasonGoals = (p.seasonGoals ?? 0) + goals;
+  const wasOut = p.injuryRounds > 0 || discipline.suspendedRounds > 0;
 
-  // Serve the round they were out for.
+  // Serve the date they were out for.
   if (next.injuryRounds > 0) next.injuryRounds--;
-  if (next.suspendedRounds > 0) next.suspendedRounds--;
+  if (cupId !== null && !side) {
+    // AC 28: a club without a cup match rests; idle rounds and morale stay.
+    next.fitness = clamp(p.fitness + RECOVERY_RESTED, 0, 100);
+    return next;
+  }
+  if (discipline.suspendedRounds > 0) discipline.suspendedRounds--;
 
   const played = !!side && side.played.includes(p.id);
   if (played && side) {
-    next.seasonGames = (p.seasonGames ?? 0) + 1;
+    if (cupId === null) next.seasonGames = (p.seasonGames ?? 0) + 1;
     next.fitness = clamp(Math.round(side.fitness[p.id] ?? p.fitness) + RECOVERY_PLAYED, 0, 100);
     next.idleRounds = 0;
     if (outcome === "win") next.morale = clamp(next.morale + 1, MORALE_MIN, MORALE_MAX);
@@ -50,27 +70,42 @@ export function playerAfterRound(p: Player, side: LiveSide | null, outcome: Outc
     const injury = side.injured[p.id];
     if (injury) next.injuryRounds = injury;
     if (side.sentOff.includes(p.id)) {
-      // A red card suspends for the next round; that match's yellows do not count towards accumulation.
-      next.suspendedRounds += 1;
+      // A red card suspends for the next date; that match's yellows do not count towards accumulation.
+      discipline.suspendedRounds += 1;
     } else if ((side.yellows[p.id] ?? 0) > 0) {
-      next.yellowCards += 1;
-      if (next.yellowCards >= YELLOWS_FOR_SUSPENSION) {
-        next.suspendedRounds += 1;
-        next.yellowCards = 0;
+      discipline.yellowCards += 1;
+      if (discipline.yellowCards >= YELLOWS_FOR_SUSPENSION) {
+        discipline.suspendedRounds += 1;
+        discipline.yellowCards = 0;
       }
     }
+  }
+  if (cupId === null) {
+    next.yellowCards = discipline.yellowCards;
+    next.suspendedRounds = discipline.suspendedRounds;
+  } else {
+    next.cupDiscipline = { ...p.cupDiscipline, [cupId]: discipline };
   }
   return next;
 }
 
+/** A shoot-out decides a level knockout tie: the side that goes through counts as a win (copa-nacional AC 27). */
 function outcomeFor(m: LiveMatch, side: LiveSide): Outcome {
-  const mine = side === m.home ? m.homeGoals : m.awayGoals;
-  const theirs = side === m.home ? m.awayGoals : m.homeGoals;
+  const home = side === m.home;
+  const mine = home ? m.homeGoals : m.awayGoals;
+  const theirs = home ? m.awayGoals : m.homeGoals;
+  if (mine === theirs && m.penalties) {
+    const pens = home ? m.penalties.home - m.penalties.away : m.penalties.away - m.penalties.home;
+    return pens > 0 ? "win" : "loss";
+  }
   return mine > theirs ? "win" : mine < theirs ? "loss" : "draw";
 }
 
-/** Applies a finished round to every club that played in it. Clubs are replaced, not mutated. */
-export function applyRound(clubs: Club[], matches: LiveMatch[]): Club[] {
+/**
+ * Applies a finished date to every club; `competition` says whose discipline it was. Cup goals do
+ * not count in the season numbers (copa-nacional AC 18). Clubs are replaced, not mutated.
+ */
+export function applyRound(clubs: Club[], matches: LiveMatch[], competition: Competition = LEAGUE): Club[] {
   const sides = new Map<string, { m: LiveMatch; side: LiveSide }>();
   const goals = new Map<string, number>();
   for (const m of matches) {
@@ -82,6 +117,6 @@ export function applyRound(clubs: Club[], matches: LiveMatch[]): Club[] {
     const entry = sides.get(club.id);
     const side = entry?.side ?? null;
     const outcome = entry ? outcomeFor(entry.m, entry.side) : null;
-    return { ...club, players: club.players.map((p) => playerAfterRound(p, side, outcome, goals.get(p.id) ?? 0)) };
+    return { ...club, players: club.players.map((p) => playerAfterRound(p, side, outcome, goals.get(p.id) ?? 0, competition)) };
   });
 }

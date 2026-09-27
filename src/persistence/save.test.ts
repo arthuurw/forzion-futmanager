@@ -21,7 +21,8 @@ beforeEach(() => {
 
 describe("save (door 1, door 7)", () => {
   // Supersedes partida-ao-vivo C45 (schemaVersion 2): elenco-mercado-financas door 1 moves the save to v3.
-  test("documento tem schemaVersion 4 com finanças e mercado", async () => {
+  // Copa-nacional C56 supersedes multiplas-temporadas C51: the document is v5, with the cup.
+  test("documento tem schemaVersion 5 com copa", async () => {
     const state = fixture();
     const club = state.leagues[0]!.clubs[0]!;
     club.lineup = autoLineup(club, "4-4-2");
@@ -32,8 +33,20 @@ describe("save (door 1, door 7)", () => {
     expect(DB_NAME).toBe("brasfoot");
     expect(STORE).toBe("saves");
     expect(SLOT).toBe("slot-1");
-    // Supersedes elenco-mercado-financas C54: the document is v4 (multiplas-temporadas C51).
-    expect(doc.schemaVersion).toBe(4);
+    expect(doc.schemaVersion).toBe(5);
+    expect(doc.cups).toHaveLength(1);
+    expect(doc.cups[0].id).toBe("cup-nat");
+    expect(doc.cups[0].seeding).toHaveLength(40);
+    expect(doc.cups[0].phases).toHaveLength(6);
+    expect(doc.cups[0].phases[0].ties).toHaveLength(8);
+    expect(typeof doc.cupGoal).toBe("number");
+    const everyPlayer = [
+      ...doc.leagues.flatMap((l: { clubs: { players: unknown[] }[] }) => l.clubs.flatMap((c) => c.players)),
+      ...doc.market.freeAgents,
+      ...doc.market.juniors,
+    ] as { id: string; cupDiscipline: unknown }[];
+    expect(everyPlayer.length).toBeGreaterThan(900);
+    for (const p of everyPlayer) expect(p.cupDiscipline, p.id).toEqual({});
     expect(doc.leagues.map((l: { id: string }) => l.id)).toEqual(["l1", "l2"]);
     expect(doc.history).toEqual([]);
     expect(Number.isInteger(doc.boardGoal)).toBe(true);
@@ -101,7 +114,7 @@ describe("save (door 1, door 7)", () => {
     const loaded = await loadGame();
     expect(loaded.kind).toBe("ok");
     if (loaded.kind !== "ok") return;
-    expect(loaded.state.schemaVersion).toBe(4);
+    expect(loaded.state.schemaVersion).toBe(5);
     expect(loaded.state.leagues[0]!.clubs[0]!.players[0]).toMatchObject({ fitness: 100, morale: 0, idleRounds: 0 });
   });
 });
@@ -131,3 +144,24 @@ describe("histórico no save", () => {
   }, 60_000);
 });
 
+
+describe("copa no save (copa-nacional)", () => {
+  test("reload no meio da copa não muda nada", async () => {
+    let state = fixture();
+    for (let r = 0; r < 5; r++) state = playRound(state).state;
+    expect(state.cups[0]!.currentPhase).toBe(1);
+    await saveGame(state);
+    const loaded = await loadGame();
+    if (loaded.kind !== "ok") throw new Error("no save");
+    const finish = (s: GameState) => {
+      let x = s;
+      for (let r = 5; r < 38; r++) x = playRound(x).state;
+      return x;
+    };
+    const straight = finish(state);
+    const reloaded = finish(loaded.state);
+    expect(straight.cups[0]!.currentPhase).toBe(6);
+    expect(reloaded.cups).toEqual(straight.cups);
+    expect(reloaded).toEqual(straight);
+  }, 60_000);
+});

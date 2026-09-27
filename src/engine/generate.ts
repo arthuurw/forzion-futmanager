@@ -1,3 +1,4 @@
+import { newCup, seedingByStrength } from "./cup";
 import { CLUB_IDENTITIES, SERIE_B_IDENTITIES, generatePlayerName, uniqueName, type ClubIdentity } from "./names";
 import { initialFinance, salaryFor } from "./finance";
 import { bell, createRng, mix32, pick, randInt, shuffle, type Rng } from "./rng";
@@ -51,7 +52,7 @@ function generateAge(rng: Rng): number {
  * `contractSeasons` is 0 for a player with no club (door 1).
  */
 export function makePlayer(id: string, name: string, position: Position, age: number, rating: number, contractSeasons = 0): Player {
-  return { id, name, position, age, rating, ...FRESH_CONDITION, ...ZERO_STATS, salary: salaryFor(rating), contractSeasons };
+  return { id, name, position, age, rating, ...FRESH_CONDITION, ...ZERO_STATS, salary: salaryFor(rating), contractSeasons, cupDiscipline: {} };
 }
 
 function generatePlayer(rng: Rng, id: string, position: Position, base: number, taken: Set<string>): Player {
@@ -185,16 +186,20 @@ export function newGame(seed: number): GameState {
     offers: [],
   };
   const serieB = generateSerieB(seed, takenNames({ leagues: [league], market }));
+  const rngState = rng.getState();
   return {
     schemaVersion: SCHEMA_VERSION,
     seed,
-    rngState: rng.getState(),
+    rngState,
     season: 1,
     userClubId: null,
     leagues: [league, serieB],
     market,
     history: [],
     boardGoal: 0,
+    // Copa-nacional AC 7, AC 11: seeded by strength, the preliminary drawn from the new game's state (door 3).
+    cups: [newCup(seedingByStrength([league, serieB]), rngState)],
+    cupGoal: -1,
   };
 }
 

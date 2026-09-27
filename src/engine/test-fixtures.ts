@@ -12,14 +12,16 @@ import {
   toggleForSale,
   type MarketResult,
 } from "./market";
-import { playRound } from "./season";
-import type { GameState } from "./types";
+import { nextDate } from "./calendar";
+import { nextSeason } from "./rollover";
+import { playDate, playRound } from "./season";
+import type { Club, GameState } from "./types";
 
 const V4_PLAYER_FIELDS = ["contractSeasons", "seasonGames", "seasonGoals", "careerGames", "careerGoals"];
 
 /**
- * A document shaped like a v3 save: one league, no contracts or season numbers, no history and no
- * board goal. The user manages the first club; `roundsPlayed` rounds are in.
+ * A document shaped like a v3 save: one league, no contracts or season numbers, no history, no
+ * board goal and no cup. The user manages the first club; `roundsPlayed` rounds are in.
  */
 export function v3Document(seed = 3, roundsPlayed = 0): Record<string, unknown> {
   let state = newGame(seed);
@@ -32,7 +34,9 @@ export function v3Document(seed = 3, roundsPlayed = 0): Record<string, unknown> 
   doc.leagues = [doc.leagues[0]];
   delete doc.history;
   delete doc.boardGoal;
-  const strip = (p: Record<string, unknown>) => V4_PLAYER_FIELDS.forEach((k) => delete p[k]);
+  delete doc.cups;
+  delete doc.cupGoal;
+  const strip = (p: Record<string, unknown>) => [...V4_PLAYER_FIELDS, "cupDiscipline"].forEach((k) => delete p[k]);
   for (const c of doc.leagues[0].clubs) c.players.forEach(strip);
   doc.market.freeAgents.forEach(strip);
   doc.market.juniors.forEach(strip);
@@ -108,4 +112,68 @@ export function busySeason(seed = 21): GameState {
     s = playRound(s).state;
   }
   return s;
+}
+
+/**
+ * A game played date by date until the next date is cup phase `phase`. With `userClubId`, that
+ * club is the user's, with an auto-filled lineup before every date.
+ */
+export function atCupDate(seed: number, phase: number, userClubId: string | null = null): GameState {
+  let s = newGame(seed);
+  s.userClubId = userClubId;
+  for (;;) {
+    const date = nextDate(s);
+    if (date.kind === "cup" && date.phase === phase) return s;
+    if (date.kind === "over") throw new Error("no such cup date");
+    const me = s.leagues.flatMap((l) => l.clubs).find((c) => c.id === s.userClubId);
+    if (me) me.lineup = autoLineup(me, AI_FORMATION);
+    s = playDate(s).state;
+  }
+}
+
+const best11 = (c: Club) => [...c.players].map((p) => p.rating).sort((a, b) => b - a).slice(0, 11).reduce((a, b) => a + b, 0) / 11;
+
+/**
+ * Copa-nacional AC 35, written out (L-004): 1 for a club in the preliminary draw; otherwise by the
+ * best-eleven rank among all 40 clubs, ties by id: 1-4 -> 4, 5-8 -> 3, the rest -> 2. -1 without a club.
+ */
+export function expectedCupGoal(s: GameState): number {
+  if (!s.userClubId) return -1;
+  const preliminary = s.cups[0]!.phases[0]!.ties.flatMap((t) => [t.homeId, t.awayId]);
+  if (preliminary.includes(s.userClubId)) return 1;
+  const ranking = s.leagues.flatMap((l) => l.clubs).sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id));
+  const rank = ranking.findIndex((c) => c.id === s.userClubId) + 1;
+  return rank <= 4 ? 4 : rank <= 8 ? 3 : 2;
+}
+
+/**
+ * A document shaped like a v4 save (multiplas-temporadas): no cup, no cup goal, no cup discipline
+ * and no `cups` on the history. The user manages the first Série A club, `roundsPlayed` rounds in;
+ * with `closedSeasons`, that many seasons were played and turned first.
+ */
+export function v4Document(seed = 3, roundsPlayed = 0, closedSeasons = 0): Record<string, unknown> {
+  let state = newGame(seed);
+  state.userClubId = state.leagues[0]!.clubs[0]!.id;
+  state.boardGoal = 20;
+  const me = () => state.leagues.flatMap((l) => l.clubs).find((c) => c.id === state.userClubId)!;
+  const play = (rounds: number) => {
+    for (let i = 0; i < rounds; i++) {
+      me().lineup = autoLineup(me(), AI_FORMATION);
+      state = playRound(state).state;
+    }
+  };
+  for (let k = 0; k < closedSeasons; k++) {
+    play(38);
+    state.boardGoal = 20;
+    state = nextSeason(state).state;
+  }
+  play(roundsPlayed);
+  const doc = JSON.parse(JSON.stringify(state));
+  doc.schemaVersion = 4;
+  delete doc.cups;
+  delete doc.cupGoal;
+  for (const l of doc.leagues) for (const c of l.clubs) for (const p of c.players) delete p.cupDiscipline;
+  for (const p of [...doc.market.freeAgents, ...doc.market.juniors]) delete p.cupDiscipline;
+  for (const r of doc.history) delete r.cups;
+  return doc;
 }

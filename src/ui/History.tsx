@@ -123,6 +123,7 @@ export function History() {
                       <th>Artilheiro Série A</th>
                       <th>Campeão Série B</th>
                       <th>Artilheiro Série B</th>
+                      <th>Copa Nacional</th>
                       <th>Sua posição</th>
                     </tr>
                   </thead>
@@ -134,6 +135,7 @@ export function History() {
                         <td>{scorerText(r.divisions[0])}</td>
                         <td>{r.divisions[1] ? clubName(r.divisions[1].championId) : "—"}</td>
                         <td>{scorerText(r.divisions[1])}</td>
+                        <td>{r.cups[0] ? clubName(r.cups[0].championId) : "-"}</td>
                         <td>{r.userPosition ? `${r.userPosition}º na ${division(r.userLeagueId)}` : "—"}</td>
                       </tr>
                     ))}

@@ -28,9 +28,9 @@ Reutiliza o motor minuto a minuto (`engine/live`: `makeSide`, `makeMatch`, `step
 flowchart TD
     BTN["«Jogar rodada» (Squad, exists)"] --> ND["engine/calendar nextDate (door 4)"]
     ND -->|league| LR["engine/live startRound (exists) → season.finishRound (exists)"]
-    ND -->|cup, user plays| CL["engine/cup startCupDate (door 1) → Live (exists) → finishCupDate"]
+    ND -->|cup, user plays| CL["engine/cup startCupDate (door 1) → Live (exists; pênaltis no passo do 90' de engine/live, door 2) → finishCupDate"]
     ND -->|cup, user out| CX["engine/cup (door 1) finishCupDate direto, sem Live"]
-    CL --> FC["finishCupDate: resultados, pênaltis (door 2), condição (door 6), bilheteria + prêmio, sorteio da fase seguinte (door 3)"]
+    CL --> FC["finishCupDate: resultados e pênaltis gravados, condição (door 6), bilheteria + prêmio, sorteio da fase seguinte (door 3)"]
     CX --> FC
     FC --> P["persistence (exists) grava save v5 (door 1)"]
     LR --> P
@@ -38,10 +38,10 @@ flowchart TD
 ```
 
 1. jogo novo -> `engine/generate` (exists) - além das duas divisões, cria a `Cup` com o chaveamento por força e a preliminar sorteada (door 1, door 3). Ao escolher o clube, fixa `cupGoal`
-2. «Jogar rodada» -> `engine/calendar` (new, door 4) `nextDate` - decide se a próxima data é de liga ou de copa
+2. «Jogar rodada» -> `engine/calendar` (new, door 4) `nextDate` - decide se a próxima data é de liga ou de copa. Sem decisões, `engine/season.playDate` joga uma data e `playRound` joga as datas de copa pendentes e uma rodada
 3. data de liga -> `engine/live` + `engine/season.finishRound` (exist) - como hoje. A suspensão da liga só é consultada e cumprida aqui (door 6)
 4. data de copa -> `engine/cup` (new, door 1) `startCupDate` - monta um `LiveRound` só com os confrontos da fase. A disponibilidade usa a suspensão de copa (door 6), e a semente de cada partida segue a door 2
-5. tela «Ao vivo» (exists) - mostra os confrontos da copa. No 90', empate vai a pênaltis dentro do mesmo passo (door 2). Se o clube do usuário não joga a data, esta etapa é pulada
+5. tela «Ao vivo» (exists) - mostra os confrontos da copa. No 90', empate vai a pênaltis dentro do mesmo passo: a disputa vive em `engine/live` (`stepMatch`, `shootout`, `penaltyTakers`, `penaltyChance`), que já é dono do `Rng` da partida (door 2). Se o clube do usuário não joga a data, esta etapa é pulada
 6. `engine/cup.finishCupDate` - grava placar, pênaltis e vencedor, aplica a condição (door 6), paga bilheteria e prêmio, sorteia a fase seguinte (door 3) e avança `rngState` uma vez
 7. `persistence` (exists) grava o save v5 (door 1). Depois vêm a tela de resultados (exists) e a nova tela «Copa» (new, no door - placement per conventions)
 8. rodada 38 -> tela Fim (exists) -> `engine/season.seasonReview` (exists) - combina o veredito da liga com a meta de copa. `rollover.nextSeason` (exists) grava a copa no histórico, zera a disciplina de copa e cria a copa nova (door 1, door 3)

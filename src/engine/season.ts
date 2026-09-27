@@ -1,4 +1,6 @@
-import { DIVISION_LABEL, divisionOf, jobOffers, verdictFor } from "./board";
+import { DIVISION_LABEL, combinedVerdict, divisionOf, jobOffers, verdictFor } from "./board";
+import { nextDate } from "./calendar";
+import { cupChampion, cupReached, cupRunnerUp, finishCupDate, startCupDate } from "./cup";
 import { applyRound } from "./condition";
 import { closeRoundFinances, positionsBeforeRound, prizeFor } from "./finance";
 import { resultOf, runToEnd, startRound, userMatch, type LiveRound } from "./live";
@@ -16,8 +18,10 @@ export interface RoundOutcome {
   roundNumber: number;
   /** Full event log of the user's match, in minute order. Not persisted (door 7 of the core). */
   userEvents: MatchEvent[];
-  /** Every result of the user's division this round, in schedule order. */
-  results: { matchId: string; homeId: string; awayId: string; result: MatchResult }[];
+  /** Every result of the user's division this round, in schedule order; every tie of a cup date, in draw order. */
+  results: { matchId: string; homeId: string; awayId: string; result: MatchResult; penalties?: { home: number; away: number } | null }[];
+  /** Set when the date was a cup phase (copa-nacional). */
+  cup?: { cupIndex: number; phase: number };
 }
 
 /** The league the user's club plays in; the Série A when there is no user club. */
@@ -90,10 +94,20 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
   return { state, roundNumber, userEvents: userMatch(live)?.events ?? [], results };
 }
 
-/** A round with no decisions: start, run to the end, finish. */
+/** One date with no decisions, league round or cup phase (copa-nacional door 4). */
+export function playDate(input: GameState): RoundOutcome {
+  const date = nextDate(input);
+  if (date.kind === "over") throw new Error("season is over");
+  if (date.kind === "cup") return finishCupDate(input, startCupDate(input));
+  return finishRound(input, startRound(input));
+}
+
+/** The cup dates due, then one league round with no decisions: 38 calls are still a whole season. */
 export function playRound(input: GameState): RoundOutcome {
   if (isSeasonOver(userLeague(input))) throw new Error("season is over");
-  return finishRound(input, startRound(input));
+  let state = input;
+  while (nextDate(state).kind === "cup") state = playDate(state).state;
+  return finishRound(state, startRound(state));
 }
 
 export interface TopScorer {
@@ -123,11 +137,32 @@ export interface DivisionReview {
   topScorer: TopScorer | null;
 }
 
+export interface CupReview {
+  cupId: string;
+  name: string;
+  championId: string | null;
+  runnerUpId: string | null;
+  /** Phase index the user reached, 6 = champion; null without a club. */
+  userReached: number | null;
+}
+
 export interface SeasonReview {
   season: number;
   divisions: DivisionReview[];
-  /** Null when there is no user club. */
-  user: { divisionIndex: number; position: number; prize: number; goal: number; verdict: Verdict } | null;
+  cups: CupReview[];
+  /**
+   * Null when there is no user club. `verdict` is the league's adjusted by the cup goal
+   * (copa-nacional AC 37-39); `leagueVerdict` is the league's alone.
+   */
+  user: {
+    divisionIndex: number;
+    position: number;
+    prize: number;
+    goal: number;
+    leagueVerdict: Verdict;
+    cupGoal: number;
+    verdict: Verdict;
+  } | null;
   /** AC 34: clubs offering a job; empty unless the user was fired. */
   jobOffers: string[];
 }
@@ -147,17 +182,30 @@ export function seasonReview(state: GameState): SeasonReview {
       topScorer: topScorers(league, 1)[0] ?? null,
     };
   });
+  const userId = state.userClubId;
+  const cups = state.cups.map(
+    (cup): CupReview => ({
+      cupId: cup.id,
+      name: cup.name,
+      championId: cupChampion(cup),
+      runnerUpId: cupRunnerUp(cup),
+      userReached: userId ? cupReached(cup, userId) : null,
+    }),
+  );
   let user: SeasonReview["user"] = null;
-  if (state.userClubId) {
-    const divisionIndex = divisionOf(state, state.userClubId);
-    const position = divisions[divisionIndex]!.table.findIndex((r) => r.clubId === state.userClubId) + 1;
+  if (userId) {
+    const divisionIndex = divisionOf(state, userId);
+    const position = divisions[divisionIndex]!.table.findIndex((r) => r.clubId === userId) + 1;
+    const leagueVerdict = verdictFor(divisionIndex, state.boardGoal, position);
     user = {
       divisionIndex,
       position,
       prize: prizeFor(divisionIndex, position),
       goal: state.boardGoal,
-      verdict: verdictFor(divisionIndex, state.boardGoal, position),
+      leagueVerdict,
+      cupGoal: state.cupGoal,
+      verdict: combinedVerdict(leagueVerdict, state.cupGoal, cups[0]?.userReached ?? null),
     };
   }
-  return { season: state.season, divisions, user, jobOffers: user?.verdict === "fired" ? jobOffers(state) : [] };
+  return { season: state.season, divisions, cups, user, jobOffers: user?.verdict === "fired" ? jobOffers(state) : [] };
 }

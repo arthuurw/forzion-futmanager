@@ -6,7 +6,7 @@ import { createRng, mix32, randInt } from "./rng";
 import { nextSeason } from "./rollover";
 import { playRound, seasonReview } from "./season";
 import { computeTable } from "./table";
-import { busySeason } from "./test-fixtures";
+import { busySeason, expectedCupGoal } from "./test-fixtures";
 import type { Club, GameState, Player, Position } from "./types";
 
 /** Written out here, not imported (L-004). */
@@ -33,6 +33,22 @@ function ended(seed = 30, division = 0, clubIndex = 0): GameState {
     cache.set(key, s);
   }
   return clone(cache.get(key)!);
+}
+
+/**
+ * The closed cup as the history keeps it, read off the ties here (L-004): the final's winner and
+ * loser, and the last phase the user played (6 when champion).
+ */
+function expectedCupRecord(s: GameState) {
+  const cup = s.cups[0]!;
+  const final = cup.phases[5]!.ties[0]!;
+  const runnerUpId = final.winnerId === final.homeId ? final.awayId : final.homeId;
+  let userReached: number | null = null;
+  cup.phases.forEach((phase, k) => {
+    if (phase.ties.some((t) => t.homeId === s.userClubId || t.awayId === s.userClubId)) userReached = k;
+  });
+  if (final.winnerId === s.userClubId) userReached = 6;
+  return { cupId: "cup-nat", championId: final.winnerId, runnerUpId, userReached };
 }
 
 let pad = 0;
@@ -374,6 +390,7 @@ describe("diretoria e histórico na virada", () => {
         userPosition: position,
         verdict: "met",
         prize: (21 - position) * 250_000,
+        cups: [expectedCupRecord(before)],
         divisions: [
           { leagueId: "l1", championId: tA[0], promotedIds: [], relegatedIds: tA.slice(16), topScorer: topScorer(0) },
           { leagueId: "l2", championId: tB[0], promotedIds: tB.slice(0, 4), relegatedIds: [], topScorer: topScorer(1) },
@@ -407,5 +424,83 @@ describe("diretoria e histórico na virada", () => {
     };
     check(s);
     check(nextSeason(s).state);
+  });
+});
+
+describe("copa na virada (copa-nacional)", () => {
+  test("chaveamento da copa na virada", () => {
+    const before = ended(32);
+    // The final tables, read here from the scores.
+    const tA = computeTable(before.leagues[0]!).map((r) => r.clubId);
+    const tB = computeTable(before.leagues[1]!).map((r) => r.clubId);
+    const { state } = nextSeason(before);
+    expect(state.cups[0]!.seeding).toEqual([...tA.slice(0, 16), ...tB.slice(0, 4), ...tA.slice(16), ...tB.slice(4)]);
+    // The preliminary is the 16 who stayed in the Série B; the 4 relegated go straight to the «16 avos».
+    expect(new Set(state.cups[0]!.phases[0]!.ties.flatMap((t) => [t.homeId, t.awayId]))).toEqual(new Set(tB.slice(4)));
+    for (const t of state.cups[0]!.phases[0]!.ties) expect(state.cups[0]!.seeding.indexOf(t.homeId)).toBeGreaterThan(state.cups[0]!.seeding.indexOf(t.awayId));
+  });
+
+  test("copa nova na virada", () => {
+    const before = ended(33);
+    const suspended = userOf(before).players.find((p) => p.age <= 25 && p.contractSeasons > 1)!;
+    suspended.cupDiscipline = { "cup-nat": { yellowCards: 2, suspendedRounds: 1 } };
+    before.market.freeAgents[0]!.cupDiscipline = { "cup-nat": { yellowCards: 1, suspendedRounds: 0 } };
+    expect(before.cups[0]!.currentPhase).toBe(6);
+    const { state } = nextSeason(before);
+    const players = [...all(state).flatMap((c) => c.players), ...state.market.freeAgents, ...state.market.juniors];
+    expect(players.some((p) => p.id === suspended.id)).toBe(true);
+    for (const p of players) expect(p.cupDiscipline, p.id).toEqual({});
+    const cup = state.cups[0]!;
+    expect(state.cups).toHaveLength(1);
+    expect(cup.currentPhase).toBe(0);
+    expect(cup.phases[0]!.ties).toHaveLength(8);
+    for (const t of cup.phases[0]!.ties) expect([t.result, t.winnerId]).toEqual([null, null]);
+    for (const phase of cup.phases.slice(1)) expect(phase.ties).toEqual([]);
+    // Door 3: drawn from the new season's state.
+    const rng = createRng(mix32(mix32(state.rngState, 0xd0), 0));
+    const drawn = cup.seeding.slice(24);
+    for (let i = drawn.length - 1; i > 0; i--) {
+      const j = randInt(rng, 0, i);
+      [drawn[i], drawn[j]] = [drawn[j]!, drawn[i]!];
+    }
+    expect(cup.phases[0]!.ties.map((t) => [t.homeId, t.awayId].sort())).toEqual(
+      Array.from({ length: 8 }, (_, i) => [drawn[2 * i]!, drawn[2 * i + 1]!].sort()),
+    );
+  });
+
+  test("meta de copa na virada", () => {
+    const { state } = nextSeason(ended(34));
+    expect(state.cupGoal).toBe(expectedCupGoal(state));
+    // Also for the new club of a fired manager.
+    const before = ended(31, 0, 5);
+    const position = computeTable(before.leagues[0]!).findIndex((r) => r.clubId === before.userClubId) + 1;
+    before.boardGoal = position - 5;
+    const pick = seasonReview(before).jobOffers[0]!;
+    const fired = nextSeason(before, pick).state;
+    expect(fired.userClubId).toBe(pick);
+    expect(fired.cupGoal).toBe(expectedCupGoal(fired));
+  });
+
+  test("veredito combinado no histórico", () => {
+    const before = ended(31, 0, 5);
+    const position = computeTable(before.leagues[0]!).findIndex((r) => r.clubId === before.userClubId) + 1;
+    before.boardGoal = position - 5;
+    const reached = expectedCupRecord(before).userReached!;
+    before.cupGoal = reached;
+    const review = seasonReview(before);
+    expect(review.user!.leagueVerdict).toBe("fired");
+    expect(review.user!.verdict).toBe("missed");
+    expect(review.jobOffers).toEqual([]);
+    const { state } = nextSeason(before);
+    expect(state.userClubId).toBe(before.userClubId);
+    expect(state.history[0]!.verdict).toBe("missed");
+  });
+
+  test("copa no histórico", () => {
+    const before = ended(35);
+    const record = expectedCupRecord(before);
+    expect(record.championId).not.toBeNull();
+    const { state } = nextSeason(before);
+    expect(state.history[0]!.cups).toEqual([record]);
   });
 });

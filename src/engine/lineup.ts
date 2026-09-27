@@ -1,4 +1,4 @@
-import type { Club, FormationName, Lineup, Player, PlayerCore, Position, Posture } from "./types";
+import { LEAGUE, type Club, type Competition, type CupDiscipline, type FormationName, type Lineup, type Player, type PlayerCore, type Position, type Posture } from "./types";
 
 export const FORMATIONS: Record<FormationName, { DF: number; MF: number; FW: number }> = {
   "4-4-2": { DF: 4, MF: 4, FW: 2 },
@@ -20,9 +20,18 @@ export function formationSlots(formation: FormationName): Position[] {
   ];
 }
 
-/** Not injured and not suspended (AC 29, AC 34). Players without condition data are available. */
-export function isAvailable(player: PlayerCore & { injuryRounds?: number; suspendedRounds?: number }): boolean {
-  return (player.injuryRounds ?? 0) === 0 && (player.suspendedRounds ?? 0) === 0;
+type AvailabilityFields = PlayerCore & { injuryRounds?: number; suspendedRounds?: number; cupDiscipline?: Record<string, CupDiscipline> };
+
+/** Not injured and not suspended in the league (AC 29, AC 34). Players without condition data are available. */
+export function isAvailable(player: AvailabilityFields): boolean {
+  return isAvailableFor(player, LEAGUE);
+}
+
+/** Door 6 (copa-nacional): not injured and not suspended in `competition`; the other competition's suspension does not count. */
+export function isAvailableFor(player: AvailabilityFields, competition: Competition): boolean {
+  if ((player.injuryRounds ?? 0) !== 0) return false;
+  if (competition.kind === "league") return (player.suspendedRounds ?? 0) === 0;
+  return (player.cupDiscipline?.[competition.cupId]?.suspendedRounds ?? 0) === 0;
 }
 
 function byRatingDesc(a: Player, b: Player): number {
@@ -38,11 +47,12 @@ export function autoLineup(
   formation: FormationName,
   posture: Posture = club.lineup?.posture ?? "balanced",
   restBelow = 0,
+  competition: Competition = LEAGUE,
 ): Lineup {
   const used = new Set<string>();
   // Players at or above `restBelow` fitness come first, so a tired one starts only when no rested one fits the slot.
   const rested = (p: Player) => (p.fitness >= restBelow ? 0 : 1);
-  const available = club.players.filter(isAvailable).sort((a, b) => rested(a) - rested(b) || byRatingDesc(a, b));
+  const available = club.players.filter((p) => isAvailableFor(p, competition)).sort((a, b) => rested(a) - rested(b) || byRatingDesc(a, b));
   const slots = formationSlots(formation);
   const starters: (string | null)[] = slots.map((position) => {
     const best = available.find((p) => p.position === position && !used.has(p.id));
@@ -64,8 +74,8 @@ export function autoLineup(
 export const AI_REST_BELOW = 60;
 
 /** The eleven an AI club fields this round (AC 45 of partida-ao-vivo); also who the AI prices as a starter. */
-export function aiLineup(club: Club): Lineup {
-  return autoLineup(club, AI_FORMATION, "balanced", AI_REST_BELOW);
+export function aiLineup(club: Club, competition: Competition = LEAGUE): Lineup {
+  return autoLineup(club, AI_FORMATION, "balanced", AI_REST_BELOW, competition);
 }
 
 /** Any available player may take any slot; out of position costs 25% of their strength (door 6). */
@@ -94,8 +104,8 @@ export interface LineupValidation {
   missing: number;
 }
 
-/** Valid = 11 distinct available players of the club, one per slot, in any position. */
-export function validateLineup(club: Club, lineup: Lineup | null): LineupValidation {
+/** Valid = 11 distinct players of the club available for `competition`, one per slot, in any position. */
+export function validateLineup(club: Club, lineup: Lineup | null, competition: Competition = LEAGUE): LineupValidation {
   if (!lineup) return { ok: false, missing: 11 };
   const slots = formationSlots(lineup.formation);
   const seen = new Set<string>();
@@ -104,7 +114,7 @@ export function validateLineup(club: Club, lineup: Lineup | null): LineupValidat
     const id = lineup.starters[i];
     if (!id || seen.has(id)) return;
     const player = club.players.find((p) => p.id === id);
-    if (!player || !isAvailable(player)) return;
+    if (!player || !isAvailableFor(player, competition)) return;
     seen.add(id);
     valid++;
   });

@@ -1,5 +1,5 @@
 import { newGame } from "./generate";
-import { AI_FORMATION, FORMATIONS, assignSlot, autoLineup, formationSlots, starters, validateLineup } from "./lineup";
+import { AI_FORMATION, FORMATIONS, assignSlot, autoLineup, formationSlots, isAvailableFor, starters, validateLineup } from "./lineup";
 import { effectiveRating } from "./strength";
 import { FORMATION_NAMES, type Club, type Position } from "./types";
 
@@ -95,5 +95,29 @@ describe("escalação", () => {
     expect(fresh.starters).not.toContain(injured!.id);
     expect(fresh.starters).not.toContain(suspended!.id);
     expect(validateLineup(c, fresh).ok).toBe(true);
+  });
+});
+
+describe("disponibilidade por competição (copa-nacional)", () => {
+  test("disponibilidade por competição", () => {
+    const p = club().players[0]!;
+    const cup = { kind: "cup", cupId: "cup-nat" } as const;
+    const league = { kind: "league" } as const;
+    const variants = {
+      nada: { ...p, injuryRounds: 0, suspendedRounds: 0, cupDiscipline: {} },
+      lesao: { ...p, injuryRounds: 2, suspendedRounds: 0, cupDiscipline: {} },
+      suspensaoLiga: { ...p, injuryRounds: 0, suspendedRounds: 1, cupDiscipline: {} },
+      suspensaoCopa: { ...p, injuryRounds: 0, suspendedRounds: 0, cupDiscipline: { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } } },
+    };
+    const table: [keyof typeof variants, boolean, boolean][] = [
+      ["nada", true, true],
+      ["lesao", false, false],
+      ["suspensaoLiga", false, true],
+      ["suspensaoCopa", true, false],
+    ];
+    for (const [key, inLeague, inCup] of table) {
+      expect(isAvailableFor(variants[key], league), `${key} na liga`).toBe(inLeague);
+      expect(isAvailableFor(variants[key], cup), `${key} na copa`).toBe(inCup);
+    }
   });
 });

@@ -2,20 +2,23 @@
  * Door 3 of partida-ao-vivo: the match engine as a one-minute step.
  * A LiveRound lives in memory only (door 4); every match has its own Rng (door 2).
  */
-import { aiLineup, formationSlots, isAvailable } from "./lineup";
+import { aiLineup, formationSlots, isAvailableFor } from "./lineup";
 import { createRng, mix32, randInt, type Rng } from "./rng";
 import { effectiveRating } from "./strength";
-import type {
-  Condition,
-  FormationName,
-  GameState,
-  Goal,
-  League,
-  MatchEvent,
-  MatchResult,
-  PlayerCore,
-  Position,
-  Posture,
+import {
+  LEAGUE,
+  type Club,
+  type Competition,
+  type Condition,
+  type FormationName,
+  type GameState,
+  type Goal,
+  type League,
+  type MatchEvent,
+  type MatchResult,
+  type PlayerCore,
+  type Position,
+  type Posture,
 } from "./types";
 
 export const MAX_SUBS = 5;
@@ -89,6 +92,10 @@ export interface LiveMatch {
   goals: Goal[];
   events: MatchEvent[];
   rngState: number;
+  /** Copa-nacional AC 12: a level score at 90' goes to penalties. */
+  knockout?: boolean;
+  /** The shoot-out score, when there was one. */
+  penalties?: { home: number; away: number } | null;
 }
 
 export interface LiveRound {
@@ -101,6 +108,8 @@ export interface LiveRound {
   matches: LiveMatch[];
   /** Snapshot of every player in the round. */
   players: Record<string, LivePlayer>;
+  /** Set when the date is a cup phase instead of a league round (copa-nacional). */
+  cup?: { cupIndex: number; phase: number };
 }
 
 // ---------- building sides ----------
@@ -344,7 +353,86 @@ export function stepMatch(m: LiveMatch, minute: number, players: Record<string, 
   for (const side of [m.home, m.away]) aiSubstitutions(m, side, minute, players);
 
   if (minute === HALFTIME) m.events.push({ minute: HALFTIME, type: "halftime", clubId: m.home.clubId });
-  if (minute === MATCH_MINUTES) m.events.push({ minute: MATCH_MINUTES, type: "fulltime", clubId: m.home.clubId });
+  if (minute === MATCH_MINUTES) {
+    m.events.push({ minute: MATCH_MINUTES, type: "fulltime", clubId: m.home.clubId });
+    // Door 2 (copa-nacional): the shoot-out continues the match's own stream.
+    if (m.knockout && m.homeGoals === m.awayGoals) penaltyShootout(m, players, rng);
+  }
+}
+
+// ---------- penalties (copa-nacional S3) ----------
+
+const PENALTY_BASE = 0.75;
+const PENALTY_MIN = 0.55;
+const PENALTY_MAX = 0.92;
+const PENALTY_ROUNDS = 5;
+const TAKER_ORDER: Position[] = ["FW", "MF", "DF", "GK"];
+
+/** AC 13: 0,75 + (taker - keeper) / 200, within [0,55; 0,92]. Both are effective ratings. */
+export function penaltyChance(taker: number, keeper: number): number {
+  return Math.min(PENALTY_MAX, Math.max(PENALTY_MIN, PENALTY_BASE + (taker - keeper) / 200));
+}
+
+function ownEffective(side: LiveSide, id: string, players: Record<string, LivePlayer>): number {
+  const p = players[id];
+  return p ? effectiveRating(p, p.position, side.fitness[id] ?? p.fitness ?? 100) : 0;
+}
+
+/** AC 14: whoever is on the pitch at 90', FW, MF, DF, GK, strongest first within the position. */
+export function penaltyTakers(side: LiveSide, players: Record<string, LivePlayer>): string[] {
+  const rank = (id: string) => TAKER_ORDER.indexOf(players[id]?.position ?? "GK");
+  return onPitch(side)
+    .map((o) => o.id)
+    .sort((a, b) => rank(a) - rank(b) || ownEffective(side, b, players) - ownEffective(side, a, players) || a.localeCompare(b));
+}
+
+export type ShootoutSide = "home" | "away";
+
+/**
+ * AC 12: five kicks each, home first, alternating, stopping once one side cannot catch up; then
+ * pairs until exactly one of a pair scores. `kick(side, n)` takes that side's kick `n` (0-based).
+ */
+export function shootout(kick: (side: ShootoutSide, n: number) => boolean): { home: number; away: number; kicks: number } {
+  const score = { home: 0, away: 0 };
+  const taken = { home: 0, away: 0 };
+  const take = (side: ShootoutSide) => {
+    if (kick(side, taken[side])) score[side]++;
+    taken[side]++;
+  };
+  const decided = () =>
+    score.home + (PENALTY_ROUNDS - taken.home) < score.away || score.away + (PENALTY_ROUNDS - taken.away) < score.home;
+  for (let i = 0; i < PENALTY_ROUNDS && !decided(); i++) {
+    take("home");
+    if (decided()) break;
+    take("away");
+  }
+  while (score.home === score.away) {
+    take("home");
+    take("away");
+  }
+  return { home: score.home, away: score.away, kicks: taken.home + taken.away };
+}
+
+function keeperRating(side: LiveSide, players: Record<string, LivePlayer>): number {
+  const gk = onPitch(side).find((o) => o.pos === "GK");
+  const p = gk ? players[gk.id] : undefined;
+  return gk && p ? effectiveRating(p, "GK", side.fitness[gk.id] ?? p.fitness ?? 100) : 0;
+}
+
+function penaltyShootout(m: LiveMatch, players: Record<string, LivePlayer>, rng: Rng): void {
+  const sides = { home: m.home, away: m.away };
+  const takers = { home: penaltyTakers(m.home, players), away: penaltyTakers(m.away, players) };
+  const keepers = { home: keeperRating(m.home, players), away: keeperRating(m.away, players) };
+  const result = shootout((which, n) => {
+    const side = sides[which];
+    const list = takers[which];
+    const id = list.length ? list[n % list.length] : undefined;
+    const chance = id ? penaltyChance(ownEffective(side, id, players), keepers[which === "home" ? "away" : "home"]) : 0;
+    const scored = rng.next() < chance;
+    m.events.push({ minute: MATCH_MINUTES, type: scored ? "penalty_scored" : "penalty_missed", clubId: side.clubId, playerId: id });
+    return scored;
+  });
+  m.penalties = { home: result.home, away: result.away };
 }
 
 export function resultOf(m: LiveMatch): MatchResult {
@@ -370,28 +458,46 @@ export function matchSeed(rngState: number, roundNumber: number, matchIndex: num
   return mix32(base, roundNumber * 16 + matchIndex);
 }
 
+/**
+ * One club's side for a date: the user's lineup or the AI's, with anyone unavailable for
+ * `competition` left out of the eleven (an empty slot) and off the bench (door 6 of copa-nacional).
+ */
+export function sideFor(
+  club: Club,
+  userClubId: string | null,
+  players: Record<string, LivePlayer>,
+  competition: Competition = LEAGUE,
+): LiveSide {
+  const isUser = club.id === userClubId;
+  const lineup = isUser && club.lineup ? club.lineup : aiLineup(club, competition);
+  const slotPos = formationSlots(lineup.formation);
+  const starters = lineup.starters.map((id) => {
+    const p = id ? club.players.find((x) => x.id === id) : undefined;
+    return p && isAvailableFor(p, competition) ? p.id : null;
+  });
+  const onField = new Set(starters.filter((id): id is string => !!id));
+  const bench = club.players.filter((p) => isAvailableFor(p, competition) && !onField.has(p.id)).map((p) => p.id);
+  return makeSide(club.id, slotPos, starters, bench, players, { formation: lineup.formation, posture: lineup.posture ?? "balanced", isUser });
+}
+
+/** Every club of every division by id, and a snapshot of every player. */
+export function roundSnapshot(state: Pick<GameState, "leagues">): { clubs: Map<string, Club>; players: Record<string, LivePlayer> } {
+  const players: Record<string, LivePlayer> = {};
+  const clubs = new Map(state.leagues.flatMap((l: League) => l.clubs).map((c) => [c.id, c]));
+  for (const c of clubs.values()) for (const p of c.players) players[p.id] = { ...p };
+  return { clubs, players };
+}
+
 export function startRound(state: GameState): LiveRound {
   const first = state.leagues[0];
   if (!first) throw new Error("save has no league");
   const roundIndex = first.currentRound;
   if (!first.rounds[roundIndex]) throw new Error("season is over");
-  const players: Record<string, LivePlayer> = {};
-  const clubs = new Map(state.leagues.flatMap((l: League) => l.clubs).map((c) => [c.id, c]));
-  for (const c of clubs.values()) for (const p of c.players) players[p.id] = { ...p };
-
-  const sideFor = (clubId: string): LiveSide => {
+  const { clubs, players } = roundSnapshot(state);
+  const side = (clubId: string): LiveSide => {
     const club = clubs.get(clubId);
     if (!club) throw new Error(`unknown club ${clubId}`);
-    const isUser = clubId === state.userClubId;
-    const lineup = isUser && club.lineup ? club.lineup : aiLineup(club);
-    const slotPos = formationSlots(lineup.formation);
-    const starters = lineup.starters.map((id) => {
-      const p = id ? club.players.find((x) => x.id === id) : undefined;
-      return p && isAvailable(p) ? p.id : null;
-    });
-    const onField = new Set(starters.filter((id): id is string => !!id));
-    const bench = club.players.filter((p) => isAvailable(p) && !onField.has(p.id)).map((p) => p.id);
-    return makeSide(clubId, slotPos, starters, bench, players, { formation: lineup.formation, posture: lineup.posture ?? "balanced", isUser });
+    return sideFor(club, state.userClubId, players);
   };
 
   // AC 3: the 20 matches of the round, Série A first.
@@ -399,7 +505,7 @@ export function startRound(state: GameState): LiveRound {
     const round = league.rounds[roundIndex];
     if (!round) throw new Error("divisions out of step");
     return round.matches.map((match, i) =>
-      makeMatch(match.id, sideFor(match.homeId), sideFor(match.awayId), matchSeed(state.rngState, round.number, i, division), league.id),
+      makeMatch(match.id, side(match.homeId), side(match.awayId), matchSeed(state.rngState, round.number, i, division), league.id),
     );
   });
   const roundNumber = first.rounds[roundIndex]!.number;

@@ -42,12 +42,27 @@ export interface PlayerStats {
 
 export const ZERO_STATS: Readonly<PlayerStats> = { seasonGames: 0, seasonGoals: 0, careerGames: 0, careerGoals: 0 };
 
+/** Door 6 (copa-nacional): cards and suspension that count only in one cup. */
+export interface CupDiscipline {
+  yellowCards: number;
+  suspendedRounds: number;
+}
+
 export interface Player extends PlayerCore, Condition, PlayerStats {
   /** Reais per round, fixed when the player is generated or joins a club; never derived from rating (door 2). */
   salary: number;
   /** Seasons left, counting the current one. At least 1 while at a club; 0 for free agents and juniors (door 1). */
   contractSeasons: number;
+  /**
+   * Door 6 (copa-nacional): discipline per cup id, always present, `{}` when empty. The top-level
+   * `yellowCards` and `suspendedRounds` are the league's.
+   */
+  cupDiscipline: Record<string, CupDiscipline>;
 }
+
+/** Door 6 (copa-nacional): which discipline a date reads and writes. */
+export type Competition = { kind: "league" } | { kind: "cup"; cupId: string };
+export const LEAGUE: Competition = { kind: "league" };
 
 export const FRESH_CONDITION: Readonly<Condition> = {
   fitness: 100,
@@ -85,6 +100,8 @@ export interface Ledger {
   transfersOut: number;
   /** End-of-season prize by table position; only on the ledger of the last round (AC 29). */
   prize?: number;
+  /** Cup prize won on this date; only on the ledger of a cup date (copa-nacional AC 34). */
+  cupPrize?: number;
 }
 
 /** Door 1 (save v3): a club's money and stadium. Every amount is an integer in reais (AD-006). */
@@ -163,7 +180,43 @@ export interface Market {
   offers: Offer[];
 }
 
-export const SCHEMA_VERSION = 4 as const;
+/** Door 1 (copa-nacional): a single match that always has a winner. */
+export interface Tie {
+  id: string;
+  homeId: string;
+  awayId: string;
+  result: MatchResult | null;
+  penalties: { home: number; away: number } | null;
+  winnerId: string | null;
+}
+
+export interface CupPhase {
+  name: string;
+  /** Door 4: the phase is played right after this league round (1-based). */
+  afterLeagueRound: number;
+  /** Empty until the phase is drawn (door 3). */
+  ties: Tie[];
+}
+
+export interface Cup {
+  id: string;
+  name: string;
+  /** The 40 club ids, best first, frozen when the season starts. */
+  seeding: string[];
+  phases: CupPhase[];
+  /** Index of the next phase to play; `phases.length` = cup over. */
+  currentPhase: number;
+}
+
+/** A closed season's cup: `userReached` is the phase index reached, 6 = champion, null without a club. */
+export interface CupRecord {
+  cupId: string;
+  championId: string;
+  runnerUpId: string;
+  userReached: number | null;
+}
+
+export const SCHEMA_VERSION = 5 as const;
 
 export type Verdict = "met" | "missed" | "fired";
 
@@ -185,6 +238,8 @@ export interface SeasonRecord {
   verdict: Verdict | null;
   prize: number;
   divisions: DivisionRecord[];
+  /** Door 1 (copa-nacional): `[]` for seasons closed before the cup existed. */
+  cups: CupRecord[];
 }
 
 /** Door 1: the whole save document. */
@@ -200,6 +255,10 @@ export interface GameState {
   history: SeasonRecord[];
   /** Worst acceptable final position for the user this season; 0 before a club is chosen (AC 30). */
   boardGoal: number;
+  /** Door 1 (copa-nacional): `cups[0]` is the national cup, id `"cup-nat"`. */
+  cups: Cup[];
+  /** Index of the cup phase the user must reach; -1 = no cup goal (no club). */
+  cupGoal: number;
 }
 
 export type MatchEventType =
@@ -212,8 +271,11 @@ export type MatchEventType =
   | "yellow"
   | "red"
   | "injury"
-  | "substitution";
+  | "substitution"
+  | "penalty_scored"
+  | "penalty_missed";
 
+/** The events of 90 minutes of play. */
 export const MATCH_EVENT_TYPES: readonly MatchEventType[] = [
   "kickoff",
   "shot_saved",
@@ -226,6 +288,9 @@ export const MATCH_EVENT_TYPES: readonly MatchEventType[] = [
   "injury",
   "substitution",
 ];
+
+/** Copa-nacional AC 15: only a knockout tie level at 90' has these, after the full-time whistle. */
+export const PENALTY_EVENT_TYPES: readonly MatchEventType[] = ["penalty_scored", "penalty_missed"];
 
 export interface MatchEvent {
   minute: number;

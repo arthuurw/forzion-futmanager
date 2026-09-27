@@ -3,14 +3,15 @@
  * evolution, retirements, contracts, refilled squads, new schedules and the board's new goal.
  * Everything is drawn from the rollover's own Rng (door 3).
  */
-import { userBoardGoal } from "./board";
+import { userBoardGoal, userCupGoal } from "./board";
+import { newCup } from "./cup";
 import { salaryFor } from "./finance";
 import { generateJuniors, generateSchedule, makePlayer, takenNames } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
 import { CONTRACT_JUNIOR } from "./market";
 import { generatePlayerName, uniqueName } from "./names";
 import { createRng, mix32, randInt, shuffle, type Rng } from "./rng";
-import { allClubs, seasonReview } from "./season";
+import { allClubs, seasonReview, type SeasonReview } from "./season";
 import { POSITIONS, RATING_MAX, RATING_MIN, type Club, type GameState, type Player, type Position, type SeasonRecord } from "./types";
 
 /** Door 3. */
@@ -58,6 +59,8 @@ export interface RolloverReport {
   changes: RatingChange[];
   divisionIndex: number;
   boardGoal: number;
+  /** Copa-nacional AC 40. */
+  cupGoal: number;
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -128,6 +131,21 @@ function topUpFreeAgents(rng: Rng, state: GameState, season: number, taken: Set<
   }
 }
 
+/**
+ * Copa-nacional AC 6: the new season's seeding from the final tables. In the upper division the
+ * clubs that stayed (by its table), then the promoted (by the lower table); in the lower one the
+ * relegated (by the upper table), then the clubs that stayed (by its table).
+ */
+export function seedingFromTables(review: Pick<SeasonReview, "divisions">): string[] {
+  return review.divisions.flatMap((d, i) => {
+    const above = review.divisions[i - 1];
+    const below = review.divisions[i + 1];
+    const leaving = new Set([...d.relegatedIds, ...d.promotedIds]);
+    const stayed = d.table.map((r) => r.clubId).filter((id) => !leaving.has(id));
+    return [...(above?.relegatedIds ?? []), ...stayed, ...(below?.promotedIds ?? [])];
+  });
+}
+
 /** Drops players who left from a lineup and a sale list. */
 function forgetDeparted(club: Club): void {
   const here = new Set(club.players.map((p) => p.id));
@@ -155,6 +173,10 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
     userPosition: review.user?.position ?? null,
     verdict: review.user?.verdict ?? null,
     prize: review.user?.prize ?? 0,
+    // Copa-nacional AC 48.
+    cups: review.cups.flatMap((c) =>
+      c.championId && c.runnerUpId ? [{ cupId: c.cupId, championId: c.championId, runnerUpId: c.runnerUpId, userReached: c.userReached }] : [],
+    ),
     divisions: review.divisions.map((d) => ({
       leagueId: d.leagueId,
       championId: d.championId,
@@ -239,15 +261,21 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
     if (before && user.lineup) user.lineup = { ...user.lineup, posture: before.posture };
   }
 
+  // Copa-nacional AC 49: cup discipline starts clean for everyone.
+  for (const p of [...allClubs(state).flatMap((c) => c.players), ...state.market.freeAgents, ...state.market.juniors]) p.cupDiscipline = {};
+
   state.season = season;
   state.boardGoal = userBoardGoal(state);
   const advance = createRng(input.rngState);
   advance.next();
   state.rngState = advance.getState();
+  // Copa-nacional AC 6, AC 11: the new cup, its preliminary drawn from the new season's state (door 3).
+  state.cups = [newCup(seedingFromTables(review), state.rngState)];
+  state.cupGoal = userCupGoal(state);
 
   const divisionIndex = userId ? state.leagues.findIndex((l) => l.clubs.some((c) => c.id === userId)) : -1;
   const changes = (user?.players ?? [])
     .filter((p) => userBefore.has(p.id))
     .map((p) => ({ playerId: p.id, name: p.name, position: p.position, before: userBefore.get(p.id)!, after: p.rating }));
-  return { state, report: { season, retired, expired, changes, divisionIndex, boardGoal: state.boardGoal } };
+  return { state, report: { season, retired, expired, changes, divisionIndex, boardGoal: state.boardGoal, cupGoal: state.cupGoal } };
 }

@@ -59,6 +59,55 @@ export const VERDICT_TEXT: Record<Verdict, string> = {
   fired: "Demitido",
 };
 
+/** Copa-nacional AC 35: reach the semifinal (4) for the 4 strongest, the quarters (3) for 5-8, the round of 16 (2) otherwise. */
+const CUP_GOAL_BY_RANK = [
+  { maxRank: 4, goal: 4 },
+  { maxRank: 8, goal: 3 },
+] as const;
+const CUP_GOAL_DEFAULT = 2;
+/** A club that starts in the preliminary round must reach the «16 avos». */
+const CUP_GOAL_PRELIMINARY = 1;
+
+/**
+ * Copa-nacional AC 35: the user's cup goal for the season about to start, by the national cup's
+ * preliminary draw and the strength ranking of every club; -1 without a club or a cup.
+ */
+export function userCupGoal(state: Pick<GameState, "leagues" | "userClubId" | "cups">): number {
+  const clubId = state.userClubId;
+  const cup = state.cups[0];
+  if (!clubId || !cup) return -1;
+  if (cup.seeding.slice(-16).includes(clubId)) return CUP_GOAL_PRELIMINARY;
+  const rank = strengthRanking(state.leagues.flatMap((l) => l.clubs)).indexOf(clubId) + 1;
+  return CUP_GOAL_BY_RANK.find((row) => rank <= row.maxRank)?.goal ?? CUP_GOAL_DEFAULT;
+}
+
+/** Copa-nacional AC 36: the goal is met by playing the goal's phase or a later one (6 = champion). */
+export function cupGoalMet(cupGoal: number, reached: number | null): boolean {
+  return reached !== null && reached >= cupGoal;
+}
+
+/**
+ * Copa-nacional AC 37, 38: a met cup goal lifts the league's verdict one step; a missed one turns
+ * «Meta cumprida» into «Meta não cumprida». No cup goal (-1) leaves the league's verdict.
+ */
+export function combinedVerdict(league: Verdict, cupGoal: number, reached: number | null): Verdict {
+  if (cupGoal < 0) return league;
+  if (cupGoalMet(cupGoal, reached)) return league === "fired" ? "missed" : "met";
+  return league === "met" ? "missed" : league;
+}
+
+/** Copa-nacional AC 40: «chegar às oitavas». */
+export const CUP_GOAL_LABEL: Readonly<Record<number, string>> = {
+  1: "chegar aos 16 avos",
+  2: "chegar às oitavas",
+  3: "chegar às quartas",
+  4: "chegar à semifinal",
+};
+
+export function cupGoalLabel(goal: number): string {
+  return CUP_GOAL_LABEL[goal] ?? "";
+}
+
 /**
  * AC 34: the 3 clubs just below the user's in the strength ranking of every club; with fewer
  * than 3 below, the 3 weakest other clubs.

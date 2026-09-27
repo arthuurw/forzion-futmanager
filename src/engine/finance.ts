@@ -154,9 +154,9 @@ export function closeRoundFinances(
   }
 }
 
-/** AC 9: the round's result as the Finanças screen shows it. */
+/** AC 9: the round's result as the Finanças screen shows it; a cup date adds its prize (copa-nacional AC 34). */
 export function ledgerBalance(l: Ledger): number {
-  return l.tickets + l.sponsorship + l.transfersIn - l.salaries - l.interest - l.transfersOut + (l.prize ?? 0);
+  return l.tickets + l.sponsorship + l.transfersIn - l.salaries - l.interest - l.transfersOut + (l.prize ?? 0) + (l.cupPrize ?? 0);
 }
 
 export type FinanceRefusal = "cash" | "invalid" | "works" | "max_capacity" | "loan_limit" | "over_debt";

@@ -1,9 +1,10 @@
+import { nextDate } from "./calendar";
 import { newGame } from "./generate";
 import { formationSlots } from "./lineup";
 import { simulateMatch, type TeamSheet } from "./match";
 import { createRng } from "./rng";
 import { nextSeason } from "./rollover";
-import { playRound } from "./season";
+import { playDate, playRound } from "./season";
 import type { PlayerCore, Posture } from "./types";
 
 function flatSheet(clubId: string, rating: number, posture: Posture = "balanced"): TeamSheet {
@@ -96,9 +97,26 @@ describe("equilíbrio financeiro", () => {
     for (let seed = 1; seed <= 5; seed++) {
       let state = newGame(seed);
       const initial = new Map(state.leagues[0]!.clubs.map((c) => [c.id, c.finance.cash]));
-      for (let r = 0; r < 38; r++) state = playRound(state).state;
+      // Copa-nacional (Superseded checks): the cup's gate and prize are left out too, summed here from each cup date's ledger.
+      const cupIncome = new Map<string, number>();
+      while (nextDate(state).kind !== "over") {
+        const date = nextDate(state);
+        state = playDate(state).state;
+        if (date.kind !== "cup") continue;
+        const clubs = state.leagues.flatMap((l) => l.clubs);
+        for (const tie of state.cups[date.cupIndex]!.phases[date.phase]!.ties) {
+          for (const id of [tie.homeId, tie.awayId]) {
+            const ledger = clubs.find((c) => c.id === id)!.finance.lastRound!;
+            cupIncome.set(id, (cupIncome.get(id) ?? 0) + ledger.tickets + (ledger.cupPrize ?? 0));
+          }
+        }
+      }
+      expect(state.leagues[0]!.currentRound).toBe(38);
+      expect(cupIncome.size).toBe(40);
       // The end-of-season prize (multiplas-temporadas AC 29) is left out: this measures the running costs.
-      for (const c of state.leagues[0]!.clubs) ratios.push((c.finance.cash - (c.finance.lastRound!.prize ?? 0)) / initial.get(c.id)!);
+      for (const c of state.leagues[0]!.clubs) {
+        ratios.push((c.finance.cash - (c.finance.lastRound!.prize ?? 0) - cupIncome.get(c.id)!) / initial.get(c.id)!);
+      }
     }
     expect(ratios).toHaveLength(100);
     for (const r of ratios) {

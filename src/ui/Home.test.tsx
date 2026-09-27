@@ -61,14 +61,14 @@ describe("tela Início", () => {
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Novo jogo"]);
   });
 
-  // Supersedes elenco-mercado-financas C52 (> 3 incompatible): v4 is now current, so the first unknown version is 5.
-  test("save de versão 5 incompatível", async () => {
+  // Copa-nacional C61 supersedes multiplas-temporadas C50: v5 is now current, so the first unknown version is 6.
+  test("save de versão 6 incompatível", async () => {
     const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
-    await db.put(STORE, { schemaVersion: 5 }, SLOT);
+    await db.put(STORE, { schemaVersion: 6 }, SLOT);
     db.close();
     await useGame.getState().init();
     render(<Home />);
-    expect(screen.getByText("Jogo salvo incompatível (versão 5)")).toBeInTheDocument();
+    expect(screen.getByText("Jogo salvo incompatível (versão 6)")).toBeInTheDocument();
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Novo jogo"]);
   });
 

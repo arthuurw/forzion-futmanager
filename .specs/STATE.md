@@ -23,10 +23,10 @@
 
 ## Handoff
 
-**Feature**: paises (4b) verificada (PASS, 889aa71..f29bd26, 34 checks); audio em build
-**Where**: ajustes-4a e paises verificadas; AD-016 ativa. audio: plano e checks aprovados (C1–C26, ~45k)
-**In progress**: build de audio com um builder
-**Next step**: Verifier de audio. Pendências: as 5 faixas de música (pergunta aberta 1 do plano de audio, bloqueia o lançamento); o AC 22 do paises não tem check para a liga do usuário no Histórico nem campeões na Nova temporada (observação do Verifier)
+**Feature**: audio verificada (PASS, b33837a..f4c7fcb, 26 checks); ajustes-4a e paises também verificadas
+**Where**: as 5 faixas CC0 (OpenGameArt, licenças conferidas nas páginas) estão em `public/audio/music/` com `CREDITS.md`, sem commit, aguardando o autor ouvir
+**In progress**: nada
+**Next step**: o autor ouve as faixas e os efeitos; commit das músicas ou troca pelas reservas do `CREDITS.md`/relatório. Pendências: layout do top strip com os botões de áudio em celular (AD-010, sem check); «Pular para o fim» aos 89' toca também os eventos do 90'; pênaltis soam juntos no mesmo tick; o AC 22 do paises sem check para a liga do usuário no Histórico nem campeões na Nova temporada
 **Blockers**: none
-**Uncommitted**: none
+**Uncommitted**: `public/audio/` (músicas aguardando o autor)
 **Branch**: main

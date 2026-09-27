@@ -184,6 +184,7 @@ export function newGame(seed: number): GameState {
     freeAgents: generateFreeAgents(marketRng, taken),
     juniors: generateJuniors(marketRng, taken, 1, 1),
     offers: [],
+    transfers: [],
   };
   const serieB = generateSerieB(seed, takenNames({ leagues: [league], market }));
   const rngState = rng.getState();

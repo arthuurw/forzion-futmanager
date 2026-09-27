@@ -83,7 +83,7 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
     const prizes = isSeasonOver(league)
       ? new Map(computeTable(league).map((row, k) => [row.clubId, prizeFor(division, k + 1)]))
       : null;
-    closeRoundFinances(league.clubs, round.matches, positions, division, prizes);
+    closeRoundFinances(league.clubs, round.matches, positions, division, prizes, state.userClubId);
   });
 
   closeRoundMarket(state, state.rngState, roundNumber);

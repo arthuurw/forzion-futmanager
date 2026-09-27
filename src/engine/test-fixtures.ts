@@ -20,6 +20,17 @@ import type { Club, GameState } from "./types";
 const V4_PLAYER_FIELDS = ["contractSeasons", "seasonGames", "seasonGoals", "careerGames", "careerGoals"];
 
 /**
+ * Gastos-da-ia, rule for older tests (checks.md, Superseded checks): before a round, every AI club
+ * gets the cash of 5 rounds of its payroll. That is half the reserve the AI keeps, so no round's
+ * income gives it a surplus to buy with or to expand the stadium, and it stays out of the red.
+ */
+export function zeroAiSurplus(state: GameState): void {
+  for (const club of state.leagues.flatMap((l) => l.clubs)) {
+    if (club.id !== state.userClubId) club.finance.cash = 5 * club.players.reduce((sum, p) => sum + p.salary, 0);
+  }
+}
+
+/**
  * A document shaped like a v3 save: one league, no contracts or season numbers, no history, no
  * board goal and no cup. The user manages the first club; `roundsPlayed` rounds are in.
  */
@@ -28,9 +39,13 @@ export function v3Document(seed = 3, roundsPlayed = 0): Record<string, unknown> 
   const club = state.leagues[0]!.clubs[0]!;
   state.userClubId = club.id;
   club.lineup = autoLineup(club, "4-3-3");
-  for (let i = 0; i < roundsPlayed; i++) state = playRound(state).state;
+  for (let i = 0; i < roundsPlayed; i++) {
+    zeroAiSurplus(state);
+    state = playRound(state).state;
+  }
   const doc = JSON.parse(JSON.stringify(state));
   doc.schemaVersion = 3;
+  delete doc.market.transfers;
   doc.leagues = [doc.leagues[0]];
   delete doc.history;
   delete doc.boardGoal;
@@ -170,10 +185,31 @@ export function v4Document(seed = 3, roundsPlayed = 0, closedSeasons = 0): Recor
   play(roundsPlayed);
   const doc = JSON.parse(JSON.stringify(state));
   doc.schemaVersion = 4;
+  delete doc.market.transfers;
   delete doc.cups;
   delete doc.cupGoal;
   for (const l of doc.leagues) for (const c of l.clubs) for (const p of c.players) delete p.cupDiscipline;
   for (const p of [...doc.market.freeAgents, ...doc.market.juniors]) delete p.cupDiscipline;
   for (const r of doc.history) delete r.cups;
+  return doc;
+}
+
+/**
+ * A document shaped like a v5 save (copa-nacional): no transfer list. The user manages the first
+ * Série A club, `roundsPlayed` rounds in, with the AI kept out of the market as a v5 game was.
+ */
+export function v5Document(seed = 3, roundsPlayed = 0): Record<string, unknown> {
+  let state = newGame(seed);
+  state.userClubId = state.leagues[0]!.clubs[0]!.id;
+  state.boardGoal = 20;
+  const me = () => state.leagues[0]!.clubs.find((c) => c.id === state.userClubId)!;
+  for (let i = 0; i < roundsPlayed; i++) {
+    me().lineup = autoLineup(me(), AI_FORMATION);
+    zeroAiSurplus(state);
+    state = playRound(state).state;
+  }
+  const doc = JSON.parse(JSON.stringify(state));
+  doc.schemaVersion = 5;
+  delete doc.market.transfers;
   return doc;
 }

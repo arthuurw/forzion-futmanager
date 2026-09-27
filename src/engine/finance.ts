@@ -23,6 +23,10 @@ const FANS_MAX = 60_000;
 const CAPACITY_SHARE = 0.8;
 /** AC 7 (multiplas-temporadas): a Série B club gets this share of its sponsorship. */
 export const SERIE_B_SPONSORSHIP_SHARE = 0.6;
+/** Gastos-da-ia AC 1: an AI club keeps this many rounds of its payroll, new salary included, after any spend. */
+export const AI_RESERVE_ROUNDS = 10;
+/** Gastos-da-ia AC 12: an AI club expands only when this many rounds of payroll are left after the works. */
+const AI_EXPANSION_RESERVE_ROUNDS = 20;
 /** AC 29: prize per place above the 21st, by division. */
 const PRIZE_PER_PLACE = [250_000, 62_500] as const;
 
@@ -35,6 +39,14 @@ export function salaryFor(rating: number): number {
 
 export function payroll(players: readonly Player[]): number {
   return players.reduce((sum, p) => sum + p.salary, 0);
+}
+
+/**
+ * Gastos-da-ia AC 1: what an AI club may spend on something that adds `newSalary` to its payroll -
+ * its cash minus `AI_RESERVE_ROUNDS` rounds of the payroll it would have afterwards.
+ */
+export function aiBudget(club: Pick<Club, "players" | "finance">, newSalary: number): number {
+  return club.finance.cash - AI_RESERVE_ROUNDS * (payroll(club.players) + newSalary);
 }
 
 /** AC 4: fans grow with the squad's mean rating, 15.000 at 58 up to 60.000 at 80. */
@@ -118,7 +130,9 @@ export function interestFor(loan: number): number {
 /**
  * AC 5, 6, 43, 48: closes one round for every club - wages, sponsorship, home gate, interest and
  * stadium works - and writes the round's ledger. Transfers were paid when they happened; the
- * ledger only reports them. Mutates `clubs`.
+ * ledger only reports them. Then every club but `userClubId` that filled its stadium at home
+ * expands it when 20 rounds of payroll are left after the cost (gastos-da-ia AC 12, 13). Mutates
+ * `clubs`.
  */
 export function closeRoundFinances(
   clubs: Club[],
@@ -126,6 +140,7 @@ export function closeRoundFinances(
   positions: Map<string, number | null>,
   divisionIndex = 0,
   prizes: Map<string, number> | null = null,
+  userClubId: string | null = null,
 ): void {
   const homeOf = new Set(matches.map((m) => m.homeId));
   for (const club of clubs) {
@@ -150,6 +165,11 @@ export function closeRoundFinances(
     if (f.expansionRoundsLeft > 0) {
       f.expansionRoundsLeft--;
       if (f.expansionRoundsLeft === 0) f.capacity += EXPANSION_SEATS;
+    }
+    const spare = f.cash - EXPANSION_COST - AI_EXPANSION_RESERVE_ROUNDS * payroll(club.players);
+    if (club.id !== userClubId && home && attendance === f.capacity && spare >= 0) {
+      const works = expandStadium(f);
+      if (works.ok) club.finance = works.finance;
     }
   }
 }

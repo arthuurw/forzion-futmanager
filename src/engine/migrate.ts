@@ -122,22 +122,29 @@ function v4ToV5(doc: GameState): GameState {
   const matchState = mix32(state.seed, CUP_MATCH_SALT);
   state.cups = [newCup(seedingByStrength(state.leagues), drawState)];
   while (nextDate(state).kind === "cup") catchUpPhase(state, 0, matchState, drawState);
-  state.schemaVersion = SCHEMA_VERSION;
+  (state as { schemaVersion: number }).schemaVersion = 5;
   state.cupGoal = userCupGoal(state);
   return state;
 }
 
+/** v5 -> v6 (gastos-da-ia AC 22, door 1): an empty transfer list; nothing is rebuilt backwards. */
+function v5ToV6(doc: GameState): GameState {
+  return { ...doc, schemaVersion: SCHEMA_VERSION, market: { ...doc.market, transfers: [] } };
+}
+
 /**
- * Door 1: reads any stored document. v5 passes through; v4 to v1 migrate forward, each through
- * the next (copa-nacional AC 51, 53); anything else is incompatible (AC 54).
+ * Door 1: reads any stored document. v6 passes through; v5 to v1 migrate forward, each through
+ * the next (copa-nacional AC 51, 53; gastos-da-ia AC 22, 23); anything else is incompatible
+ * (gastos-da-ia AC 24).
  */
 export function migrateSave(doc: unknown): MigrationResult {
   const version = typeof doc === "object" && doc !== null ? (doc as { schemaVersion?: unknown }).schemaVersion : undefined;
   if (version === SCHEMA_VERSION) return { kind: "ok", state: doc as GameState };
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) return { kind: "incompatible", version };
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) return { kind: "incompatible", version };
   let old = JSON.parse(JSON.stringify(doc)) as OldDocument;
   if (version === 1) v1ToV2(old);
   if (version <= 2) old = v2ToV3(old);
   const v4 = version <= 3 ? v3ToV4(old) : (old as unknown as GameState);
-  return { kind: "ok", state: v4ToV5(v4) };
+  const v5 = version <= 4 ? v4ToV5(v4) : v4;
+  return { kind: "ok", state: v5ToV6(v5) };
 }

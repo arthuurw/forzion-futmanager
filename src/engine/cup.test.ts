@@ -6,6 +6,7 @@ import { makeMatch, makeSide, penaltyChance, penaltyTakers, runToEnd, shootout, 
 import { createRng, mix32, randInt } from "./rng";
 import { playDate } from "./season";
 import { computeTable } from "./table";
+import { isWindowOpen } from "./market";
 import { atCupDate } from "./test-fixtures";
 import { LEAGUE, type Club, type Cup, type GameState, type Position } from "./types";
 
@@ -478,4 +479,35 @@ describe("copa: pênaltis", () => {
     }
     expect(checked).toBeGreaterThan(0);
   }, 60_000);
+});
+
+describe("copa: mercado da IA (gastos-da-ia)", () => {
+  test("data de copa não mexe no mercado da IA", () => {
+    // The preliminary comes after league round 4: the next league round, 5, has the window open.
+    const s = atCupDate(78, 0);
+    expect(nextDate(s)).toEqual({ kind: "cup", cupIndex: 0, phase: 0 });
+    expect(s.leagues[0]!.currentRound).toBe(4);
+    expect(isWindowOpen(5)).toBe(true);
+    // Every club rich with a full stadium; one Série A club in the red with 22 players.
+    for (const c of all(s)) Object.assign(c.finance, { cash: 500_000_000, fans: 60_000, capacity: 20_000, ticketPrice: 40, expansionRoundsLeft: 0 });
+    const red = s.leagues[0]!.clubs[3]!;
+    red.finance.cash = -1_000_000;
+    expect(red.players.length).toBeGreaterThan(18);
+    const squads = (x: GameState) => all(x).map((c) => [c.id, c.players.map((p) => p.id)]);
+    const before = clone(s);
+    const after = playDate(s).state;
+    expect(squads(after)).toEqual(squads(before));
+    expect(after.market.transfers).toEqual(before.market.transfers);
+    expect(after.market.freeAgents.map((p) => p.id)).toEqual(before.market.freeAgents.map((p) => p.id));
+    const inTies = new Set(clubsOf(after.cups[0]!, 0));
+    expect(inTies.size).toBe(16);
+    for (const c of all(after)) {
+      const was = clubOf(before, c.id).finance;
+      const gate = inTies.has(c.id) ? c.finance.lastRound!.tickets + c.finance.lastRound!.cupPrize! : 0;
+      expect(c.finance.cash - was.cash, c.id).toBe(gate);
+      expect([c.finance.expansionRoundsLeft, c.finance.capacity], c.id).toEqual([0, 20_000]);
+    }
+    // Some home side did fill its stadium.
+    expect(all(after).some((c) => inTies.has(c.id) && c.finance.lastRound!.attendance === 20_000)).toBe(true);
+  });
 });

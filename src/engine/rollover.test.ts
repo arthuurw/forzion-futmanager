@@ -6,7 +6,7 @@ import { createRng, mix32, randInt } from "./rng";
 import { nextSeason } from "./rollover";
 import { playRound, seasonReview } from "./season";
 import { computeTable } from "./table";
-import { busySeason, expectedCupGoal } from "./test-fixtures";
+import { busySeason, expectedCupGoal, zeroAiSurplus } from "./test-fixtures";
 import type { Club, GameState, Player, Position } from "./types";
 
 /** Written out here, not imported (L-004). */
@@ -28,6 +28,7 @@ function ended(seed = 30, division = 0, clubIndex = 0): GameState {
     s.boardGoal = 20;
     for (let r = 0; r < 38; r++) {
       userOf(s).lineup = autoLineup(userOf(s), AI_FORMATION);
+      zeroAiSurplus(s);
       s = playRound(s).state;
     }
     cache.set(key, s);
@@ -502,5 +503,23 @@ describe("copa na virada (copa-nacional)", () => {
     expect(record.championId).not.toBeNull();
     const { state } = nextSeason(before);
     expect(state.history[0]!.cups).toEqual([record]);
+  });
+});
+
+describe("boletim na virada (gastos-da-ia)", () => {
+  test("virada esvazia o boletim", () => {
+    const before = ended();
+    const [a, b] = [before.leagues[0]!.clubs[4]!, before.leagues[1]!.clubs[6]!];
+    const p = b.players[3]!;
+    before.market.transfers = [
+      { round: 2, kind: "buy", playerId: p.id, playerName: p.name, fromId: b.id, toId: a.id, amount: 950_000 },
+      { round: 2, kind: "release", playerId: "x1", playerName: "Um", fromId: a.id, toId: null, amount: 60_000 },
+      { round: 3, kind: "free", playerId: "x2", playerName: "Dois", fromId: null, toId: b.id, amount: 44_000 },
+      { round: 18, kind: "buy", playerId: "x3", playerName: "Três", fromId: a.id, toId: b.id, amount: 1_220_000 },
+      { round: 21, kind: "free", playerId: "x4", playerName: "Quatro", fromId: null, toId: a.id, amount: 52_000 },
+    ];
+    expect(before.market.transfers).toHaveLength(5);
+    const { state } = nextSeason(before);
+    expect(state.market.transfers).toHaveLength(0);
   });
 });

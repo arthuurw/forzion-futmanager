@@ -1,6 +1,6 @@
-import { expandStadium, repayLoan } from "./finance";
+import { aiBudget, expandStadium, repayLoan } from "./finance";
 import { newGame, makePlayer } from "./generate";
-import { AI_FORMATION, autoLineup } from "./lineup";
+import { AI_FORMATION, aiLineup, autoLineup } from "./lineup";
 import {
   acceptOffer,
   askingPrice,
@@ -12,9 +12,10 @@ import {
   releasePlayer,
   signFreeAgent,
 } from "./market";
+import { createRng, mix32 } from "./rng";
 import { playRound } from "./season";
 import { busySeason } from "./test-fixtures";
-import { POSITIONS, type Club, type GameState, type Player } from "./types";
+import { POSITIONS, type Club, type GameState, type Player, type Position, type TransferRecord } from "./types";
 
 /** Written out here, not imported (L-004). */
 const expectedSalary = (rating: number) => Math.round((2000 * 1.09 ** (rating - 40)) / 100) * 100;
@@ -368,5 +369,698 @@ describe("mercado com duas divisões e contratos", () => {
     state.market.offers = [{ id: "o-test", buyerId: buyer.id, playerId: sold.id, amount: 1_000_000 }];
     state = ok(acceptOffer(state, "o-test"));
     expect(clubById(state, buyer.id).players.find((p) => p.id === sold.id)!.contractSeasons).toBe(3);
+  });
+});
+
+/** Door 3, written out (L-013): the first `n` draws of the AI purchases' stream of a round. */
+function buyDraws(rngState: number, round: number, n: number): number[] {
+  const rng = createRng(mix32(mix32(rngState, 0xa1), round));
+  return Array.from({ length: n }, () => rng.next());
+}
+const everyClub = (s: GameState): Club[] => s.leagues.flatMap((l) => l.clubs);
+/** The AI clubs in the order the draws go: Série A, then Série B, array order, no user. */
+const aiOrder = (s: GameState): Club[] => everyClub(s).filter((c) => c.id !== s.userClubId);
+const anyClub = (s: GameState, id: string): Club => everyClub(s).find((c) => c.id === id)!;
+const wages = (c: Pick<Club, "players">) => c.players.reduce((sum, p) => sum + p.salary, 0);
+const ids = (c: Club) => c.players.map((p) => p.id).sort();
+/** Written out (L-004): value by rating and age, not by the stored salary. */
+const valueOf = (rating: number, age: number) => Math.round((expectedSalary(rating) * 50 * factor(age)) / 10_000) * 10_000;
+/** Written out (L-004): the AC 5 floor, 1,2 × a table salary rounded to R$ 100. */
+const raised = (tableSalary: number) => Math.round((1.2 * tableSalary) / 100) * 100;
+const byId = (a: string, b: string) => a.localeCompare(b);
+
+interface Quiet {
+  s: GameState;
+  buyer: Club;
+  /** The buyer's weakest starter: a DF rated 60. */
+  weakDf: Player;
+  rngState: number;
+  round: number;
+}
+
+/**
+ * A world where one club buys: every player and free agent rated 50 and aged 25, every club with
+ * no cash (no surplus, not in the red), the user managing the last Série B club. The buyer is the
+ * first Série A club the door-3 stream draws below 25%, with R$ 100.000.000; its DFs are 75, 75,
+ * 75, 60 (the eleven) and 50, 50, 50, everyone else 75, so its weakest starter is the DF rated 60.
+ */
+function quiet(seed: number, round = 1): Quiet {
+  const s = newGame(seed);
+  s.userClubId = s.leagues[1]!.clubs[19]!.id;
+  for (const p of [...everyClub(s).flatMap((c) => c.players), ...s.market.freeAgents]) Object.assign(p, { rating: 50, age: 25 });
+  for (const c of everyClub(s)) c.finance.cash = 0;
+  const draws = buyDraws(s.rngState, round, aiOrder(s).length);
+  const k = aiOrder(s).findIndex((_, i) => draws[i]! < 0.25);
+  expect(k).toBeGreaterThanOrEqual(0);
+  expect(k).toBeLessThan(20);
+  const buyer = aiOrder(s)[k]!;
+  buyer.players.forEach((p) => (p.rating = 75));
+  const dfs = buyer.players.filter((p) => p.position === "DF");
+  expect(dfs).toHaveLength(7);
+  dfs.forEach((p, i) => (p.rating = i < 3 ? 75 : i === 3 ? 60 : 50));
+  buyer.finance.cash = 100_000_000;
+  return { s, buyer, weakDf: dfs[3]!, rngState: s.rngState, round };
+}
+
+/** A Série A club other than the buyer, cut to `size` players. */
+function seller(q: Quiet, size = 22, index = 0): Club {
+  const c = q.s.leagues[0]!.clubs.filter((x) => x.id !== q.buyer.id)[index]!;
+  c.players = c.players.slice(0, size);
+  return c;
+}
+
+/** The `nth` player at `position` of a club or list, set to the given rating and age. */
+function plant(club: Club | Player[], position: Position, rating: number, age = 25, nth = 0): Player {
+  const players = Array.isArray(club) ? club : club.players;
+  const p = players.filter((x) => x.position === position)[nth]!;
+  Object.assign(p, { rating, age });
+  return p;
+}
+
+/**
+ * The first four players at `position` of `club` become 85 at 33 (they start, and are too old to
+ * be bought), so the one planted at `nth` (4 or more) is a reserve.
+ */
+function reserve(club: Club, position: Position, rating: number, age: number, nth = 4): Player {
+  for (let i = 0; i < 4; i++) plant(club, position, 85, 33, i);
+  const p = plant(club, position, rating, age, nth);
+  expect(aiLineup(club).starters).not.toContain(p.id);
+  return p;
+}
+
+/** The buyer without its fifth forward (a reserve): 21 players, so a signing releases nobody. */
+function cutTo21(q: Quiet): void {
+  const fifth = q.buyer.players.filter((p) => p.position === "FW")[4]!;
+  q.buyer.players = q.buyer.players.filter((p) => p.id !== fifth.id);
+  expect(q.buyer.players).toHaveLength(21);
+}
+
+const close = (q: Quiet) => closeRoundMarket(q.s, q.rngState, q.round);
+const has = (s: GameState, clubId: string, playerId: string) => anyClub(s, clubId).players.some((p) => p.id === playerId);
+
+/**
+ * A world where every AI club has a candidate and a surplus: everyone rated 60 at 25, every AI
+ * club with R$ 100.000.000, and every AI club's third goalkeeper rated 90 and injured, so he never
+ * starts for his own club and is a candidate for everyone else's weakest starter.
+ */
+function everyoneBuys(seed: number, userAt: [number, number] = [1, 19]): GameState {
+  const s = newGame(seed);
+  s.userClubId = s.leagues[userAt[0]]!.clubs[userAt[1]]!.id;
+  for (const p of everyClub(s).flatMap((c) => c.players)) Object.assign(p, { rating: 60, age: 25 });
+  for (const c of aiOrder(s)) {
+    c.finance.cash = 100_000_000;
+    Object.assign(c.players.filter((p) => p.position === "GK")[2]!, { rating: 90, injuryRounds: 5 });
+  }
+  return s;
+}
+
+describe("gastos da IA: compras (engine)", () => {
+  test("sobra da IA", () => {
+    const players = Array.from({ length: 20 }, (_, i) => ({ ...makePlayer(`p${i}`, `P ${i}`, "MF", 25, 60), salary: 25_000 }));
+    const club = { players, finance: { ...newGame(1).leagues[0]!.clubs[0]!.finance, cash: 10_000_000 } };
+    expect(wages(club)).toBe(500_000);
+    expect(aiBudget(club, 50_000)).toBe(10_000_000 - 10 * 550_000);
+    expect(aiBudget(club, 50_000)).toBe(4_500_000);
+  });
+
+  test("compra no limite da sobra", () => {
+    // A reserve DF rated 82 at 25 is worth R$ 4.480.000. He is paid R$ 100.000, above 1,2 × the
+    // table (R$ 89.500), so the salary the budget counts is R$ 100.000 either way.
+    const run = (cash: number) => {
+      const q = quiet(40);
+      cutTo21(q);
+      q.buyer.players.forEach((p, i) => (p.salary = i === 0 ? 100_000 : 20_000));
+      expect(wages(q.buyer)).toBe(500_000);
+      q.buyer.finance.cash = cash;
+      const target = reserve(seller(q), "DF", 82, 25);
+      target.salary = 100_000;
+      expect(valueOf(82, 25)).toBe(4_480_000);
+      expect(raised(74_600)).toBeLessThan(100_000);
+      const before = JSON.stringify(q.buyer);
+      close(q);
+      return { bought: has(q.s, q.buyer.id, target.id), unchanged: JSON.stringify(anyClub(q.s, q.buyer.id)) === before };
+    };
+    // Surplus = cash − 10 × (500.000 + 100.000): exactly R$ 4.480.000.
+    expect(run(10_480_000)).toEqual({ bought: true, unchanged: false });
+    // R$ 10.000 less and no other candidate: no purchase.
+    expect(run(10_470_000)).toEqual({ bought: false, unchanged: true });
+  });
+
+  test("chance de compra pelo fluxo da door 3", () => {
+    // The user in the middle of the Série A, so skipping them shifts the draws of the clubs after.
+    const s = everyoneBuys(41, [0, 5]);
+    const order = aiOrder(s).map((c) => c.id);
+    expect(order).toHaveLength(39);
+    expect(order).not.toContain(s.userClubId);
+    const draws = buyDraws(s.rngState, 2, 39);
+    const drawn = order.filter((_, i) => draws[i]! < 0.25);
+    expect(drawn.length).toBeGreaterThan(1);
+    expect(drawn.length).toBeLessThan(20);
+    // The drawn clubs keep 19 players, so none of them is a seller (more than 20) after buying.
+    for (const id of drawn) {
+      const c = anyClub(s, id);
+      c.players = c.players.slice(0, 19);
+    }
+    const before = new Map(everyClub(s).map((c) => [c.id, new Set(c.players.map((p) => p.id))]));
+    closeRoundMarket(s, s.rngState, 2);
+    const gained = everyClub(s)
+      .filter((c) => c.players.some((p) => !before.get(c.id)!.has(p.id)))
+      .map((c) => c.id);
+    expect(gained.sort(byId)).toEqual([...drawn].sort(byId));
+    for (const id of drawn) expect(anyClub(s, id).players, id).toHaveLength(20);
+    // The flat salt rejected by door 3 draws another set (L-014).
+    const flat = createRng(mix32(s.rngState, 2 * 16 + 13));
+    expect(order.filter(() => flat.next() < 0.25)).not.toEqual(drawn);
+  });
+
+  test("compras da IA não mudam os outros sorteios", () => {
+    // Everyone rated 60; each AI club has 21 players and an injured goalkeeper rated 90, the only
+    // candidates there are. A buyer ends with 22 (no release) and its eleven does not change.
+    const variant = (rich: boolean) => {
+      const s = game(42);
+      for (const p of everyClub(s).flatMap((c) => c.players)) Object.assign(p, { rating: 60, age: 25 });
+      const me = user(s);
+      me.lineup = autoLineup(me, AI_FORMATION);
+      me.forSale = me.players.map((p) => p.id).slice(8);
+      for (const c of aiOrder(s)) {
+        c.players = c.players.slice(0, 21);
+        Object.assign(c.players.filter((p) => p.position === "GK")[2]!, { rating: 90, injuryRounds: 5 });
+        // Without surplus: 5 rounds of payroll, enough to bid for the user's players.
+        c.finance.cash = rich ? 100_000_000 : 5 * wages(c);
+      }
+      return s;
+    };
+    const rich1 = playRound(variant(true));
+    const poor1 = playRound(variant(false));
+    expect(rich1.state.market.transfers.filter((t) => t.kind === "buy").length).toBeGreaterThan(0);
+    expect(poor1.state.market.transfers).toEqual([]);
+    expect(rich1.state.rngState).toBe(poor1.state.rngState);
+    const offer = (o: { id: string; playerId: string; amount: number }) => [o.id, o.playerId, o.amount];
+    expect(rich1.state.market.offers.length).toBeGreaterThan(0);
+    expect(rich1.state.market.offers.map(offer)).toEqual(poor1.state.market.offers.map(offer));
+    expect(rich1.state.market.juniors).toEqual(poor1.state.market.juniors);
+    // Round 2: every score the same.
+    for (const s of [rich1.state, poor1.state]) user(s).lineup = autoLineup(user(s), AI_FORMATION);
+    const rich2 = playRound(rich1.state);
+    const poor2 = playRound(poor1.state);
+    expect(poor2.results).toHaveLength(10);
+    expect(rich2.results).toEqual(poor2.results);
+    // Closing round 17 (a window opens at 18): the same juniors, with or without purchases.
+    const at17 = (rich: boolean) => {
+      const s = variant(rich);
+      closeRoundMarket(s, 12345, 17);
+      return s.market.juniors;
+    };
+    expect(at17(true)).toHaveLength(3);
+    expect(at17(true)).toEqual(at17(false));
+  });
+
+  test("compras só em rodada de janela", () => {
+    const snapshot = (s: GameState) =>
+      JSON.stringify([everyClub(s).map((c) => [c.id, ids(c), c.finance.cash, c.finance.pendingIn, c.finance.pendingOut]), s.market.freeAgents]);
+    for (const round of [1, 4, 17, 21]) {
+      const s = everyoneBuys(43);
+      expect(buyDraws(s.rngState, round, 39).some((d) => d < 0.25), `rodada ${round}`).toBe(true);
+      const before = snapshot(s);
+      closeRoundMarket(s, s.rngState, round);
+      expect(s.market.transfers.filter((t) => t.kind === "buy").length, `rodada ${round}`).toBeGreaterThan(0);
+      expect(snapshot(s), `rodada ${round}`).not.toBe(before);
+    }
+    for (const round of [5, 16, 22, 38]) {
+      const s = everyoneBuys(43);
+      expect(buyDraws(s.rngState, round, 39).some((d) => d < 0.25), `rodada ${round}`).toBe(true);
+      const before = snapshot(s);
+      closeRoundMarket(s, s.rngState, round);
+      expect(snapshot(s), `rodada ${round}`).toBe(before);
+      expect(s.market.transfers, `rodada ${round}`).toEqual([]);
+    }
+  });
+
+  test("candidatos da compra da IA", () => {
+    type Row = [string, (q: Quiet) => { holder: Club | null; player: Player }, boolean];
+    const rows: Row[] = [
+      [
+        "zagueiro reserva 64, 32 anos, vendedor com 21",
+        (q) => {
+          const c = seller(q, 21);
+          return { holder: c, player: reserve(c, "DF", 64, 32) };
+        },
+        true,
+      ],
+      [
+        "força 63",
+        (q) => {
+          const c = seller(q, 21);
+          return { holder: c, player: reserve(c, "DF", 63, 32) };
+        },
+        false,
+      ],
+      [
+        "33 anos",
+        (q) => {
+          const c = seller(q, 21);
+          return { holder: c, player: reserve(c, "DF", 64, 33) };
+        },
+        false,
+      ],
+      [
+        "vendedor com 20",
+        (q) => {
+          const c = seller(q, 20);
+          return { holder: c, player: reserve(c, "DF", 64, 32) };
+        },
+        false,
+      ],
+      [
+        "titular do vendedor, força 70",
+        (q) => {
+          const c = seller(q, 21);
+          for (let i = 0; i < 3; i++) plant(c, "DF", 85, 33, i);
+          const p = plant(c, "DF", 70, 25, 3);
+          expect(aiLineup(c).starters).toContain(p.id);
+          return { holder: c, player: p };
+        },
+        false,
+      ],
+      [
+        "do clube do usuário, força 90",
+        (q) => {
+          const c = anyClub(q.s, q.s.userClubId!);
+          for (let i = 0; i < 4; i++) plant(c, "DF", 95, 33, i);
+          return { holder: c, player: plant(c, "DF", 90, 25, 4) };
+        },
+        false,
+      ],
+      ["livre força 70", (q) => ({ holder: null, player: plant(q.s.market.freeAgents, "DF", 70, 25) }), false],
+      [
+        "meia força 80",
+        (q) => {
+          const c = seller(q, 21);
+          return { holder: c, player: reserve(c, "MF", 80, 25) };
+        },
+        false,
+      ],
+    ];
+    expect(rows).toHaveLength(8);
+    for (const [what, setup, eligible] of rows) {
+      const q = quiet(44);
+      const { holder, player } = setup(q);
+      const buyerBefore = JSON.stringify(q.buyer);
+      close(q);
+      expect(has(q.s, q.buyer.id, player.id), what).toBe(eligible);
+      if (eligible) continue;
+      expect(JSON.stringify(anyClub(q.s, q.buyer.id)), what).toBe(buyerBefore);
+      if (holder) expect(has(q.s, holder.id, player.id), what).toBe(true);
+      else expect(q.s.market.freeAgents.map((p) => p.id), what).toContain(player.id);
+    }
+  });
+
+  test("escolha do reforço da IA", () => {
+    // Two candidates at the same seller, the 5th and 6th DF: the 6th has the larger id.
+    const buy = (a: [number, number], b: [number, number]) => {
+      const q = quiet(45);
+      cutTo21(q);
+      const c = seller(q);
+      const first = reserve(c, "DF", a[0], a[1], 4);
+      const second = reserve(c, "DF", b[0], b[1], 5);
+      expect(byId(first.id, second.id)).toBeLessThan(0);
+      const cash = q.buyer.finance.cash;
+      close(q);
+      const club = anyClub(q.s, q.buyer.id);
+      const squad = club.players.map((p) => p.id);
+      return { first: squad.includes(first.id), second: squad.includes(second.id), spent: cash - club.finance.cash };
+    };
+    // Strength first: 66 at 20 (R$ 1.410.000, larger id) beats 64 at 25 (R$ 950.000).
+    expect([valueOf(66, 20), valueOf(64, 25)]).toEqual([1_410_000, 950_000]);
+    expect(buy([64, 25], [66, 20])).toEqual({ first: false, second: true, spent: 1_410_000 });
+    // Price next: at 64, the 25-year-old (R$ 950.000, larger id) beats the 20-year-old (R$ 1.190.000).
+    expect(valueOf(64, 20)).toBe(1_190_000);
+    expect(buy([64, 20], [64, 25])).toEqual({ first: false, second: true, spent: 950_000 });
+    // Id last: same rating and age, the smaller id; the price paid is the reserve's market value.
+    expect(buy([64, 25], [64, 25])).toEqual({ first: true, second: false, spent: 950_000 });
+  });
+
+  test("compra da IA move jogador e dinheiro", () => {
+    const run = (salary: number) => {
+      const q = quiet(46);
+      cutTo21(q);
+      const from = seller(q);
+      const target = reserve(from, "DF", 70, 20);
+      target.salary = salary;
+      const before = JSON.parse(JSON.stringify(target)) as Player;
+      close(q);
+      return { q, from, target, before };
+    };
+    // A reserve DF rated 70 at 20 is worth R$ 1.990.000.
+    const price = valueOf(70, 20);
+    expect(price).toBe(1_990_000);
+    const { q, from, target, before } = run(20_000);
+    const buyer = anyClub(q.s, q.buyer.id);
+    const sold = anyClub(q.s, from.id);
+    expect(buyer.finance.cash).toBe(100_000_000 - 1_990_000);
+    expect(buyer.finance.pendingOut).toBe(1_990_000);
+    expect(sold.finance.cash).toBe(1_990_000);
+    expect(sold.finance.pendingIn).toBe(1_990_000);
+    expect(sold.players.map((p) => p.id)).not.toContain(target.id);
+    // Salary table: salaryFor(70) is R$ 26.500 (the table, written out), so the floor is R$ 31.800.
+    expect(raised(26_500)).toBe(31_800);
+    const rows: [number, number][] = [
+      [20_000, 31_800],
+      [40_000, 40_000],
+    ];
+    for (const [had, gets] of rows) {
+      const r = had === 20_000 ? { q, target, before } : run(had);
+      const arrived = anyClub(r.q.s, r.q.buyer.id).players.find((p) => p.id === r.target.id);
+      expect(arrived, `salário ${had}`).toEqual({ ...r.before, contractSeasons: 3, salary: gets });
+    }
+  });
+
+  test("dispensa ao passar de 22", () => {
+    const q = quiet(47);
+    expect(q.buyer.players).toHaveLength(22);
+    // The bench DFs are stronger than the DF rated 60 who starts, but injured.
+    const bench = q.buyer.players.filter((p) => p.position === "DF" && p.rating === 50);
+    bench.forEach((p, i) => Object.assign(p, { rating: 66 + i, injuryRounds: 3 }));
+    const released = bench[0]!;
+    expect(aiLineup(q.buyer).starters).toContain(q.weakDf.id);
+    expect(aiLineup(q.buyer).starters).not.toContain(released.id);
+    const target = reserve(seller(q), "DF", 70, 25);
+    const price = valueOf(70, 25);
+    close(q);
+    const buyer = anyClub(q.s, q.buyer.id);
+    expect(buyer.players).toHaveLength(22);
+    expect(buyer.players.map((p) => p.id)).toContain(target.id);
+    expect(buyer.players.map((p) => p.id)).not.toContain(released.id);
+    expect(buyer.players.map((p) => p.id)).toContain(q.weakDf.id);
+    expect(q.s.market.freeAgents.find((p) => p.id === released.id)!.contractSeasons).toBe(0);
+    expect(buyer.finance.cash).toBe(100_000_000 - price - 4 * released.salary);
+    expect(buyer.finance.pendingOut).toBe(price + 4 * released.salary);
+  });
+
+  test("tentativa sem candidato não muda nada", () => {
+    // The best DF on offer is 63, three above the weakest starter.
+    const none = quiet(48);
+    reserve(seller(none), "DF", 63, 25);
+    const before = JSON.stringify(none.buyer);
+    close(none);
+    expect(JSON.stringify(anyClub(none.s, none.buyer.id))).toBe(before);
+
+    // One candidate, R$ 10.000 above the surplus: R$ 950.000 against R$ 940.000. His salary is
+    // above 1,2 × the table (R$ 19.000), so the surplus is the same whichever salary it counts.
+    const dear = quiet(48);
+    const target = reserve(seller(dear), "DF", 64, 25);
+    target.salary = 30_000;
+    dear.buyer.finance.cash = 10 * (wages(dear.buyer) + 30_000) + 940_000;
+    expect(valueOf(64, 25)).toBe(950_000);
+    const snapshot = JSON.stringify(dear.buyer);
+    close(dear);
+    expect(JSON.stringify(anyClub(dear.s, dear.buyer.id))).toBe(snapshot);
+  });
+
+  test("IA nunca compra do usuário", () => {
+    let s = game(49);
+    const me = user(s);
+    // The 5 best of each position in the whole game move to the user's club.
+    const pool = [...everyClub(s).flatMap((c) => c.players), ...s.market.freeAgents];
+    const best = POSITIONS.flatMap((pos) =>
+      pool
+        .filter((p) => p.position === pos)
+        .sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id))
+        .slice(0, 5),
+    );
+    const bestIds = new Set(best.map((p) => p.id));
+    for (const c of everyClub(s)) c.players = c.players.filter((p) => !bestIds.has(p.id));
+    s.market.freeAgents = s.market.freeAgents.filter((p) => !bestIds.has(p.id));
+    me.players.push(...best);
+    for (const c of aiOrder(s)) c.finance.cash = 500_000_000;
+    const mine = ids(me);
+    for (let round = 1; round <= 4; round++) {
+      user(s).lineup = autoLineup(user(s), AI_FORMATION);
+      s = playRound(s).state;
+    }
+    expect(s.market.transfers.filter((t) => t.kind === "buy").length).toBeGreaterThan(0);
+    expect(ids(user(s))).toEqual(mine);
+  });
+});
+
+/**
+ * A world for the sales of S2: everyone rated 50 at 25, no cash anywhere, the user managing the
+ * last Série B club. The seller is Série A club `sellerIndex`, R$ 1.000.000 in the red with 20
+ * players; its DF rated 80 (a starter, paid R$ 20.000) is the most valuable player of the game.
+ */
+function redWorld(seed: number, sellerIndex = 0) {
+  const s = newGame(seed);
+  s.userClubId = s.leagues[1]!.clubs[19]!.id;
+  for (const p of [...everyClub(s).flatMap((c) => c.players), ...s.market.freeAgents]) Object.assign(p, { rating: 50, age: 25 });
+  for (const c of everyClub(s)) c.finance.cash = 0;
+  const from = s.leagues[0]!.clubs[sellerIndex]!;
+  from.players = from.players.slice(0, 20);
+  from.finance.cash = -1_000_000;
+  const star = plant(from, "DF", 80, 25);
+  star.salary = 20_000;
+  return { s, from, star, price: valueOf(80, 25) };
+}
+/** salaryFor(80) is R$ 62.800 (the table, written out): the star arrives on R$ 75.400. */
+const STAR_SALARY = raised(62_800);
+/** Cash that gives `club` exactly `budget` to spend on a player who arrives on `salary` (AC 1, written out). */
+const cashFor = (club: Club, budget: number, salary: number) => budget + 10 * (wages(club) + salary);
+
+describe("gastos da IA: venda no vermelho (engine)", () => {
+  test("vermelho vende o mais valioso", () => {
+    // B is the first Série A club the round-1 stream draws below 25%; C a Série A club it does not draw.
+    let seed = 60;
+    for (; ; seed++) {
+      const draws = buyDraws(redWorld(seed, 19).s.rngState, 1, 39);
+      const b = draws.findIndex((d) => d < 0.25);
+      if (b >= 0 && b < 18 && draws.slice(b + 1, 18).some((d) => d >= 0.25)) break;
+    }
+    const { s, from, star, price } = redWorld(seed, 19);
+    expect(price).toBe(3_770_000);
+    expect(STAR_SALARY).toBe(75_400);
+    expect(aiLineup(from).starters).toContain(star.id);
+    const draws = buyDraws(s.rngState, 1, 39);
+    const bIndex = draws.findIndex((d) => d < 0.25);
+    const b = s.leagues[0]!.clubs[bIndex]!;
+    const c = s.leagues[0]!.clubs.find((x, i) => i > bIndex && i < 18 && draws[i]! >= 0.25)!;
+    const other = s.leagues[0]!.clubs.find((x) => ![b.id, c.id, from.id].includes(x.id))!;
+    // B's weakest starter is a GK rated 50; `other` has a reserve GK rated 75 at 20 for R$ 3.060.000.
+    // B keeps 20 players, so neither signing makes it release anyone.
+    b.players = b.players.slice(0, 20);
+    b.players.forEach((p) => (p.rating = p.position === "GK" ? 50 : 75));
+    plant(other, "GK", 90, 33, 0);
+    const gk = plant(other, "GK", 75, 20, 1);
+    expect(aiLineup(other).starters).not.toContain(gk.id);
+    gk.salary = 60_000;
+    expect(valueOf(75, 20)).toBe(3_060_000);
+    b.finance.cash = cashFor(b, 12_000_000, STAR_SALARY);
+    c.finance.cash = cashFor(c, 10_000_000, STAR_SALARY);
+    // Had B bought the goalkeeper first, its surplus for the star would fall below C's.
+    expect(b.finance.cash - 3_060_000 - 10 * (wages(b) + gk.salary + STAR_SALARY)).toBeLessThan(10_000_000);
+    const bCash = b.finance.cash;
+    closeRoundMarket(s, s.rngState, 1);
+    const bAfter = anyClub(s, b.id);
+    expect(bAfter.players.find((p) => p.id === star.id)?.salary).toBe(75_400);
+    expect(anyClub(s, from.id).finance.cash).toBe(-1_000_000 + 3_770_000);
+    expect(anyClub(s, from.id).finance.pendingIn).toBe(3_770_000);
+    expect(s.market.transfers.find((t) => t.playerId === star.id)).toMatchObject({ kind: "buy", fromId: from.id, toId: b.id, amount: 3_770_000 });
+    // B was drawn too, and bought after the sale.
+    expect(has(s, b.id, gk.id)).toBe(true);
+    expect(s.market.transfers.map((t) => t.playerId)).toEqual([star.id, gk.id]);
+    expect(bCash - bAfter.finance.cash).toBe(3_770_000 + 3_060_000);
+  });
+
+  test("comprador da venda do vermelho", () => {
+    // Two buyers with the same surplus: the smaller id.
+    {
+      const { s, star } = redWorld(61);
+      const [d, e] = [s.leagues[0]!.clubs[3]!, s.leagues[1]!.clubs[4]!];
+      d.finance.cash = cashFor(d, 20_000_000, STAR_SALARY);
+      e.finance.cash = cashFor(e, 20_000_000, STAR_SALARY);
+      closeRoundMarket(s, s.rngState, 1);
+      const [first, second] = [d.id, e.id].sort(byId);
+      expect(has(s, first!, star.id)).toBe(true);
+      expect(has(s, second!, star.id)).toBe(false);
+    }
+    // A club with 30 players and the biggest surplus is skipped.
+    {
+      const { s, star } = redWorld(62);
+      const [full, next] = [s.leagues[0]!.clubs[5]!, s.leagues[0]!.clubs[6]!];
+      pad(full, 30);
+      full.finance.cash = cashFor(full, 50_000_000, STAR_SALARY);
+      next.finance.cash = cashFor(next, 20_000_000, STAR_SALARY);
+      closeRoundMarket(s, s.rngState, 1);
+      expect(has(s, next.id, star.id)).toBe(true);
+      expect(anyClub(s, full.id).players).toHaveLength(30);
+    }
+    // A buyer at 22 releases like C8: the weakest DF off its eleven, not the weaker DF who starts.
+    {
+      const { s, star } = redWorld(63);
+      const buyer = s.leagues[0]!.clubs[7]!;
+      expect(buyer.players).toHaveLength(22);
+      buyer.players.forEach((p) => (p.rating = 75));
+      const dfs = buyer.players.filter((p) => p.position === "DF");
+      dfs.forEach((p, i) => Object.assign(p, i < 3 ? { rating: 75 } : i === 3 ? { rating: 60 } : { rating: 62 + i, injuryRounds: 3 }));
+      const released = dfs[4]!;
+      buyer.finance.cash = cashFor(buyer, 20_000_000, STAR_SALARY);
+      const cash = buyer.finance.cash;
+      closeRoundMarket(s, s.rngState, 1);
+      const after = anyClub(s, buyer.id);
+      expect(after.players).toHaveLength(22);
+      expect(after.players.map((p) => p.id)).toContain(star.id);
+      expect(after.players.map((p) => p.id)).toContain(dfs[3]!.id);
+      expect(after.players.map((p) => p.id)).not.toContain(released.id);
+      expect(s.market.freeAgents.find((p) => p.id === released.id)!.contractSeasons).toBe(0);
+      expect(s.market.transfers.map((t) => t.kind)).toEqual(["buy", "release"]);
+      expect(after.finance.cash).toBe(cash - 3_770_000 - 4 * released.salary);
+      expect(after.finance.pendingOut).toBe(3_770_000 + 4 * released.salary);
+    }
+  });
+
+  test("vermelho sem venda", () => {
+    // 18 players: no sale, though a rich club could pay.
+    {
+      const { s, from, star } = redWorld(64);
+      from.players = [star, ...from.players.filter((p) => p.id !== star.id)].slice(0, 18);
+      const rich = s.leagues[0]!.clubs[9]!;
+      rich.finance.cash = cashFor(rich, 50_000_000, STAR_SALARY);
+      const before = JSON.stringify(from);
+      closeRoundMarket(s, s.rngState, 1);
+      expect(JSON.stringify(anyClub(s, from.id))).toBe(before);
+      expect(s.market.transfers).toEqual([]);
+    }
+    // 20 players: the only club with money has R$ 10.000 too little for the value and the new
+    // salary, though enough with the salary the star had.
+    {
+      const { s, from, star, price } = redWorld(65);
+      const almost = s.leagues[0]!.clubs[9]!;
+      almost.finance.cash = cashFor(almost, price - 10_000, STAR_SALARY);
+      expect(almost.finance.cash - 10 * (wages(almost) + star.salary)).toBeGreaterThan(price);
+      const before = JSON.stringify(from);
+      const buyerBefore = JSON.stringify(almost);
+      closeRoundMarket(s, s.rngState, 1);
+      expect(JSON.stringify(anyClub(s, from.id))).toBe(before);
+      expect(JSON.stringify(anyClub(s, almost.id))).toBe(buyerBefore);
+      expect(s.market.transfers).toEqual([]);
+    }
+  });
+
+  test("vermelho só vende com janela aberta", () => {
+    const { s, from } = redWorld(66);
+    const rich = s.leagues[0]!.clubs[9]!;
+    rich.finance.cash = cashFor(rich, 50_000_000, STAR_SALARY);
+    const before = JSON.stringify(from);
+    closeRoundMarket(s, s.rngState, 5);
+    expect(JSON.stringify(anyClub(s, from.id))).toBe(before);
+    expect(s.market.transfers).toEqual([]);
+  });
+});
+
+describe("gastos da IA: boletim (engine)", () => {
+  test("boletim registra cada movimento da IA", () => {
+    const rows: [string, () => { got: TransferRecord[]; expected: TransferRecord[] }][] = [
+      [
+        "compra de clube da IA na rodada 3",
+        () => {
+          const q = quiet(50, 3);
+          cutTo21(q);
+          const from = seller(q);
+          const p = reserve(from, "DF", 70, 20);
+          close(q);
+          return { got: q.s.market.transfers, expected: [{ round: 3, kind: "buy", playerId: p.id, playerName: p.name, fromId: from.id, toId: q.buyer.id, amount: 1_990_000 }] };
+        },
+      ],
+      [
+        "livre por fillAiSquads",
+        () => {
+          const s = newGame(51);
+          for (const c of everyClub(s)) c.finance.cash = 0;
+          const club = s.leagues[0]!.clubs[2]!;
+          club.players = club.players.filter((p) => p.position !== "FW");
+          expect(club.players).toHaveLength(17);
+          const best = s.market.freeAgents.filter((p) => p.position === "FW").sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id))[0]!;
+          closeRoundMarket(s, s.rngState, 3);
+          return {
+            got: s.market.transfers,
+            expected: [{ round: 3, kind: "free", playerId: best.id, playerName: best.name, fromId: null, toId: club.id, amount: 4 * best.salary }],
+          };
+        },
+      ],
+      [
+        "dispensa ao passar de 22",
+        () => {
+          const q = quiet(52, 3);
+          const bench = q.buyer.players.filter((p) => p.position === "DF" && p.rating === 50);
+          bench.forEach((p, i) => Object.assign(p, { rating: 66 + i, injuryRounds: 3 }));
+          const out = bench[0]!;
+          const from = seller(q);
+          const p = reserve(from, "DF", 70, 20);
+          close(q);
+          return {
+            got: q.s.market.transfers,
+            expected: [
+              { round: 3, kind: "buy", playerId: p.id, playerName: p.name, fromId: from.id, toId: q.buyer.id, amount: 1_990_000 },
+              { round: 3, kind: "release", playerId: out.id, playerName: out.name, fromId: q.buyer.id, toId: null, amount: 4 * out.salary },
+            ],
+          };
+        },
+      ],
+      [
+        "venda do vermelho",
+        () => {
+          const { s, from, star } = redWorld(53);
+          const buyer = s.leagues[0]!.clubs[9]!;
+          buyer.players = buyer.players.slice(0, 21);
+          buyer.finance.cash = cashFor(buyer, 20_000_000, STAR_SALARY);
+          closeRoundMarket(s, s.rngState, 1);
+          return {
+            got: s.market.transfers,
+            expected: [{ round: 1, kind: "buy", playerId: star.id, playerName: star.name, fromId: from.id, toId: buyer.id, amount: 3_770_000 }],
+          };
+        },
+      ],
+      [
+        "proposta aceita pelo usuário",
+        () => {
+          const s = game(54);
+          for (const l of s.leagues) l.currentRound = 2;
+          const me = user(s);
+          const sold = me.players[21]!;
+          const buyer = clubs(s)[3]!;
+          s.market.offers = [{ id: "o2-1", buyerId: buyer.id, playerId: sold.id, amount: 1_230_000 }];
+          const after = ok(acceptOffer(s, "o2-1"));
+          return {
+            got: after.market.transfers,
+            expected: [{ round: 2, kind: "buy", playerId: sold.id, playerName: sold.name, fromId: me.id, toId: buyer.id, amount: 1_230_000 }],
+          };
+        },
+      ],
+    ];
+    expect(rows).toHaveLength(5);
+    const kinds = new Set<string>();
+    for (const [what, run] of rows) {
+      const { got, expected } = run();
+      expect(got, what).toEqual(expected);
+      for (const t of got) kinds.add(t.kind);
+    }
+    expect([...kinds].sort()).toEqual(["buy", "free", "release"]);
+  });
+
+  test("ações do usuário fora do boletim", () => {
+    const base = game(55);
+    const earlier: TransferRecord = { round: 1, kind: "free", playerId: "fa-x", playerName: "Alguém", fromId: null, toId: clubs(base)[4]!.id, amount: 40_000 };
+    base.market.transfers = [earlier];
+    user(base).finance.cash = 100_000_000;
+    const from = clubs(base)[6]!;
+    const actions: [string, (s: GameState) => { ok: boolean; state?: GameState; reason?: string }][] = [
+      ["buyPlayer", (s) => buyPlayer(s, reserveGk(from).id, askingPrice(from, reserveGk(from)))],
+      ["releasePlayer", (s) => releasePlayer(s, user(s).players[21]!.id)],
+      ["signFreeAgent", (s) => signFreeAgent(s, s.market.freeAgents[0]!.id)],
+      ["promoteJunior", (s) => promoteJunior(s, s.market.juniors[0]!.id)],
+    ];
+    expect(actions).toHaveLength(4);
+    for (const [what, act] of actions) {
+      const after = ok(act(JSON.parse(JSON.stringify(base)) as GameState));
+      expect(after.market.transfers, what).toEqual([earlier]);
+    }
   });
 });

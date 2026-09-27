@@ -22,6 +22,7 @@ beforeEach(() => {
 describe("save (door 1, door 7)", () => {
   // Supersedes partida-ao-vivo C45 (schemaVersion 2): elenco-mercado-financas door 1 moves the save to v3.
   // Copa-nacional C56 supersedes multiplas-temporadas C51: the document is v5, with the cup.
+  // Gastos-da-ia (Superseded checks): the document is v6.
   test("documento tem schemaVersion 5 com copa", async () => {
     const state = fixture();
     const club = state.leagues[0]!.clubs[0]!;
@@ -33,7 +34,7 @@ describe("save (door 1, door 7)", () => {
     expect(DB_NAME).toBe("forzion-futmanager");
     expect(STORE).toBe("saves");
     expect(SLOT).toBe("slot-1");
-    expect(doc.schemaVersion).toBe(5);
+    expect(doc.schemaVersion).toBe(6);
     expect(doc.cups).toHaveLength(1);
     expect(doc.cups[0].id).toBe("cup-nat");
     expect(doc.cups[0].seeding).toHaveLength(40);
@@ -114,8 +115,29 @@ describe("save (door 1, door 7)", () => {
     const loaded = await loadGame();
     expect(loaded.kind).toBe("ok");
     if (loaded.kind !== "ok") return;
-    expect(loaded.state.schemaVersion).toBe(5);
+    // Gastos-da-ia (Superseded checks): v1 now reaches v6.
+    expect(loaded.state.schemaVersion).toBe(6);
     expect(loaded.state.leagues[0]!.clubs[0]!.players[0]).toMatchObject({ fitness: 100, morale: 0, idleRounds: 0 });
+  });
+});
+
+describe("boletim no save (gastos-da-ia)", () => {
+  test("boletim sobrevive ao save", async () => {
+    const state = fixture();
+    const [a, b] = [state.leagues[0]!.clubs[3]!, state.leagues[1]!.clubs[5]!];
+    const moved = b.players[4]!;
+    state.market.transfers = [
+      { round: 1, kind: "buy", playerId: moved.id, playerName: moved.name, fromId: b.id, toId: a.id, amount: 1_990_000 },
+      { round: 1, kind: "release", playerId: a.players[7]!.id, playerName: a.players[7]!.name, fromId: a.id, toId: null, amount: 88_000 },
+    ];
+    expect(state.schemaVersion).toBe(6);
+    const lines = JSON.parse(JSON.stringify(state.market.transfers));
+    await saveGame(state);
+    const loaded = await loadGame();
+    expect(loaded.kind).toBe("ok");
+    if (loaded.kind !== "ok") return;
+    expect(loaded.state.market.transfers).toHaveLength(2);
+    expect(loaded.state.market.transfers).toEqual(lines);
   });
 });
 

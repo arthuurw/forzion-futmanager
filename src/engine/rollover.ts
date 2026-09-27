@@ -248,6 +248,8 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
 
   // AC 11, 13: new market window with 3 juniors, no offers; money, stadium and loans untouched.
   state.market.offers = [];
+  // Gastos-da-ia AC 18: the transfer list only keeps the current season.
+  state.market.transfers = [];
   state.market.juniors = generateJuniors(rng, takenNames(state), season, 1);
   for (const league of state.leagues) {
     league.rounds = generateSchedule(shuffle(rng, league.clubs.map((c) => c.id)));

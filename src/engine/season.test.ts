@@ -1,5 +1,8 @@
 import { jobOffers, userBoardGoal, verdictFor } from "./board";
 import { newGame } from "./generate";
+import { AI_FORMATION, aiLineup, autoLineup } from "./lineup";
+import { createRng, mix32 } from "./rng";
+import { playRound } from "./season";
 import type { Club, GameState } from "./types";
 
 const setRating = (club: Club, rating: number) => club.players.forEach((p) => (p.rating = rating));
@@ -78,5 +81,31 @@ describe("diretoria (engine)", () => {
     expect(jobOffers(state)).toEqual([rank(37), rank(38), rank(40)]);
     state.userClubId = rank(40);
     expect(jobOffers(state)).toEqual([rank(37), rank(38), rank(39)]);
+  });
+});
+
+describe("mercado da IA na rodada (gastos-da-ia)", () => {
+  test("rodada de janela dispara compras da IA", () => {
+    // Door 3, written out: the first draw of round 1 goes to Série A club 0 when the user is in the Série B.
+    const firstDraw = (rngState: number) => createRng(mix32(mix32(rngState, 0xa1), 1)).next();
+    let seed = 1;
+    while (firstDraw(newGame(seed).rngState) >= 0.25) seed++;
+    const s = newGame(seed);
+    const me = s.leagues[1]!.clubs[19]!;
+    s.userClubId = me.id;
+    me.lineup = autoLineup(me, AI_FORMATION);
+    const club = s.leagues[0]!.clubs[0]!;
+    club.finance.cash = 500_000_000;
+    // Its weakest starter is a DF rated 60; club 1 has a reserve DF rated 80 at 25.
+    club.players.forEach((p) => (p.rating = 75));
+    club.players.filter((p) => p.position === "DF").forEach((p, i) => (p.rating = i < 3 ? 75 : i === 3 ? 60 : 50));
+    const other = s.leagues[0]!.clubs[1]!;
+    const dfs = other.players.filter((p) => p.position === "DF");
+    dfs.forEach((p, i) => Object.assign(p, i < 4 ? { rating: 90, age: 33 } : i === 4 ? { rating: 80, age: 25 } : {}));
+    expect(other.players.length).toBeGreaterThan(20);
+    expect(aiLineup(other).starters).not.toContain(dfs[4]!.id);
+    const { state } = playRound(s);
+    expect(state.leagues[0]!.currentRound).toBe(1);
+    expect(state.market.transfers.some((t) => t.kind === "buy" && t.toId === club.id)).toBe(true);
   });
 });

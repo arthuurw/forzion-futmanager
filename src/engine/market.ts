@@ -1,9 +1,9 @@
 import { takenNames, generateJuniors } from "./generate";
-import { salaryFor } from "./finance";
-import { aiLineup } from "./lineup";
+import { aiBudget, salaryFor } from "./finance";
+import { aiLineup, formationSlots } from "./lineup";
 import { createRng, mix32, pick, type Rng } from "./rng";
 import { allClubs, findAnyClub, findClub, userLeague } from "./season";
-import { POSITIONS, type Club, type GameState, type Offer, type Player } from "./types";
+import { POSITIONS, type Club, type GameState, type Offer, type Player, type Position, type TransferRecord } from "./types";
 
 export const SQUAD_MIN = 18;
 export const SQUAD_MAX = 30;
@@ -23,6 +23,17 @@ export const CONTRACT_RENEWAL = 3;
 /** Door 3: salts mixed into `rngState` with the round number, next to the 10 match streams. */
 const OFFERS_SALT = 14;
 const JUNIORS_SALT = 15;
+/** Gastos-da-ia AC 2-3, 5-6: calibration of the AI's purchases (plan, Landing note). */
+const AI_BUY_CHANCE = 0.25;
+const AI_BUY_MIN_GAIN = 4;
+const AI_BUY_MAX_AGE = 32;
+/** An AI club sells to another AI club only above this many players. */
+const AI_SELLER_ABOVE = 20;
+const AI_SQUAD_KEEP = 22;
+/** A player an AI club buys earns at least this many times the table salary. */
+const AI_SALARY_RAISE = 1.2;
+/** Gastos-da-ia door 3: the AI purchases' stream is `mix32(mix32(rngState, 0xA1), roundNumber)`. */
+const AI_BUY_SALT = 0xa1;
 /** Next-round numbers (1-based) when the market is open (AC 16). */
 const WINDOWS = [
   { first: 1, last: 5 },
@@ -152,7 +163,10 @@ export function acceptOffer(input: GameState, offerId: string): MarketResult {
   const state = clone(input);
   const user = userOf(state);
   const buyer = findAnyClub(state, offer.buyerId);
-  buyer.players.push(signed(detach(state, user, offer.playerId), CONTRACT_BOUGHT));
+  const player = detach(state, user, offer.playerId);
+  buyer.players.push(signed(player, CONTRACT_BOUGHT));
+  // Gastos-da-ia door 2: an AI club paid, so the move goes on the transfer list.
+  record(state, userLeague(state).currentRound, "buy", player, user.id, buyer.id, offer.amount);
   user.finance.cash += offer.amount;
   user.finance.pendingIn += offer.amount;
   buyer.finance.cash -= offer.amount;
@@ -267,8 +281,21 @@ function generateOffers(state: GameState, rng: Rng, roundNumber: number): Offer[
   return offers;
 }
 
+/** Gastos-da-ia door 1, door 2: appends one line to this season's transfer list. */
+function record(
+  state: GameState,
+  round: number,
+  kind: TransferRecord["kind"],
+  player: Player,
+  fromId: string | null,
+  toId: string | null,
+  amount: number,
+): void {
+  state.market.transfers.push({ round, kind, playerId: player.id, playerName: player.name, fromId, toId, amount });
+}
+
 /** AC 40: an AI club under 18 signs the best free agent of its thinnest position until it has 18. */
-function fillAiSquads(state: GameState): void {
+function fillAiSquads(state: GameState, roundNumber: number): void {
   for (const club of allClubs(state)) {
     if (club.id === state.userClubId) continue;
     while (club.players.length < SQUAD_MIN && state.market.freeAgents.length) {
@@ -284,20 +311,128 @@ function fillAiSquads(state: GameState): void {
       const fee = releaseCost(best);
       club.finance.cash -= fee;
       club.finance.pendingOut += fee;
+      record(state, roundNumber, "free", best, null, club.id, fee);
     }
+  }
+}
+
+/** The AI clubs, Série A first, in array order; never the user's. */
+function aiClubs(state: GameState): Club[] {
+  return allClubs(state).filter((c) => c.id !== state.userClubId);
+}
+
+const weakestFirst = (a: Player, b: Player) => a.rating - b.rating || a.id.localeCompare(b.id);
+
+/** Gastos-da-ia AC 5: the larger of the current salary and 1,2 × the table salary, to R$ 100. */
+function arrivalSalary(p: Player): number {
+  return Math.max(p.salary, roundTo(AI_SALARY_RAISE * salaryFor(p.rating), 100));
+}
+
+/**
+ * Gastos-da-ia AC 5, AC 6: `player` leaves `seller` for `buyer` for `price`, on a 3-season contract
+ * and the arrival salary. Above 22 players, the buyer releases the weakest player of that position
+ * who was not among its eleven before the move.
+ */
+function aiSign(state: GameState, roundNumber: number, buyer: Club, player: Player, seller: Club, price: number): void {
+  const eleven = new Set(aiLineup(buyer).starters);
+  const salary = arrivalSalary(player);
+  buyer.players.push({ ...signed(detach(state, seller, player.id), CONTRACT_BOUGHT), salary });
+  seller.finance.cash += price;
+  seller.finance.pendingIn += price;
+  buyer.finance.cash -= price;
+  buyer.finance.pendingOut += price;
+  record(state, roundNumber, "buy", player, seller.id, buyer.id, price);
+  if (buyer.players.length <= AI_SQUAD_KEEP) return;
+  const released = buyer.players
+    .filter((p) => p.position === player.position && p.id !== player.id && !eleven.has(p.id))
+    .sort(weakestFirst)[0];
+  if (!released) return;
+  const cost = releaseCost(released);
+  state.market.freeAgents.push(signed(detach(state, buyer, released.id), 0));
+  buyer.finance.cash -= cost;
+  buyer.finance.pendingOut += cost;
+  record(state, roundNumber, "release", released, buyer.id, null, cost);
+}
+
+/**
+ * Gastos-da-ia AC 9-11: an AI club in the red with more than 18 players sells its most valuable
+ * player at market value to the AI club under 30 players with the most to spend on them, ties by id.
+ */
+function sellFromTheRed(state: GameState, roundNumber: number): void {
+  for (const seller of aiClubs(state)) {
+    if (seller.finance.cash >= 0 || seller.players.length <= SQUAD_MIN) continue;
+    const player = [...seller.players].sort((a, b) => marketValue(b) - marketValue(a) || a.id.localeCompare(b.id))[0]!;
+    const price = marketValue(player);
+    const salary = arrivalSalary(player);
+    const buyer = aiClubs(state)
+      .filter((c) => c.id !== seller.id && c.players.length < SQUAD_MAX && aiBudget(c, salary) >= price)
+      .sort((a, b) => aiBudget(b, salary) - aiBudget(a, salary) || a.id.localeCompare(b.id))[0];
+    if (buyer) aiSign(state, roundNumber, buyer, player, seller, price);
+  }
+}
+
+interface Candidate {
+  player: Player;
+  seller: Club;
+  price: number;
+}
+
+/**
+ * Gastos-da-ia AC 3, AC 4, AC 7: the club looks for someone at least 4 better than its weakest
+ * starter, for that starter's slot, among the reserves of the AI clubs above 20 players; it buys
+ * the strongest it can afford, then the cheapest, then the smallest id.
+ */
+function tryAiPurchase(state: GameState, roundNumber: number, buyer: Club): void {
+  const lineup = aiLineup(buyer);
+  const slots = formationSlots(lineup.formation);
+  let position: Position | null = null;
+  let rating = Infinity;
+  for (const [i, id] of lineup.starters.entries()) {
+    const p = id ? buyer.players.find((x) => x.id === id) : undefined;
+    if (p && p.rating < rating) {
+      rating = p.rating;
+      position = slots[i]!;
+    }
+  }
+  if (position === null) return;
+  const fits = (p: Player) => p.position === position && p.rating >= rating + AI_BUY_MIN_GAIN && p.age <= AI_BUY_MAX_AGE;
+  const candidates: Candidate[] = aiClubs(state)
+    .filter((c) => c.id !== buyer.id && c.players.length > AI_SELLER_ABOVE)
+    .flatMap((c) => {
+      const eleven = new Set(aiLineup(c).starters);
+      // A reserve's asking price is its market value (AC 20 of elenco-mercado-financas).
+      return c.players.filter((p) => fits(p) && !eleven.has(p.id)).map((p) => ({ player: p, seller: c, price: marketValue(p) }));
+    });
+  // The budget counts the salary the player brings; the raise of AC 5 comes with the signing.
+  const best = candidates
+    .filter((c) => c.price <= aiBudget(buyer, c.player.salary))
+    .sort((a, b) => b.player.rating - a.player.rating || a.price - b.price || a.player.id.localeCompare(b.player.id))[0];
+  if (best) aiSign(state, roundNumber, buyer, best.player, best.seller, best.price);
+}
+
+/** Gastos-da-ia AC 2, door 3: one draw per AI club, in division and club order; below 25% it tries to buy. */
+function aiPurchases(state: GameState, rngState: number, roundNumber: number): void {
+  const rng = createRng(mix32(mix32(rngState, AI_BUY_SALT), roundNumber));
+  for (const club of aiClubs(state)) {
+    if (rng.next() < AI_BUY_CHANCE) tryAiPurchase(state, roundNumber, club);
   }
 }
 
 /**
  * Closes the market side of a round, after `currentRound` has advanced: old offers expire (AC 33),
- * AI clubs refill (AC 40), juniors appear when a window opens and go when it closes (AC 37, 39),
- * and new offers arrive while the market stays open (AC 28, 29). `rngState` is the one the
+ * AI clubs refill (AC 40); while the market stays open, AI clubs in the red sell and then the AI
+ * buys (gastos-da-ia S1, S2); juniors appear when a window opens and go when it closes (AC 37,
+ * 39), and new offers arrive while the market stays open (AC 28, 29). `rngState` is the one the
  * round was played with. Mutates `state`.
  */
 export function closeRoundMarket(state: GameState, rngState: number, roundNumber: number): void {
   state.market.offers = [];
-  fillAiSquads(state);
+  fillAiSquads(state, roundNumber);
   const next = roundNumber + 1;
+  if (isWindowOpen(next)) {
+    sellFromTheRed(state, roundNumber);
+    aiPurchases(state, rngState, roundNumber);
+  }
   const windowIndex = WINDOWS.findIndex((w) => w.first === next);
   if (windowIndex >= 0) {
     const rng = createRng(mix32(rngState, roundNumber * 16 + JUNIORS_SALT));

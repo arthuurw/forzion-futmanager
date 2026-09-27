@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { AI_FORMATION, autoLineup } from "../engine/lineup";
+import { playRound } from "../engine/season";
 import { computeTable } from "../engine/table";
+import { zeroAiSurplus } from "../engine/test-fixtures";
 import type { Club, GameState } from "../engine/types";
 import { App } from "../App";
 import { useGame } from "../store";
@@ -41,7 +44,17 @@ const best11 = (c: Club) => [...c.players].map((p) => p.rating).sort((a, b) => b
 let ended: GameState | null = null;
 /** One finished season, shared: the user's club is chosen afterwards by each test. */
 function endedSeason(): GameState {
-  ended ??= seededGame(34, 0, 38);
+  // Gastos-da-ia, rule for older tests: the same season with the AI kept out of the market.
+  ended ??= (() => {
+    let s = seededGame(34, 0, 0);
+    for (let r = 0; r < 38; r++) {
+      zeroAiSurplus(s);
+      s = playRound(s).state;
+    }
+    const club = s.leagues[0]!.clubs[0]!;
+    club.lineup = autoLineup(club, club.lineup?.formation ?? AI_FORMATION);
+    return s;
+  })();
   return JSON.parse(JSON.stringify(ended)) as GameState;
 }
 

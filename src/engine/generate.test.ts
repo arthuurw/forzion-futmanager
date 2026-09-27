@@ -1,6 +1,6 @@
 import { CLUBS_PER_LEAGUE, PLAYERS_PER_CLUB, SERIE_B, generateLeague, newGame, takenNames } from "./generate";
 import { createRng, mix32 } from "./rng";
-import { AGE_MAX, AGE_MIN, POSITIONS, RATING_MAX, RATING_MIN, type Club, type Position } from "./types";
+import { AGE_MAX, AGE_MIN, POSITIONS, RATING_MAX, RATING_MIN, SCHEMA_VERSION, type Club, type Position } from "./types";
 
 function best11Mean(club: Club): number {
   const top = club.players
@@ -191,6 +191,17 @@ describe("duas divisões", () => {
       // The Série B is generateLeague over mix32(seed, 4), avoiding the Série A and market names.
       const taken = takenNames({ leagues: [state.leagues[0]!], market: state.market });
       expect(state.leagues[1]).toEqual(generateLeague(createRng(mix32(seed, 4)), "l2", "Série B", SERIE_B, taken));
+    }
+  });
+});
+
+describe("boletim (gastos-da-ia)", () => {
+  test("jogo novo com boletim vazio", () => {
+    expect(SCHEMA_VERSION).toBe(6);
+    for (const seed of [1, 2, 3]) {
+      const state = newGame(seed);
+      expect(state.schemaVersion).toBe(6);
+      expect(state.market.transfers).toEqual([]);
     }
   });
 });

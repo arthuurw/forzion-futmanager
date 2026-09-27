@@ -1,6 +1,7 @@
 import {
   attendanceFor,
   capacityFor,
+  closeRoundFinances,
   expandStadium,
   fansFor,
   formFactor,
@@ -339,4 +340,94 @@ describe("finanças com duas divisões", () => {
       });
     }
   }, 60_000);
+});
+
+describe("gastos da IA: ampliação (engine)", () => {
+  /**
+   * A Série A club of 22 players paid R$ 500.000 per round, sponsorship R$ 300.000, tickets at
+   * R$ 40, no loan. `fans` 60.000 against capacity 30.000 fills the stadium (form 1 before round 1).
+   */
+  function stadium(finance: Partial<Club["finance"]>) {
+    const s = newGame(81);
+    const match = s.leagues[0]!.rounds[0]!.matches[0]!;
+    const clubs = s.leagues[0]!.clubs;
+    for (const id of [match.homeId, match.awayId]) {
+      const c = clubs.find((x) => x.id === id)!;
+      c.players.forEach((p, i) => (p.salary = i === 0 ? 500_000 - 21 * 20_000 : 20_000));
+      expect(sum(c.players.map((p) => p.salary))).toBe(500_000);
+      Object.assign(c.finance, {
+        cash: 20_000_000,
+        sponsorship: 300_000,
+        fans: 60_000,
+        capacity: 30_000,
+        ticketPrice: 40,
+        expansionRoundsLeft: 0,
+        loan: 0,
+        ...finance,
+      });
+    }
+    const home = clubs.find((x) => x.id === match.homeId)!;
+    const away = clubs.find((x) => x.id === match.awayId)!;
+    return { clubs, match, home, away };
+  }
+  const closeWith = (w: ReturnType<typeof stadium>) =>
+    closeRoundFinances(w.clubs, [w.match], new Map(w.clubs.map((c) => [c.id, null])), 0, null, null);
+
+  test("IA amplia estádio lotado", () => {
+    // Expands: R$ 20.000.000 + 30.000 × 40 + 300.000 − 500.000 = R$ 21.000.000 after closing.
+    const w = stadium({});
+    closeWith(w);
+    expect(w.home.finance.lastRound!.attendance).toBe(30_000);
+    expect(w.home.finance.cash).toBe(20_000_000 + 1_200_000 + 300_000 - 500_000 - 4_000_000);
+    expect(w.home.finance.expansionRoundsLeft).toBe(6);
+    expect(w.home.finance.capacity).toBe(30_000);
+    // Exactly 20 payrolls left after the cost also expands: 14.000.000 after closing.
+    const edge = stadium({ cash: 14_000_000 - 1_000_000 });
+    closeWith(edge);
+    expect(edge.home.finance.cash).toBe(10_000_000);
+    expect(edge.home.finance.expansionRoundsLeft).toBe(6);
+
+    type Row = [string, Partial<Club["finance"]>, "home" | "away", number, number];
+    // [case, finance, side, cash after, rounds left]: the cash moves only by the closing.
+    const rows: Row[] = [
+      ["fora de casa", {}, "away", 20_000_000 + 300_000 - 500_000, 0],
+      ["público 29.999", { fans: 29_999 }, "home", 20_000_000 + 29_999 * 40 + 300_000 - 500_000, 0],
+      ["obra em andamento", { expansionRoundsLeft: 3 }, "home", 20_000_000 + 1_200_000 + 300_000 - 500_000, 2],
+      ["capacidade 76.000", { fans: 80_000, capacity: 76_000 }, "home", 20_000_000 + 76_000 * 40 + 300_000 - 500_000, 0],
+      // After closing: 14.000.000 − 10.000, so cash − 4.000.000 is R$ 10.000 below 20 × 500.000.
+      ["R$ 10.000 abaixo da reserva", { cash: 14_000_000 - 10_000 - 1_000_000 }, "home", 14_000_000 - 10_000, 0],
+    ];
+    expect(rows).toHaveLength(5);
+    for (const [what, finance, side, cash, left] of rows) {
+      const r = stadium(finance);
+      const before = r[side].finance.capacity;
+      closeWith(r);
+      const f = r[side].finance;
+      expect(f.cash, what).toBe(cash);
+      expect(f.expansionRoundsLeft, what).toBe(left);
+      expect(f.capacity, what).toBe(before);
+    }
+  });
+
+  test("usuário não amplia sozinho", () => {
+    let s = game(82);
+    const me = user(s);
+    // The first round the user plays at home, and an AI club at home in the same round.
+    const round = s.leagues[0]!.rounds.find((r) => r.matches.some((m) => m.homeId === me.id))!;
+    const aiHome = round.matches.find((m) => m.homeId !== me.id)!.homeId;
+    for (const id of [me.id, aiHome]) {
+      Object.assign(clubById(s, id).finance, { cash: 500_000_000, fans: 60_000, capacity: 10_000, ticketPrice: 40, expansionRoundsLeft: 0 });
+    }
+    while (s.leagues[0]!.currentRound < round.number) {
+      user(s).lineup = autoLineup(user(s), AI_FORMATION);
+      s = playRound(s).state;
+    }
+    const mine = user(s).finance;
+    expect(mine.lastRound!.attendance).toBe(10_000);
+    expect([mine.expansionRoundsLeft, mine.capacity]).toEqual([0, 10_000]);
+    // The AI club in the same place does expand.
+    const ai = clubById(s, aiHome).finance;
+    expect(ai.lastRound!.attendance).toBe(10_000);
+    expect(ai.expansionRoundsLeft).toBe(6);
+  });
 });

@@ -62,13 +62,14 @@ describe("tela Início", () => {
   });
 
   // Copa-nacional C61 supersedes multiplas-temporadas C50: v5 is now current, so the first unknown version is 6.
+  // Gastos-da-ia C30 (Superseded checks): v6 is now current, so the test uses 7.
   test("save de versão 6 incompatível", async () => {
     const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
-    await db.put(STORE, { schemaVersion: 6 }, SLOT);
+    await db.put(STORE, { schemaVersion: 7 }, SLOT);
     db.close();
     await useGame.getState().init();
     render(<Home />);
-    expect(screen.getByText("Jogo salvo incompatível (versão 6)")).toBeInTheDocument();
+    expect(screen.getByText("Jogo salvo incompatível (versão 7)")).toBeInTheDocument();
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Novo jogo"]);
   });
 

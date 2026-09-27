@@ -173,11 +173,28 @@ export interface Offer {
   amount: number;
 }
 
+/**
+ * Door 1 (gastos-da-ia, save v6): one move an AI club paid for or released, never rewritten.
+ * `round` is the league round (1-based) that had just closed; `fromId` null = from the free
+ * agents, `toId` null = released.
+ */
+export interface TransferRecord {
+  round: number;
+  kind: "buy" | "free" | "release";
+  playerId: string;
+  playerName: string;
+  fromId: string | null;
+  toId: string | null;
+  amount: number;
+}
+
 /** Players with no club, kept outside the leagues so they can cross countries later (door 1). */
 export interface Market {
   freeAgents: Player[];
   juniors: Player[];
   offers: Offer[];
+  /** Door 1 (gastos-da-ia): this season's AI transfers, oldest first; emptied at the turn of the season. */
+  transfers: TransferRecord[];
 }
 
 /** Door 1 (copa-nacional): a single match that always has a winner. */
@@ -216,7 +233,7 @@ export interface CupRecord {
   userReached: number | null;
 }
 
-export const SCHEMA_VERSION = 5 as const;
+export const SCHEMA_VERSION = 6 as const;
 
 export type Verdict = "met" | "missed" | "fired";
 

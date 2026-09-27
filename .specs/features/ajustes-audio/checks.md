@@ -25,10 +25,10 @@ Proof: `npm run check:layout:selftest`
 
 ### S2 - «Pular para o fim» em qualquer minuto · ~2 files · ~40 KB · ~10k
 
-**C5** - Tabela pela tela ao vivo, com uma partida do usuário que tem um `goal` do usuário no minuto 90: apertar «Pular para o fim» no minuto 1 → só `whistle-long` registrado; no minuto 89 → só `whistle-long` registrado (AC 5, L-007)
+**C5** - ✓ Tabela pela tela ao vivo, com uma partida do usuário que tem um `goal` do usuário no minuto 90: apertar «Pular para o fim» no minuto 1 → só `whistle-long` registrado; no minuto 89 → só `whistle-long` registrado (AC 5, L-007)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "pular para o fim em qualquer minuto toca só o apito final"`
 
-**C6** - Na mesma partida, deixando o relógio correr do minuto 89 ao 90 sem pulo, o tick do minuto 90 registra `crowd-roar` e `goal-jingle` pelo gol do usuário (AC 6)
+**C6** - ✓ Na mesma partida, deixando o relógio correr do minuto 89 ao 90 sem pulo, o tick do minuto 90 registra `crowd-roar` e `goal-jingle` pelo gol do usuário (AC 6)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "tick do minuto 90 toca os eventos do minuto"`
 
 ### S3 - Pênaltis um a um · ~3 files · ~35 KB · ~9k

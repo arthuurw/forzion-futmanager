@@ -23,7 +23,7 @@ Reutiliza a tela `Live` e o módulo `src/audio`, que já recebem os eventos da p
 
 1. `npm run check:layout` → `scripts/layout-check.mjs` (door 1) - faz o build, sobe `vite preview` por `node`, abre o Chrome instalado sem janela pelo DevTools Protocol, percorre as telas a 400 × 700 px clicando na interface de um jogo novo (cada partida da temporada pulada com «Pular para o fim» até o Fim e a Nova temporada) e mede a rolagem e as sobreposições; sai com 1 se alguma tela rola
 2. top strip e tela inicial (exist) - os botões de som cabem na mesma linha do top strip no celular e ficam fora do título na tela inicial
-3. «Pular para o fim» → store `skipToEnd` (exists) → tela `Live` (exists) - a tela sabe que o pulo aconteceu por um sinal explícito, não pelo tamanho do avanço do minuto, e só repassa `fulltime` a `src/audio`
+3. «Pular para o fim» → store `skipToEnd` (exists) → tela `Live` (exists) - a tela sabe que o pulo aconteceu por um sinal explícito (`skipped` no store, ligado por `skipToEnd` na mesma mudança que leva a partida ao 90), não pelo tamanho do avanço do minuto, e só repassa `fulltime` a `src/audio`
 4. tela `Live` (exists) → `src/audio` (exists) - eventos de disputa de pênaltis viram uma sequência agendada: apito final, depois uma cobrança por vez
 5. tela `NewSeason` (exists) - lê o registro da temporada fechada, que a tela Histórico já lê, e mostra os campeões das 4 ligas
 

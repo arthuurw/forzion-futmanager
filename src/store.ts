@@ -105,6 +105,8 @@ export interface GameStore {
   liveMessage: string | null;
   /** The round reached 90' and is being saved. */
   finishing: boolean;
+  /** The live round was run to its end by «Pular para o fim» (ajustes-audio AC 5). */
+  skipped: boolean;
   /** Why the last market or finance action was refused, if it was. */
   marketMessage: string | null;
   /** A market or finance action is being saved; further actions wait. */
@@ -239,6 +241,7 @@ export const useGame = create<GameStore>()((set, get) => {
     speed: 1,
     liveMessage: null,
     finishing: false,
+    skipped: false,
     marketMessage: null,
     saving: false,
     rolloverReport: null,
@@ -304,7 +307,7 @@ export const useGame = create<GameStore>()((set, get) => {
       const date = nextDate(game);
       if (date.kind === "over") return;
       const goLive = (live: LiveRound) =>
-        set({ live, phase: "live", clock: "running", speed: 1, liveMessage: null, finishing: false, lastRound: null });
+        set({ live, phase: "live", clock: "running", speed: 1, liveMessage: null, finishing: false, skipped: false, lastRound: null });
       if (date.kind === "league") return goLive(startRound(game));
       const live = startCupDate(game);
       const plays = game.cups[date.cupIndex]!.phases[date.phase]!.ties.some((t) => t.homeId === game.userClubId || t.awayId === game.userClubId);
@@ -341,7 +344,7 @@ export const useGame = create<GameStore>()((set, get) => {
     async skipToEnd() {
       const live = get().live;
       if (!live || get().finishing) return;
-      set({ live: runToEnd(live), clock: "paused" });
+      set({ live: runToEnd(live), clock: "paused", skipped: true });
       await finishLive();
     },
 

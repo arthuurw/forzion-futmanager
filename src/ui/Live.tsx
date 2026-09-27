@@ -58,9 +58,9 @@ export function Live() {
         const events = userMatch(s.live)?.events ?? [];
         const fresh = events.slice(heard);
         heard = events.length;
-        // «Pular para o fim» plays every minute left at once: only the final whistle sounds (AC 12).
-        const skipped = s.live.minute - prev.live.minute > 1;
-        sound.matchEvents(skipped ? fresh.filter((e) => e.type === "fulltime") : fresh, s.live.userClubId);
+        // «Pular para o fim» plays every minute left at once: only the final whistle sounds (AC 12),
+        // at any minute, even the 89th (ajustes-audio AC 5).
+        sound.matchEvents(s.skipped ? fresh.filter((e) => e.type === "fulltime") : fresh, s.live.userClubId);
       }
       const next = crowdOf(s);
       if (next && next !== crowd) sound.crowd(next);

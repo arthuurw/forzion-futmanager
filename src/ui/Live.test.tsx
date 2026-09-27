@@ -391,6 +391,69 @@ describe("som ao vivo (audio)", () => {
     expect(effects(backend.calls.slice(from))).toEqual(["whistle-long"]);
   });
 
+  /**
+   * Like `startWithSound`, with the audio installed after the fake clock: its 400 ms gap (audio
+   * AC 11) and its schedule then count the game's time, not how fast the test runs.
+   */
+  function startOnFakeClock(seed: number, game = seededGame(seed)): void {
+    vi.useFakeTimers();
+    backend = fakeBackend();
+    installAudio(backend);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    fireEvent.pointerDown(document);
+    fireEvent.click(screen.getByRole("button", { name: "Jogar rodada" }));
+  }
+
+  /** Lets the clock run at 1x, on fake timers, until the given minute. */
+  function runTo(minute: number): void {
+    while (liveMinute() < minute) {
+      if (useGame.getState().clock === "halftime") press("Continuar");
+      advance(300);
+    }
+    expect(liveMinute()).toBe(minute);
+  }
+
+  /** Seed 182: the user's club scores at 90' in the first round (L-007: the goal the skip must not sound). */
+  function userGoalAt90(): void {
+    const live = useGame.getState().live!;
+    const at90 = userMatch(runToEnd(live))!.events.filter((e) => e.minute === 90);
+    expect(at90.some((e) => e.type === "goal" && e.clubId === live.userClubId)).toBe(true);
+  }
+
+  test("pular para o fim em qualquer minuto toca só o apito final", async () => {
+    // C5 (AC 5, L-007): the skip at 1' and at 89', the second a single minute before the end.
+    for (const minute of [1, 89]) {
+      cleanup();
+      resetAll();
+      startOnFakeClock(182);
+      runTo(minute);
+      userGoalAt90();
+      const from = backend.calls.length;
+      press("Pular para o fim");
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(useGame.getState().lastRound, `minuto ${minute}`).not.toBeNull();
+      expect(effects(backend.calls.slice(from)), `minuto ${minute}`).toEqual(["whistle-long"]);
+      vi.useRealTimers();
+    }
+  });
+
+  test("tick do minuto 90 toca os eventos do minuto", () => {
+    // C6 (AC 6): no skip, the clock runs from 89' to 90'.
+    startOnFakeClock(182);
+    runTo(89);
+    userGoalAt90();
+    const from = backend.calls.length;
+    advance(300);
+    expect(useGame.getState().lastRound).not.toBeNull();
+    const heard = effects(backend.calls.slice(from));
+    expect(heard).toContain("crowd-roar");
+    expect(heard).toContain("goal-jingle");
+    expect(heard).toContain("whistle-long");
+  });
+
   test("áudio não mexe no sorteio do jogo", () => {
     // C14: the same match with the audio on and muted.
     startWithSound(7);

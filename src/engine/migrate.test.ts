@@ -1,4 +1,7 @@
 import { newGame } from "./generate";
+import { aiLineup, formationSlots, isAvailable } from "./lineup";
+import { makeMatch, makeSide, runToEnd, type LivePlayer } from "./live";
+import { createRng, mix32, randInt } from "./rng";
 import { migrateSave } from "./migrate";
 import { v1Document, v2Document, v3Document } from "./test-fixtures";
 import type { GameState } from "./types";
@@ -140,5 +143,46 @@ describe("migração do save", () => {
     if (other.kind !== "ok") throw new Error("not migrated");
     const scores = (s: GameState) => s.leagues[1]!.rounds.slice(0, 3).flatMap((r) => r.matches.map((m) => m.result));
     expect(scores(other.state)).not.toEqual(scores(a.state));
+  });
+
+  test("partidas migradas da série B usam a semente da porta 5", () => {
+    const seed = 8;
+    const r = migrateSave(v3Document(seed, 2));
+    if (r.kind !== "ok") throw new Error("not migrated");
+    const b = r.state.leagues[1]!;
+    // Replay round 1 of the Série B here, as scores only, with the seed written out.
+    const players: Record<string, LivePlayer> = {};
+    for (const c of b.clubs) for (const p of c.players) players[p.id] = { ...p };
+    const clubs = new Map(b.clubs.map((c) => [c.id, c]));
+    const side = (id: string) => {
+      const club = clubs.get(id)!;
+      const lineup = aiLineup(club);
+      const starters = lineup.starters.map((pid) => (pid && isAvailable(club.players.find((p) => p.id === pid)!) ? pid : null));
+      return makeSide(id, formationSlots(lineup.formation), starters, club.players.filter((p) => !starters.includes(p.id)).map((p) => p.id), players, { formation: lineup.formation });
+    };
+    const replay = (seedOf: (i: number) => number) =>
+      runToEnd({
+        roundIndex: 0,
+        roundNumber: 1,
+        minute: 0,
+        userClubId: null,
+        players,
+        matches: b.rounds[0]!.matches.map((m, i) => makeMatch(m.id, side(m.homeId), side(m.awayId), seedOf(i), "l2")),
+      }).matches.map((m) => [m.homeGoals, m.awayGoals]);
+    const stored = b.rounds[0]!.matches.map((m) => [m.result!.homeGoals, m.result!.awayGoals]);
+    expect(stored).toEqual(replay((i) => mix32(mix32(seed, 0xb), 1 * 16 + i)));
+    // The Série A scheme (rejected in door 2) would give other scores.
+    expect(stored).not.toEqual(replay((i) => mix32(seed, 1 * 16 + i)));
+  });
+
+  test("contratos migrados da série A vêm de mix32(seed, 5)", () => {
+    const seed = 9;
+    const r = migrateSave(v3Document(seed, 0));
+    if (r.kind !== "ok") throw new Error("not migrated");
+    const rng = createRng(mix32(seed, 5));
+    const expected = r.state.leagues[0]!.clubs.flatMap((c) => c.players.map(() => randInt(rng, 1, 4)));
+    expect(r.state.leagues[0]!.clubs.flatMap((c) => c.players.map((p) => p.contractSeasons))).toEqual(expected);
+    const other = createRng(mix32(seed, 6));
+    expect(expected).not.toEqual(expected.map(() => randInt(other, 1, 4)));
   });
 });

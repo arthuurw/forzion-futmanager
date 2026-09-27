@@ -112,6 +112,10 @@ describe("virada de temporada", () => {
 
   test("virada usa o próprio Rng", () => {
     const before = ended();
+    // The first player of the first Série A club that stays up is young with a long contract: he stays and evolves.
+    const down = computeTable(before.leagues[0]!).slice(16).map((r) => r.clubId);
+    const stays = before.leagues[0]!.clubs.find((c) => !down.includes(c.id))!;
+    Object.assign(stays.players[0]!, { age: 22, contractSeasons: 3, rating: 60 });
     const a = nextSeason(clone(before)).state;
     expect(nextSeason(clone(before)).state).toEqual(a);
     const advanced = createRng(before.rngState);
@@ -122,8 +126,10 @@ describe("virada de temporada", () => {
     const p0 = clubOf(before, firstClub.id).players[0]!;
     const band = p0.age <= 20 ? [2, 6] : p0.age <= 23 ? [1, 4] : p0.age <= 27 ? [-1, 2] : p0.age <= 30 ? [-2, 1] : p0.age <= 33 ? [-4, 0] : [-6, -2];
     const delta = randInt(createRng(mix32(before.rngState, 0x5e45 + before.season)), band[0]!, band[1]!);
+    expect(firstClub.id).toBe(stays.id);
     const now = everyone(a).find((p) => p.id === p0.id);
-    if (now) expect(now.rating).toBe(Math.max(40, Math.min(95, p0.rating + delta)));
+    expect(now).toBeDefined();
+    expect(now!.rating).toBe(p0.rating + delta);
     const other = nextSeason({ ...clone(before), rngState: before.rngState + 1 }).state;
     const ratings = (s: GameState) => all(s).flatMap((c) => c.players.map((p) => p.rating));
     expect(ratings(other)).not.toEqual(ratings(a));

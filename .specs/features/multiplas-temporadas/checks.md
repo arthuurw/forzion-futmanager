@@ -5,7 +5,7 @@ Plan: `.specs/features/multiplas-temporadas/plan.md`
 
 ## Intent
 
-55 checks in 7 slices · 5 one-way doors · 0 open
+56 checks in 7 slices · 5 one-way doors · 0 open
 
 Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`). Telas usam `@testing-library/react` em jsdom. Todo valor esperado é literal ou calculado no próprio teste, nunca pela função de produção (L-004). «Todo», «cada» e «todas» são provados por tabela sobre o conjunto inteiro (L-005). Lições aplicadas: L-003 (fiação pelo ponto de entrada), L-007 (fixture com o membro excluído), L-008 (texto exato na tela), L-010 (valores exibidos diferentes de zero).
 
@@ -267,6 +267,10 @@ Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVers
 **C52** - A Série B do jogo novo é a de `generateLeague` sobre `createRng(mix32(seed, 4))`. A Série A e o `rngState` continuam os de `createRng(seed)`. Na migração, a Série B vem do mesmo stream e as partidas já jogadas usam `mix32(mix32(seed, 0xB), n*16 + i)`: migrar duas vezes dá o mesmo documento (door 5)
 Proof: `npx vitest run src/engine/generate.test.ts -t "série B tem stream próprio"`
 Proof: `npx vitest run src/engine/migrate.test.ts -t "série B migrada vem da seed"`
+Proof: `npx vitest run src/engine/migrate.test.ts -t "partidas migradas da série B usam a semente da porta 5"`
+
+**C56** - Na migração, o contrato de cada jogador da Série A, na ordem dos clubes e dos jogadores, é o sorteio `randInt(1, 4)` de `createRng(mix32(seed, 5))` (door 5)
+Proof: `npx vitest run src/engine/migrate.test.ts -t "contratos migrados da série A vêm de mix32(seed, 5)"`
 
 **C53** - Em 3 seeds e 5 temporadas sem usuário, o caixa final de cada clube fica entre −2× e 30× o inicial, e a mediana entre 3× e 10× (AC 43)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
@@ -295,7 +299,7 @@ Proof: `npx vitest run src/engine/rollover.test.ts -t "histórico da temporada"`
 | o que a virada renova (6) | clubes C13 · calendário C14 · condição C15 · propostas C16 · juniores C14 · meta C36 | - |
 | o que a virada mantém (7) | lesão C15 · moral C15 · caixa C16 · estádio C16 · obra C16 · empréstimo C16 · registro C16 | - |
 | versões de save (5) | v1 C49 · v2 C49 · v3 C48 · v4 C51 · v5 C50 | - |
-| portas de mão única (5) | door 1 C48, C51, C54 · door 2 C5 · door 3 C19 · door 4 C1, C13 · door 5 C52 | - |
+| portas de mão única (5) | door 1 C48, C51, C54 · door 2 C5 · door 3 C19 · door 4 C1, C13 · door 5 C52, C56 | - |
 | entidades de `Relations` (6) | Save → 2 League C1 · SeasonRecord C43 · DivisionRecord C43 · Market C14, C25 · League → 20 Club C13 · Club → Player (contrato ≥ 1) C54 | - |
 | restrições de mão única (3) | ordem das divisões C13 · contrato ≥ 1 C54 · histórico só cresce C55 | - |
 
@@ -348,3 +352,11 @@ O plano aprovado muda contratos já provados. Os testes abaixo mudam no mesmo co
   - The live tick shares the players' snapshot instead of copying it: 20 matches made a tick twice as expensive, and the 4x live test timed out under the parallel suite. Two heavy UI tests got longer timeouts, with the same assertions.
   - In the squad list, the number of a last-year contract is the «Renovar» button, so the list keeps its width. On a phone, «Último ano» is visually hidden and the number turns orange.
 - **Abandoned:** measuring the cash band with the sponsorship recomputed every season. It fixed the minimum (−2× → 1×) but not the median or the maximum, because the AI never spends.
+
+### Round 1 fixes (after `c60980d`, verdict FAIL on C52)
+
+- **C52:** gained a second `Proof:` line, `partidas migradas da série B usam a semente da porta 5`. It replays round 1 of the migrated Série B with the seed written out and compares the scores; the Série A scheme gives other scores. The claim is unchanged. Before, the proof only showed determinism.
+- **C56 (new):** the check that door 5's contract stream (`mix32(seed, 5)`) owed (L-009).
+- **C19, stronger fixture, same claim:** the first player of the first club that stays up is young with a long contract, and the assertion lost its `if` guard.
+- Both new migration tests were run against injected faults (Série A seed scheme; stream 6) and failed as expected.
+

@@ -1,0 +1,320 @@
+#!/usr/bin/env node
+/**
+ * Door 1 of ajustes-audio: AD-010 measured in a real browser. Builds the app, serves it with
+ * `vite preview`, drives the installed Chrome (or Edge) headless over the DevTools Protocol at
+ * 400 × 700 px through the 11 screens, and exits 1 naming every screen that scrolls, that cuts a
+ * sound switch, or (title screen) whose switches overlap the title, the tagline or the menu.
+ *
+ * Flags: `--no-build` reuses `dist/`; `--inject=<screen>` adds an 800 px tall element to that
+ * screen (the selftest's broken screen).
+ */
+import { execSync, spawn, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import net from "node:net";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const PREVIEW_PORT = 4179;
+const HOST = "127.0.0.1";
+const WIDTH = 400;
+const HEIGHT = 700;
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const BROWSERS = [
+  process.env.CHROME_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "/usr/bin/google-chrome",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+].filter(Boolean);
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** True when nothing accepts a connection on the port. */
+export function portFree(port = PREVIEW_PORT, host = HOST) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ port, host });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.once("error", () => resolve(true));
+  });
+}
+
+async function until(what, check, timeoutMs = 20000, everyMs = 100) {
+  const end = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await check();
+    if (value) return value;
+    if (Date.now() > end) throw new Error(`timeout: ${what}`);
+    await sleep(everyMs);
+  }
+}
+
+function killTree(child) {
+  if (!child || child.exitCode !== null) return;
+  if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+  else child.kill("SIGKILL");
+}
+
+/** A minimal DevTools Protocol client over Node's global WebSocket. */
+async function connect(url) {
+  const ws = new WebSocket(url);
+  const pending = new Map();
+  let next = 0;
+  ws.addEventListener("message", (e) => {
+    const msg = JSON.parse(e.data);
+    const p = msg.id !== undefined && pending.get(msg.id);
+    if (!p) return;
+    pending.delete(msg.id);
+    if (msg.error) p.reject(new Error(msg.error.message));
+    else p.resolve(msg.result);
+  });
+  await new Promise((resolve, reject) => {
+    ws.addEventListener("open", resolve, { once: true });
+    ws.addEventListener("error", () => reject(new Error(`cannot connect to ${url}`)), { once: true });
+  });
+  return {
+    send(method, params = {}) {
+      const id = ++next;
+      ws.send(JSON.stringify({ id, method, params }));
+      return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+    },
+    close: () => ws.close(),
+  };
+}
+
+/** Helpers defined in the page: find and click buttons by their text, measure the layout. */
+const PAGE_HELPERS = `window.__lc = {
+  buttons: (text) => [...document.querySelectorAll("button")].filter((b) => b.textContent.trim() === text && b.getClientRects().length > 0),
+  has: (text) => __lc.buttons(text).length > 0,
+  enabled: (text) => __lc.buttons(text).some((b) => !b.disabled),
+  click(text) {
+    const b = __lc.buttons(text).find((x) => !x.disabled);
+    if (!b) throw new Error("no enabled button " + text);
+    b.click();
+    return true;
+  },
+  h1: () => document.querySelector("h1")?.textContent.trim() ?? "",
+  settled: () => document.getAnimations().every((a) => a.effect?.getTiming().iterations === Infinity || a.playState !== "running"),
+  rect: (el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  },
+  measure() {
+    const doc = document.scrollingElement ?? document.documentElement;
+    const toggles = [...document.querySelectorAll(".audio-toggles button")].map((b) => ({ name: b.textContent.trim(), ...__lc.rect(b) }));
+    const group = document.querySelector(".audio-toggles");
+    const title = [".title-screen .logo-big", ".title-screen .tagline", ".title-screen .menu button"].flatMap((s) =>
+      [...document.querySelectorAll(s)].map((el) => ({ name: s.split(" ").pop() + (el.tagName === "BUTTON" ? " «" + el.textContent.trim() + "»" : ""), ...__lc.rect(el) })),
+    );
+    return { scrollHeight: doc.scrollHeight, scrollWidth: doc.scrollWidth, toggles, group: group ? __lc.rect(group) : null, title };
+  },
+  inject() {
+    const el = document.createElement("div");
+    el.setAttribute("data-layout-check", "injected");
+    el.style.cssText = "height:800px;flex:none;";
+    document.querySelector(".screen").appendChild(el);
+    return true;
+  },
+  /** Puts an available player, not already starting, in the first starter slot that has none (as a manager would). */
+  repick() {
+    const selects = [...document.querySelectorAll("select[aria-label^='Titular']")];
+    const used = new Set(selects.map((x) => x.value));
+    const bad = selects.find((x) => !x.value || x.selectedOptions[0]?.disabled);
+    const pick = bad && [...bad.options].find((o) => o.value && !o.disabled && !used.has(o.value));
+    if (!pick) return false;
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(bad, pick.value);
+    bad.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  },
+};
+true`;
+
+const within = (r) => r.left >= 0 && r.top >= 0 && r.right <= WIDTH && r.bottom <= HEIGHT && r.right > r.left && r.bottom > r.top;
+const crosses = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+/** The problems AC 1-3 find in one measurement. */
+function problems(screen, m) {
+  const out = [];
+  if (m.scrollHeight > HEIGHT) out.push(`scrollHeight ${m.scrollHeight} > ${HEIGHT}`);
+  if (m.scrollWidth > WIDTH) out.push(`scrollWidth ${m.scrollWidth} > ${WIDTH}`);
+  for (const name of ["Música", "Efeitos"]) {
+    const t = m.toggles.find((x) => x.name === name);
+    if (!t) out.push(`sem o botão «${name}»`);
+    else if (!within(t)) out.push(`«${name}» fora da janela (${fmt(t)})`);
+  }
+  if (screen === "home") {
+    if (m.title.length < 3) out.push("título, subtítulo ou menu não encontrados");
+    for (const t of m.title) if (m.group && crosses(m.group, t)) out.push(`botões de som sobre ${t.name}`);
+  }
+  return out;
+}
+
+const fmt = (r) => `${Math.round(r.left)},${Math.round(r.top)}-${Math.round(r.right)},${Math.round(r.bottom)}`;
+
+async function run({ build, inject }) {
+  const failures = [];
+  const measured = new Set();
+  let preview = null;
+  let browser = null;
+  let profile = null;
+  let page = null;
+  try {
+    if (!(await portFree())) throw new Error(`a porta ${PREVIEW_PORT} já está em uso`);
+    if (build) execSync("npm run build", { cwd: ROOT, stdio: ["ignore", "inherit", "inherit"] });
+
+    preview = spawn(process.execPath, [join(ROOT, "node_modules/vite/bin/vite.js"), "preview", "--port", String(PREVIEW_PORT), "--strictPort", "--host", HOST], {
+      cwd: ROOT,
+      stdio: "ignore",
+    });
+    const base = `http://${HOST}:${PREVIEW_PORT}/`;
+    await until("vite preview", () => fetch(base).then((r) => r.ok, () => false));
+
+    const exe = BROWSERS.find((p) => existsSync(p));
+    if (!exe) throw new Error("Chrome ou Edge não encontrado (defina CHROME_PATH)");
+    profile = mkdtempSync(join(tmpdir(), "layout-check-"));
+    browser = spawn(exe, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-extensions", "about:blank"], {
+      stdio: "ignore",
+    });
+    const portFile = join(profile, "DevToolsActivePort");
+    const devtools = await until("DevToolsActivePort", () => existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0].trim());
+    const target = await until("página do navegador", () =>
+      fetch(`http://${HOST}:${devtools}/json/list`).then((r) => r.json().then((list) => list.find((t) => t.type === "page")), () => null),
+    );
+    page = await connect(target.webSocketDebuggerUrl);
+    await page.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
+    await page.send("Page.navigate", { url: base });
+
+    const js = async (expression) => {
+      const r = await page.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+      if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
+      return r.result.value;
+    };
+    const wait = (what, expression, timeoutMs) => until(what, () => js(`(() => { try { return ${expression}; } catch { return false; } })()`), timeoutMs);
+    const click = (text) => js(`__lc.click(${JSON.stringify(text)})`);
+    const measure = async (screen) => {
+      if (inject === screen) await js("__lc.inject()");
+      await wait(`animações de ${screen}`, "__lc.settled()", 5000);
+      const m = await js("__lc.measure()");
+      const bad = problems(screen, m);
+      const toggles = m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ");
+      console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth} · ${toggles}${bad.length ? ` · ${bad.join("; ")}` : ""}`);
+      if (bad.length) failures.push(screen);
+      measured.add(screen);
+    };
+
+    await wait("página carregada", "document.readyState === 'complete' && !!document.querySelector('#root')");
+    await js(PAGE_HELPERS);
+    console.log(`Janela ${WIDTH} × ${HEIGHT} px (${exe})`);
+
+    await wait("tela inicial", "__lc.enabled('Novo jogo')");
+    await measure("home");
+    await click("Novo jogo");
+    await wait("escolher clube", "__lc.h1() === 'Escolher clube'");
+    await measure("chooseClub");
+    await js("document.querySelector('.club-card').click()");
+    await wait("elenco", "__lc.enabled('Mercado')");
+    await measure("squad");
+    for (const [button, screen, h1] of [
+      ["Mercado", "market", "'Mercado'"],
+      ["Finanças", "finance", "'Finanças'"],
+      ["Histórico", "history", "'Histórico'"],
+      ["Copa", "cup", "document.querySelector('.stage h1')?.textContent.startsWith('Copa')"],
+    ]) {
+      await click(button);
+      await wait(screen, h1.startsWith("'") ? `__lc.h1() === ${h1}` : h1);
+      await measure(screen);
+      await click("Voltar ao elenco");
+      await wait("elenco", "__lc.enabled('Mercado')");
+    }
+
+    // The season, date by date: each match skipped to the end (skipping is the user's own button).
+    await click("Jogar rodada");
+    for (let steps = 0; ; steps++) {
+      if (steps > 300) throw new Error("a temporada não terminou em 300 passos");
+      const state = await wait(
+        "próxima tela",
+        `__lc.has('Pular para o fim') ? 'live' : __lc.h1().startsWith('Fim da temporada') ? 'end' : __lc.has('Escalação') ? 'round' : __lc.has('Mercado') ? 'squad' : false`,
+      );
+      if (state === "end") break;
+      if (state === "live") {
+        if (!measured.has("live")) await measure("live");
+        await click("Pular para o fim");
+        await wait("resultado", "!__lc.has('Pular para o fim')");
+        continue;
+      }
+      if (state === "round" && !measured.has("round")) await measure("round");
+      if (state === "round" && !(await js("__lc.enabled('Jogar rodada')"))) {
+        await click("Escalação");
+        await wait("elenco", "__lc.enabled('Mercado')");
+      }
+      if ((await js("__lc.has('Mercado')")) && !(await js("__lc.enabled('Jogar rodada')"))) {
+        for (let slot = 0; slot < 11 && !(await js("__lc.enabled('Jogar rodada')")); slot++) {
+          await js("__lc.repick()");
+          await sleep(100);
+        }
+        await wait("escalação completa", "__lc.enabled('Jogar rodada')", 3000);
+      }
+      // A click while the last date is still being saved is ignored by the store: click again.
+      const before = await js("__lc.h1()");
+      const played = `__lc.h1() !== ${JSON.stringify(before)} || __lc.has('Pular para o fim')`;
+      for (let tries = 0; ; tries++) {
+        await click("Jogar rodada");
+        if (await wait("data jogada", played, 2000).catch(() => false)) break;
+        if (tries === 10) throw new Error(`data não jogada (${await js("__lc.h1()")})`);
+      }
+    }
+    await measure("end");
+    if (await js("!!document.querySelector('[aria-label=\"Propostas de emprego\"] button')")) {
+      await js("document.querySelector('[aria-label=\"Propostas de emprego\"] button').click()");
+    }
+    await wait("próxima temporada", "__lc.enabled('Próxima temporada')");
+    await click("Próxima temporada");
+    await wait("nova temporada", "__lc.h1() === 'Nova temporada'", 30000);
+    await measure("newSeason");
+  } catch (e) {
+    console.log(`ERRO ${e.message}`);
+    failures.push("erro");
+  } finally {
+    if (page) {
+      await Promise.race([page.send("Browser.close").catch(() => {}), sleep(2000)]);
+      page.close();
+    }
+    killTree(browser);
+    killTree(preview);
+    const freed = await until("porta livre", () => portFree(), 10000).catch(() => false);
+    if (!freed) {
+      console.log(`ERRO a porta ${PREVIEW_PORT} continua ocupada`);
+      failures.push("porta");
+    }
+    if (profile) {
+      await until("perfil removido", () => {
+        try {
+          rmSync(profile, { recursive: true, force: true });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 10000).catch(() => console.log(`aviso: perfil temporário não removido: ${profile}`));
+    }
+  }
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "history", "end", "newSeason"];
+  return { failures, missing: screens.filter((s) => !measured.has(s)) };
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const inject = args.find((a) => a.startsWith("--inject="))?.slice("--inject=".length) ?? null;
+  const { failures, missing } = await run({ build: !args.includes("--no-build"), inject });
+  if (missing.length) console.log(`FALHA telas não medidas: ${missing.join(", ")}`);
+  if (failures.length || missing.length) {
+    console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
+    process.exit(1);
+  }
+  console.log("layout: as 11 telas cabem em 400 × 700 px");
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

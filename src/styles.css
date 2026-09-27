@@ -314,13 +314,23 @@ h1.title-bar {
 }
 
 @media (max-width: 900px) {
-  /* Logo, season and switches do not fit one phone row: the switches wrap below. */
+  /* Logo, season and switches share one phone row (AD-010); only a narrower window wraps them. */
   .top-strip {
     flex-wrap: wrap;
     row-gap: 4px;
+    gap: 6px;
+    padding: 5px 10px;
   }
   .top-strip .audio-toggles {
     margin-left: auto;
+  }
+  .top-strip .season {
+    font-size: 0.7rem;
+    letter-spacing: 0;
+  }
+  .audio-toggles.speeds button.speed {
+    padding: 3px 5px;
+    font-size: 0.66rem;
   }
 }
 
@@ -1640,7 +1650,7 @@ tr.down td:last-child {
   }
 
   .top-strip .logo {
-    font-size: 1.05rem;
+    font-size: 0.85rem;
   }
 
   .top-strip .logo,

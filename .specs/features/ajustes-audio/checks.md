@@ -17,10 +17,10 @@ Proof: `npm run check:layout`
 **C2** - Na mesma execução, em cada uma das 11 telas, o retângulo de cada botão «Música» e «Efeitos» fica inteiro dentro de 0..400 × 0..700 (AC 2)
 Proof: `npm run check:layout`
 
-**C3** - Na mesma execução, na tela inicial, o retângulo dos botões de som não cruza o do título (`.logo-big`), o do subtítulo (`.tagline`) nem o de nenhum botão de `.menu` (AC 3)
+**C3** - ✓ Na mesma execução, na tela inicial, o retângulo dos botões de som não cruza o do título (`.logo-big`), o do subtítulo (`.tagline`) nem o de nenhum botão de `.menu` (AC 3)
 Proof: `npm run check:layout`
 
-**C4** - `npm run check:layout:selftest` sai com 0 só se: o script, rodado com um elemento de 800 px de altura injetado na tela `squad`, sai com 1 e imprime `squad`; e, depois dessa execução e de uma execução normal, a porta do `vite preview` está livre (AC 4, door 1)
+**C4** - ✓ `npm run check:layout:selftest` sai com 0 só se: o script, rodado com um elemento de 800 px de altura injetado na tela `squad`, sai com 1 e imprime `squad`; e, depois dessa execução e de uma execução normal, a porta do `vite preview` está livre (AC 4, door 1)
 Proof: `npm run check:layout:selftest`
 
 ### S2 - «Pular para o fim» em qualquer minuto · ~2 files · ~40 KB · ~10k

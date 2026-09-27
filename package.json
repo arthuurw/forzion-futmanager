@@ -8,7 +8,9 @@
     "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.engine.json --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "check:layout": "node scripts/layout-check.mjs",
+    "check:layout:selftest": "node scripts/layout-check-selftest.mjs"
   },
   "dependencies": {
     "idb": "^8.0.3",

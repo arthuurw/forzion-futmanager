@@ -5,7 +5,7 @@ import { simulateMatch, type TeamSheet } from "./match";
 import { createRng } from "./rng";
 import { nextSeason } from "./rollover";
 import { playDate, playRound } from "./season";
-import type { GameState, PlayerCore, Posture, TransferRecord } from "./types";
+import type { Country, GameState, PlayerCore, Posture, TransferRecord } from "./types";
 
 function flatSheet(clubId: string, rating: number, posture: Posture = "balanced"): TeamSheet {
   const starters: PlayerCore[] = formationSlots("4-4-2").map((position, i) => ({
@@ -143,13 +143,17 @@ const MULTI_SEEDS = [1, 2, 3];
 const best18 = (ratings: number[]) => [...ratings].sort((a, b) => b - a).slice(0, 18).reduce((a, b) => a + b, 0) / Math.min(18, ratings.length);
 
 interface Run {
-  /** Per season start, per division: mean over clubs of the best-18 mean. */
+  /** Per season start, per league (in `leagues` order): mean over clubs of the best-18 mean. */
   strength: number[][];
-  /** Final cash / initial cash, per club. */
-  cash: number[];
+  /** The country of each league, in `leagues` order, at the start. */
+  countries: Country[];
+  /** Final cash / initial cash, per club, with the country of the league it started in. */
+  cash: { country: Country; ratio: number }[];
+  /** Paises C33: after every round and every turn of the season, clubs in a league of another country than at the start. */
+  countryMoves: string[];
   /** Per season: the transfer list just before the turn of the season. */
   transfers: TransferRecord[][];
-  /** Per season: players at another club after a round than before it, from the squads alone. */
+  /** Per season: players at another club of Brazil after a round than before it, from the squads alone (paises C26). */
   moved: number[];
   /**
    * Per season: rounds whose squads afterwards differ from the squads before with the round's
@@ -168,6 +172,12 @@ function multiSeason(): Run[] {
   runs = MULTI_SEEDS.map((seed) => {
     let state = newGame(seed);
     const initial = new Map(state.leagues.flatMap((l) => l.clubs).map((c) => [c.id, c.finance.cash]));
+    const startCountry = new Map(state.leagues.flatMap((l) => l.clubs.map((c) => [c.id, l.country] as const)));
+    const countries = state.leagues.map((l) => l.country);
+    const countryMoves: string[] = [];
+    const checkCountries = (label: string) => {
+      for (const l of state.leagues) for (const c of l.clubs) if (startCountry.get(c.id) !== l.country) countryMoves.push(`${label} ${c.id} em ${l.id}`);
+    };
     const strength: number[][] = [];
     const transfers: TransferRecord[][] = [];
     const moved: number[] = [];
@@ -180,10 +190,11 @@ function multiSeason(): Run[] {
         const before = clubOf(state);
         const seen = state.market.transfers.length;
         state = playRound(state).state;
+        checkCountries(`seed ${seed} temporada ${season} rodada ${r + 1}`);
         const after = clubOf(state);
         for (const [id, clubId] of after) {
           const from = before.get(id);
-          if (from !== undefined && from !== clubId) movedNow++;
+          if (from !== undefined && from !== clubId && startCountry.get(clubId) === "BR") movedNow++;
         }
         const replay = new Map(before);
         let consistent = true;
@@ -198,10 +209,13 @@ function multiSeason(): Run[] {
       moved.push(movedNow);
       unexplained.push(unexplainedNow);
       transfers.push(state.market.transfers);
-      if (season < SEASONS) state = nextSeason(state).state;
+      if (season < SEASONS) {
+        state = nextSeason(state).state;
+        checkCountries(`seed ${seed} virada ${season}`);
+      }
     }
-    const cash = state.leagues.flatMap((l) => l.clubs).map((c) => c.finance.cash / initial.get(c.id)!);
-    return { strength, cash, transfers, moved, unexplained };
+    const cash = state.leagues.flatMap((l) => l.clubs).map((c) => ({ country: startCountry.get(c.id)!, ratio: c.finance.cash / initial.get(c.id)! }));
+    return { strength, countries, cash, countryMoves, transfers, moved, unexplained };
   });
   return runs;
 }
@@ -209,10 +223,12 @@ function multiSeason(): Run[] {
 describe("equilíbrio em várias temporadas", () => {
   test("força estável em 5 temporadas", () => {
     // Gastos-da-ia C21 (Superseded checks): the limit is 5 points, was 4.
+    // Paises C26 (Superseded checks): measured over the leagues of Brazil only.
     let drift = 0;
     for (const [k, run] of multiSeason().entries()) {
       for (const [season, divisions] of run.strength.entries()) {
         divisions.forEach((mean, d) => {
+          if (run.countries[d] !== "BR") return;
           drift = Math.max(drift, Math.abs(mean - run.strength[0]![d]!));
           expect(Math.abs(mean - run.strength[0]![d]!), `seed ${MULTI_SEEDS[k]} temporada ${season + 1} divisão ${d}`).toBeLessThanOrEqual(5);
         });
@@ -223,7 +239,8 @@ describe("equilíbrio em várias temporadas", () => {
 
   test("caixa em 5 temporadas", () => {
     // Gastos-da-ia C19 (Superseded checks): −2× to 15×, median 2× to 4×; was −2× to 30×, median 3× to 10×.
-    const ratios = multiSeason().flatMap((r) => r.cash);
+    // Paises C26 (Superseded checks): the clubs that started in the leagues of Brazil only.
+    const ratios = multiSeason().flatMap((r) => r.cash.filter((c) => c.country === "BR").map((c) => c.ratio));
     expect(ratios).toHaveLength(120);
     report("C19 caixa em 5 temporadas", ratios);
     const sorted = [...ratios].sort((a, b) => a - b);
@@ -238,7 +255,9 @@ describe("equilíbrio em várias temporadas", () => {
 
   test("compras da IA em 5 temporadas", () => {
     for (const [k, run] of multiSeason().entries()) {
-      const buys = run.transfers.map((list) => list.filter((t) => t.kind === "buy").length);
+      // Paises C26 (Superseded checks): the buys of the clubs of Brazil, c1-c40 by door 1.
+      const brazil = (id: string | null) => id !== null && Number(id.slice(1)) <= 40;
+      const buys = run.transfers.map((list) => list.filter((t) => t.kind === "buy" && brazil(t.toId)).length);
       console.log(`C20 seed ${MULTI_SEEDS[k]}: compras por temporada ${buys.join(", ")}; movimentos ${run.transfers.map((l) => l.length).join(", ")}`);
       console.log(`C20 seed ${MULTI_SEEDS[k]}: jogadores que mudaram de clube por temporada ${run.moved.join(", ")}`);
       // L-015: the lines are checked against the squads. Replaying each round's lines over the
@@ -283,5 +302,44 @@ describe("equilíbrio em várias temporadas", () => {
         for (const kind of kinds) expect(["buy", "free", "release"], `seed ${MULTI_SEEDS[k]} temporada ${season + 1}`).toContain(kind);
       }
     }
+  }, 120_000);
+  test("caixa em 5 temporadas dos países novos", () => {
+    // Paises C24 (AC 23): every club of the Liga Argentina and the Liga Portuguesa between −2× and
+    // 15× its initial cash, the median of each league between 1,2× and 4× (floor renegotiated from 2×).
+    const all = multiSeason().flatMap((r) => r.cash);
+    for (const country of ["AR", "PT"] as const) {
+      const ratios = all.filter((c) => c.country === country).map((c) => c.ratio);
+      expect(ratios, country).toHaveLength(60);
+      report(`C24 caixa em 5 temporadas ${country}`, ratios);
+      for (const r of ratios) {
+        expect(r, country).toBeGreaterThanOrEqual(-2);
+        expect(r, country).toBeLessThanOrEqual(15);
+      }
+      const sorted = [...ratios].sort((a, b) => a - b);
+      const median = (sorted[29]! + sorted[30]!) / 2;
+      expect(median, country).toBeGreaterThanOrEqual(1.2);
+      expect(median, country).toBeLessThanOrEqual(4);
+    }
+  }, 120_000);
+
+  test("força estável dos países novos", () => {
+    // Paises C25 (AC 24): the mean best 18 of the Liga Argentina and the Liga Portuguesa stays
+    // within 5 points of season 1, every season.
+    for (const [k, run] of multiSeason().entries()) {
+      expect(run.countries, `seed ${MULTI_SEEDS[k]}`).toEqual(["BR", "BR", "AR", "PT"]);
+      for (const d of [2, 3]) {
+        const drift = run.strength.map((divisions) => Math.abs(divisions[d]! - run.strength[0]![d]!));
+        console.log(`C25 seed ${MULTI_SEEDS[k]} ${run.countries[d]}: deriva ${drift.map((x) => x.toFixed(2)).join(", ")}`);
+        expect(run.strength, `seed ${MULTI_SEEDS[k]}`).toHaveLength(SEASONS);
+        for (const [season, x] of drift.entries()) {
+          expect(x, `seed ${MULTI_SEEDS[k]} temporada ${season + 1} ${run.countries[d]}`).toBeLessThanOrEqual(5);
+        }
+      }
+    }
+  }, 120_000);
+
+  test("clube nunca muda de país", () => {
+    // Paises C33 (door 1): after every round and every turn of the season of 5 seasons of seeds 1-3.
+    for (const run of multiSeason()) expect(run.countryMoves).toEqual([]);
   }, 120_000);
 });

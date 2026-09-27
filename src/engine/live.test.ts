@@ -328,7 +328,8 @@ describe("duas divisões na rodada", () => {
     let state = game(12);
     state = playRound(state).state;
     const live = startRound(state);
-    expect(live.matches).toHaveLength(20);
+    // Paises (Superseded checks): 4 leagues of 10 matches.
+    expect(live.matches).toHaveLength(40);
     const [a, b] = state.leagues;
     const n = 2;
     a!.rounds[1]!.matches.forEach((m, i) => {

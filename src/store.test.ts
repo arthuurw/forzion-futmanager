@@ -220,7 +220,8 @@ describe("copa pelo store (copa-nacional)", () => {
     await useGame.getState().skipToEnd();
     const s = useGame.getState();
     expect(s.phase).toBe("end");
-    expect(s.game!.leagues.map((l) => l.currentRound)).toEqual([38, 38]);
+    // Paises (Superseded checks): 4 leagues.
+    expect(s.game!.leagues.map((l) => l.currentRound)).toEqual([38, 38, 38, 38]);
     expect(s.game!.cups[0]!.phases[5]!.ties[0]!.winnerId).not.toBeNull();
   }, 60_000);
 

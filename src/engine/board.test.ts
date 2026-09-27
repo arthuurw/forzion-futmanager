@@ -33,7 +33,8 @@ function cupWith(ties: [string, string, string][][]): Cup {
 describe("meta de copa", () => {
   test("meta de copa pelos 40 clubes", () => {
     const s = newGame(91);
-    const clubs = s.leagues.flatMap((l) => l.clubs);
+    // Paises: the 40 clubs of Brazil (a club abroad has no cup goal, C16).
+    const clubs = s.leagues.filter((l) => l.country === "BR").flatMap((l) => l.clubs);
     const preliminary = new Set(s.cups[0]!.phases[0]!.ties.flatMap((t) => [t.homeId, t.awayId]));
     expect(preliminary.size).toBe(16);
     const ranking = [...clubs].sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id)).map((c) => c.id);

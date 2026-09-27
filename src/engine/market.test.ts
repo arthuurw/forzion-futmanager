@@ -511,9 +511,10 @@ describe("gastos da IA: compras (engine)", () => {
     // The user in the middle of the Série A, so skipping them shifts the draws of the clubs after.
     const s = everyoneBuys(41, [0, 5]);
     const order = aiOrder(s).map((c) => c.id);
-    expect(order).toHaveLength(39);
+    // Paises (Superseded checks): 79 AI clubs.
+    expect(order).toHaveLength(79);
     expect(order).not.toContain(s.userClubId);
-    const draws = buyDraws(s.rngState, 2, 39);
+    const draws = buyDraws(s.rngState, 2, 79);
     const drawn = order.filter((_, i) => draws[i]! < 0.25);
     expect(drawn.length).toBeGreaterThan(1);
     expect(drawn.length).toBeLessThan(20);

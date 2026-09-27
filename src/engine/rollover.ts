@@ -188,11 +188,13 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   state.history = [...state.history, record];
 
   // AC 10, door 4: 4 down from each division, 4 up from the one below, appended in table order.
-  for (let i = 0; i + 1 < state.leagues.length; i++) {
-    const upper = state.leagues[i]!;
-    const lower = state.leagues[i + 1]!;
+  // Paises AC 11: the one below is the next tier of the same country; a country's only league stays.
+  for (const [i, upper] of state.leagues.entries()) {
+    const j = state.leagues.findIndex((l) => l.country === upper.country && l.tier === upper.tier + 1);
+    const lower = state.leagues[j];
+    if (!lower) continue;
     const down = review.divisions[i]!.relegatedIds;
-    const up = review.divisions[i + 1]!.promotedIds;
+    const up = review.divisions[j]!.promotedIds;
     const goingDown = down.map((id) => upper.clubs.find((c) => c.id === id)!);
     const goingUp = up.map((id) => lower.clubs.find((c) => c.id === id)!);
     upper.clubs = [...upper.clubs.filter((c) => !down.includes(c.id)), ...goingUp];
@@ -272,7 +274,9 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   advance.next();
   state.rngState = advance.getState();
   // Copa-nacional AC 6, AC 11: the new cup, its preliminary drawn from the new season's state (door 3).
-  state.cups = [newCup(seedingFromTables(review), state.rngState)];
+  // Paises AC 10: the national cup is only for the clubs of Brazil.
+  const brazil = review.divisions.filter((_, i) => input.leagues[i]!.country === "BR");
+  state.cups = [newCup(seedingFromTables({ divisions: brazil }), state.rngState)];
   state.cupGoal = userCupGoal(state);
 
   const divisionIndex = userId ? state.leagues.findIndex((l) => l.clubs.some((c) => c.id === userId)) : -1;

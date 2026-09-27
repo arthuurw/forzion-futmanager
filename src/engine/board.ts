@@ -1,8 +1,9 @@
 /** The board: the season's goal, the verdict and the job offers after a sacking (S5). */
 import { bestElevenMean } from "./lineup";
-import type { Club, GameState, Verdict } from "./types";
+import type { Club, GameState, League, Verdict } from "./types";
 
-export const DIVISION_LABEL = ["Série A", "Série B"] as const;
+/** The screen name of each league, by its index in `leagues` (paises: the four leagues). */
+export const DIVISION_LABEL = ["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"] as const;
 /** AC 30: the goal that means "do not go down" in the Série A, and "go up" in the Série B. */
 export const STAY_UP_GOAL = 16;
 export const PROMOTION_GOAL = 4;
@@ -18,10 +19,30 @@ export function strengthRanking(clubs: readonly Club[]): string[] {
     .map((c) => c.id);
 }
 
-/** AC 30: the worst acceptable position for rank `rank` (1-based) in division `divisionIndex`. */
-export function boardGoalFor(divisionIndex: number, rank: number): number {
-  if (divisionIndex === 0) return Math.min(STAY_UP_GOAL, rank + 3);
-  return rank <= PROMOTION_GOAL ? PROMOTION_GOAL : Math.min(20, rank + 3);
+/**
+ * Paises: what a league's final table means for the board. The Série A relegates, the Série B
+ * promotes, and a country's only league (Liga Argentina, Liga Portuguesa) does neither.
+ */
+export interface Division {
+  relegates: boolean;
+  promotes: boolean;
+}
+
+/** Paises: the role of `leagues[index]`, from the tiers of its country (door 1). */
+export function divisionAt(leagues: readonly Pick<League, "country" | "tier">[], index: number): Division {
+  const league = leagues[index];
+  if (!league) return { relegates: false, promotes: false };
+  return {
+    relegates: leagues.some((l) => l.country === league.country && l.tier === league.tier + 1),
+    promotes: league.tier > 0,
+  };
+}
+
+/** AC 30, paises AC 13: the worst acceptable position for rank `rank` (1-based) in `division`. */
+export function boardGoalFor(division: Division, rank: number): number {
+  if (division.relegates) return Math.min(STAY_UP_GOAL, rank + 3);
+  if (division.promotes && rank <= PROMOTION_GOAL) return PROMOTION_GOAL;
+  return Math.min(20, rank + 3);
 }
 
 /** The division the club plays in, 0 = Série A; -1 when it plays nowhere. */
@@ -35,20 +56,20 @@ export function userBoardGoal(state: Pick<GameState, "leagues" | "userClubId">):
   const division = divisionOf(state, state.userClubId);
   const league = state.leagues[division];
   if (!league) return 0;
-  return boardGoalFor(division, strengthRanking(league.clubs).indexOf(state.userClubId) + 1);
+  return boardGoalFor(divisionAt(state.leagues, division), strengthRanking(league.clubs).indexOf(state.userClubId) + 1);
 }
 
 /** AC 31: «até o 8º», «não cair» or «subir». */
-export function goalLabel(divisionIndex: number, goal: number): string {
-  if (divisionIndex === 0 && goal === STAY_UP_GOAL) return "não cair";
-  if (divisionIndex === 1 && goal === PROMOTION_GOAL) return "subir";
+export function goalLabel(division: Division, goal: number): string {
+  if (division.relegates && goal === STAY_UP_GOAL) return "não cair";
+  if (division.promotes && goal === PROMOTION_GOAL) return "subir";
   return `até o ${goal}º`;
 }
 
-/** AC 32, AC 33. */
-export function verdictFor(divisionIndex: number, goal: number, position: number): Verdict {
+/** AC 32, AC 33, paises AC 14: with no relegation, only 5 or more places below the goal fires. */
+export function verdictFor(division: Division, goal: number, position: number): Verdict {
   if (position <= goal) return "met";
-  const relegatedWhileStayingUp = divisionIndex === 0 && goal === STAY_UP_GOAL && position > STAY_UP_GOAL;
+  const relegatedWhileStayingUp = division.relegates && goal === STAY_UP_GOAL && position > STAY_UP_GOAL;
   if (relegatedWhileStayingUp || position >= goal + FIRED_MARGIN) return "fired";
   return "missed";
 }
@@ -70,14 +91,17 @@ const CUP_GOAL_PRELIMINARY = 1;
 
 /**
  * Copa-nacional AC 35: the user's cup goal for the season about to start, by the national cup's
- * preliminary draw and the strength ranking of every club; -1 without a club or a cup.
+ * preliminary draw and the strength ranking of every club of Brazil (paises AC 16); -1 without a
+ * club, without a cup, or for a club outside Brazil.
  */
 export function userCupGoal(state: Pick<GameState, "leagues" | "userClubId" | "cups">): number {
   const clubId = state.userClubId;
   const cup = state.cups[0];
   if (!clubId || !cup) return -1;
+  const brazil = state.leagues.filter((l) => l.country === "BR");
+  if (!brazil.some((l) => l.clubs.some((c) => c.id === clubId))) return -1;
   if (cup.seeding.slice(-16).includes(clubId)) return CUP_GOAL_PRELIMINARY;
-  const rank = strengthRanking(state.leagues.flatMap((l) => l.clubs)).indexOf(clubId) + 1;
+  const rank = strengthRanking(brazil.flatMap((l) => l.clubs)).indexOf(clubId) + 1;
   return CUP_GOAL_BY_RANK.find((row) => rank <= row.maxRank)?.goal ?? CUP_GOAL_DEFAULT;
 }
 
@@ -109,7 +133,8 @@ export function cupGoalLabel(goal: number): string {
 }
 
 /**
- * AC 34: the 3 clubs just below the user's in the strength ranking of every club; with fewer
+ * AC 34, paises AC 15: the 3 clubs just below the user's in the strength ranking of every club of
+ * every country; with fewer
  * than 3 below, the 3 weakest other clubs.
  */
 export function jobOffers(state: Pick<GameState, "leagues" | "userClubId">): string[] {

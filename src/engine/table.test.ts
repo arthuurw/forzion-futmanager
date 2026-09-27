@@ -11,6 +11,8 @@ function miniLeague(results: [string, string, number, number][]): League {
   return {
     id: "l",
     name: "mini",
+    country: "BR",
+    tier: 0,
     clubs: ids.map((id) => ({ id, name: id, players: [], lineup: null, finance: initialFinance([]), forSale: [] })),
     rounds: [
       {

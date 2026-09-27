@@ -72,7 +72,8 @@ describe("virada de temporada", () => {
     expect(idsB).toEqual([...before.leagues[1]!.clubs.map((c) => c.id).filter((id) => !up.includes(id)), ...down]);
     expect(idsA).toHaveLength(20);
     expect(idsB).toHaveLength(20);
-    expect(new Set([...idsA, ...idsB])).toEqual(new Set(all(before).map((c) => c.id)));
+    // Paises: the clubs of Brazil; the leagues abroad are C11's.
+    expect(new Set([...idsA, ...idsB])).toEqual(new Set(before.leagues.filter((l) => l.country === "BR").flatMap((l) => l.clubs).map((c) => c.id)));
     for (const c of all(state)) expect(c.name).toBe(clubOf(before, c.id).name);
   });
 
@@ -381,6 +382,9 @@ describe("diretoria e histórico na virada", () => {
     };
     const tA = computeTable(before.leagues[0]!).map((r) => r.clubId);
     const tB = computeTable(before.leagues[1]!).map((r) => r.clubId);
+    // Paises (Superseded checks): the leagues abroad have a record too, with nobody up or down.
+    const tAr = computeTable(before.leagues[2]!).map((r) => r.clubId);
+    const tPt = computeTable(before.leagues[3]!).map((r) => r.clubId);
     const position = tA.indexOf(before.userClubId!) + 1;
     const one = nextSeason(before).state;
     expect(one.history).toEqual([
@@ -395,6 +399,8 @@ describe("diretoria e histórico na virada", () => {
         divisions: [
           { leagueId: "l1", championId: tA[0], promotedIds: [], relegatedIds: tA.slice(16), topScorer: topScorer(0) },
           { leagueId: "l2", championId: tB[0], promotedIds: tB.slice(0, 4), relegatedIds: [], topScorer: topScorer(1) },
+          { leagueId: "l3", championId: tAr[0], promotedIds: [], relegatedIds: [], topScorer: topScorer(2) },
+          { leagueId: "l4", championId: tPt[0], promotedIds: [], relegatedIds: [], topScorer: topScorer(3) },
         ],
       },
     ]);

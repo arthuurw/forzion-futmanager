@@ -15,22 +15,22 @@ Este plano é construído depois de ajustes-4a, sobre o save v6. «Snapshot v6»
 
 ### S1 - Dois países novos no jogo novo · ~4 files · ~60 KB · ~15k
 
-**C1** - `newGame(1)` tem `leagues` com 4 elementos, ids `l1`, `l2`, `l3`, `l4`, `country` `BR`, `BR`, `AR`, `PT` e `tier` 0, 1, 0, 0, nessa ordem (AC 1, door 1)
+**C1** ✓ - `newGame(1)` tem `leagues` com 4 elementos, ids `l1`, `l2`, `l3`, `l4`, `country` `BR`, `BR`, `AR`, `PT` e `tier` 0, 1, 0, 0, nessa ordem (AC 1, door 1)
 Proof: `npx vitest run src/engine/generate.test.ts -t "quatro ligas em ordem"`
 
-**C2** - A Liga Argentina tem os clubes `c41`–`c60` e a Liga Portuguesa `c61`–`c80`, 20 cada, e cada um dos 40 tem 22 jogadores no formato de elenco atual (3 GK, 7 DF, 7 MF, 5 FW, literal no teste) (AC 2)
+**C2** ✓ - A Liga Argentina tem os clubes `c41`–`c60` e a Liga Portuguesa `c61`–`c80`, 20 cada, e cada um dos 40 tem 22 jogadores no formato de elenco atual (3 GK, 7 DF, 7 MF, 5 FW, literal no teste) (AC 2)
 Proof: `npx vitest run src/engine/generate.test.ts -t "ligas novas com 20 clubes de 22"`
 
-**C3** - `AR_IDENTITIES` e `PT_IDENTITIES` têm 20 nomes cada, sem repetição entre si nem com a Série A e a Série B; cada identidade tem de 1 a 3 cores e um padrão; os nomes dos clubes de cada liga nova são exatamente os da sua lista; nenhum nome contém um nome de clube real da lista de negação do teste (pelo menos River, Boca, Racing, Independiente, San Lorenzo, Vélez, Estudiantes, Newell's, Rosario Central, Huracán, Benfica, Porto, Sporting, Braga, Vitória, Boavista, Marítimo, Belenenses) (AC 3)
+**C3** ✓ - `AR_IDENTITIES` e `PT_IDENTITIES` têm 20 nomes cada, sem repetição entre si nem com a Série A e a Série B; cada identidade tem de 1 a 3 cores e um padrão; os nomes dos clubes de cada liga nova são exatamente os da sua lista; nenhum nome contém um nome de clube real da lista de negação do teste (pelo menos River, Boca, Racing, Independiente, San Lorenzo, Vélez, Estudiantes, Newell's, Rosario Central, Huracán, Benfica, Porto, Sporting, Braga, Vitória, Boavista, Marítimo, Belenenses) (AC 3)
 Proof: `npx vitest run src/engine/generate.test.ts -t "identidades fictícias dos países novos"`
 
-**C4** - Em `newGame(1)`, o primeiro nome de todo jogador da Liga Argentina está na lista `AR` e o de todo jogador da Liga Portuguesa na lista `PT`; as listas `AR`, `PT` e `BR` são diferentes; nenhum nome de jogador se repete entre as 4 ligas, livres e juniores (AC 4, door 4)
+**C4** ✓ - Em `newGame(1)`, o primeiro nome de todo jogador da Liga Argentina está na lista `AR` e o de todo jogador da Liga Portuguesa na lista `PT`; as listas `AR`, `PT` e `BR` são diferentes; nenhum nome de jogador se repete entre as 4 ligas, livres e juniores (AC 4, door 4)
 Proof: `npx vitest run src/engine/generate.test.ts -t "nomes de jogador por país"`
 
-**C5** - A força-base da Liga Argentina é `{ min: 60, max: 76 }` e a da Liga Portuguesa `{ min: 58, max: 80 }`. Em `newGame(1)`, a diferença entre a média de força do clube mais forte e a do mais fraco é de pelo menos 10 pontos em cada liga nova (AC 5)
+**C5** ✓ - A força-base da Liga Argentina é `{ min: 60, max: 76 }` e a da Liga Portuguesa `{ min: 58, max: 80 }`. Em `newGame(1)`, a diferença entre a média de força do clube mais forte e a do mais fraco é de pelo menos 10 pontos em cada liga nova (AC 5)
 Proof: `npx vitest run src/engine/generate.test.ts -t "força dos países novos"`
 
-**C6** - Para as seeds 1, 2 e 3, `newGame(seed)` tem Série A, Série B, mercado e `rngState` iguais (`toEqual`) aos do snapshot v6, depois de tirar `country` e `tier` das duas ligas (AC 6, door 3, door 4)
+**C6** ✓ - Para as seeds 1, 2 e 3, `newGame(seed)` tem Série A, Série B, mercado e `rngState` iguais (`toEqual`) aos do snapshot v6, depois de tirar `country` e `tier` das duas ligas (AC 6, door 3, door 4)
 Proof: `npx vitest run src/engine/generate.test.ts -t "Brasil igual ao snapshot v6"`
 
 ### S2 - As quatro ligas jogam a mesma rodada · ~5 files · ~90 KB · ~23k
@@ -99,13 +99,13 @@ Proof: `npx vitest run src/app.test.tsx -t "usuário em Portugal joga e vê a ta
 
 ### S7 - Equilíbrio dos países novos · ~1 file · ~12 KB · ~3k
 
-**C24** - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, o caixa final de cada clube da Liga Argentina e da Liga Portuguesa fica entre −2× e 15× o inicial, e a mediana de cada liga entre 1,2× e 4× (AC 23; piso renegociado de 2× pelo autor em 27/09/2026 após medir PT 1,67× e AR 3,19×)
+**C24** ✓ - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, o caixa final de cada clube da Liga Argentina e da Liga Portuguesa fica entre −2× e 15× o inicial, e a mediana de cada liga entre 1,2× e 4× (AC 23; piso renegociado de 2× pelo autor em 27/09/2026 após medir PT 1,67× e AR 3,19×)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas dos países novos"`
 
-**C25** - Nas mesmas seeds e temporadas, a média das 18 melhores da Liga Argentina e da Liga Portuguesa fica a até 5 pontos da temporada 1, em toda temporada (AC 24)
+**C25** ✓ - Nas mesmas seeds e temporadas, a média das 18 melhores da Liga Argentina e da Liga Portuguesa fica a até 5 pontos da temporada 1, em toda temporada (AC 24)
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável dos países novos"`
 
-**C26** - As faixas do Brasil continuam: caixa em 5 temporadas, compras em 5 temporadas, força estável e resultado corrente de uma temporada, medidas só sobre os clubes das ligas `BR`, com os limites de hoje (AC 25)
+**C26** ✓ - As faixas do Brasil continuam: caixa em 5 temporadas, compras em 5 temporadas, força estável e resultado corrente de uma temporada, medidas só sobre os clubes das ligas `BR`, com os limites de hoje (AC 25)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "compras da IA em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 5 temporadas"`
@@ -119,19 +119,19 @@ Proof: `npx vitest run src/engine/migrate.test.ts -t "v6 vira v7 na rodada 0"`
 **C28** - A fixture v6 na rodada 12 migrada tem as ligas novas com `currentRound` 12; o placar da partida `i` da rodada `n < 12` de cada liga nova é o de `runToEnd` com a door 2 sobre `mix32(seed, 10)`, recalculado no teste; cada clube novo tem o caixa de `initialFinance` do elenco e todo jogador novo `fitness` 100; nada da Série A, Série B, mercado, copa e usuário muda (AC 27, door 5)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v6 no meio da temporada ganha os países"`
 
-**C29** - Uma fixture de cada versão, v1 a v5, carregada vira `schemaVersion: 7` com 4 ligas (AC 28)
+**C29** ✓ - Uma fixture de cada versão, v1 a v5, carregada vira `schemaVersion: 7` com 4 ligas (AC 28)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "cadeia até v7"`
 
-**C30** - Um save com `schemaVersion: 8` é recusado como incompatível, e um com 7 carrega (AC 29)
+**C30** ✓ - Um save com `schemaVersion: 8` é recusado como incompatível, e um com 7 carrega (AC 29)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "versão acima de 7 incompatível"`
 
 **C31** - Um save v7 de um jogo novo com o usuário na Liga Argentina, gravado e relido pela camada de persistência (fake-indexeddb), volta igual, com `country` e `tier` nas 4 ligas (door 1)
 Proof: `npx vitest run src/persistence/save.test.ts -t "save v7 com países"`
 
-**C32** - `SCHEMA_VERSION` vale 7 (door 1)
+**C32** ✓ - `SCHEMA_VERSION` vale 7 (door 1)
 Proof: `npx vitest run src/engine/generate.test.ts -t "quatro ligas em ordem"`
 
-**C33** - Nenhuma liga de um save de 5 temporadas das seeds 1 a 3 tem clube com `country` diferente do da liga em que começou: um clube nunca muda de país (door 1)
+**C33** ✓ - Nenhuma liga de um save de 5 temporadas das seeds 1 a 3 tem clube com `country` diferente do da liga em que começou: um clube nunca muda de país (door 1)
 Proof: `npx vitest run src/engine/balance.test.ts -t "clube nunca muda de país"`
 
 ## Coverage

@@ -1,4 +1,4 @@
-import { DIVISION_LABEL, combinedVerdict, divisionOf, jobOffers, verdictFor } from "./board";
+import { DIVISION_LABEL, combinedVerdict, divisionAt, divisionOf, jobOffers, verdictFor } from "./board";
 import { nextDate } from "./calendar";
 import { cupChampion, cupReached, cupRunnerUp, finishCupDate, startCupDate } from "./cup";
 import { applyRound } from "./condition";
@@ -65,7 +65,7 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
   const results: RoundOutcome["results"] = [];
   let roundNumber = live.roundNumber;
 
-  state.leagues.forEach((league, division) => {
+  state.leagues.forEach((league) => {
     const round = league.rounds[live.roundIndex];
     if (!round) throw new Error("round missing");
     roundNumber = round.number;
@@ -79,11 +79,11 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
     });
     league.clubs = applyRound(league.clubs, played);
     league.currentRound = live.roundIndex + 1;
-    // AC 29: the last round also pays the prize for the final position.
+    // AC 29: the last round also pays the prize for the final position; paises AC 9: by the league's tier.
     const prizes = isSeasonOver(league)
-      ? new Map(computeTable(league).map((row, k) => [row.clubId, prizeFor(division, k + 1)]))
+      ? new Map(computeTable(league).map((row, k) => [row.clubId, prizeFor(league.tier, k + 1)]))
       : null;
-    closeRoundFinances(league.clubs, round.matches, positions, division, prizes, state.userClubId);
+    closeRoundFinances(league.clubs, round.matches, positions, league.tier, prizes, state.userClubId);
   });
 
   closeRoundMarket(state, state.rngState, roundNumber);
@@ -169,16 +169,17 @@ export interface SeasonReview {
 
 /** AC 9, AC 38: what the season that just ended looks like. Depends only on the state, so a reload shows the same (AC 15). */
 export function seasonReview(state: GameState): SeasonReview {
-  const last = state.leagues.length - 1;
   const divisions = state.leagues.map((league, i): DivisionReview => {
     const table = computeTable(league);
+    // Paises AC 11, AC 12: up and down only between consecutive tiers of the same country.
+    const role = divisionAt(state.leagues, i);
     return {
       leagueId: league.id,
       label: DIVISION_LABEL[i] ?? league.name,
       table,
       championId: table[0]!.clubId,
-      promotedIds: i > 0 ? table.slice(0, PROMOTED_PER_SEASON).map((r) => r.clubId) : [],
-      relegatedIds: i < last ? table.slice(-PROMOTED_PER_SEASON).map((r) => r.clubId) : [],
+      promotedIds: role.promotes ? table.slice(0, PROMOTED_PER_SEASON).map((r) => r.clubId) : [],
+      relegatedIds: role.relegates ? table.slice(-PROMOTED_PER_SEASON).map((r) => r.clubId) : [],
       topScorer: topScorers(league, 1)[0] ?? null,
     };
   });
@@ -196,11 +197,11 @@ export function seasonReview(state: GameState): SeasonReview {
   if (userId) {
     const divisionIndex = divisionOf(state, userId);
     const position = divisions[divisionIndex]!.table.findIndex((r) => r.clubId === userId) + 1;
-    const leagueVerdict = verdictFor(divisionIndex, state.boardGoal, position);
+    const leagueVerdict = verdictFor(divisionAt(state.leagues, divisionIndex), state.boardGoal, position);
     user = {
       divisionIndex,
       position,
-      prize: prizeFor(divisionIndex, position),
+      prize: prizeFor(state.leagues[divisionIndex]!.tier, position),
       goal: state.boardGoal,
       leagueVerdict,
       cupGoal: state.cupGoal,

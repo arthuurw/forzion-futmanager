@@ -27,7 +27,7 @@ export const SERIE_B_SPONSORSHIP_SHARE = 0.6;
 export const AI_RESERVE_ROUNDS = 10;
 /** Gastos-da-ia AC 12: an AI club expands only when this many rounds of payroll are left after the works. */
 const AI_EXPANSION_RESERVE_ROUNDS = 20;
-/** AC 29: prize per place above the 21st, by division. */
+/** AC 29: prize per place above the 21st, by tier. */
 const PRIZE_PER_PLACE = [250_000, 62_500] as const;
 
 const roundTo = (n: number, step: number) => Math.round(n / step) * step;
@@ -113,14 +113,14 @@ export function positionsBeforeRound(league: League): Map<string, number | null>
   return out;
 }
 
-/** AC 7: what a club is paid per round in division `divisionIndex` (0 = Série A). */
-export function sponsorshipPaid(f: Pick<Finance, "sponsorship">, divisionIndex: number): number {
-  return divisionIndex === 0 ? f.sponsorship : Math.round(f.sponsorship * SERIE_B_SPONSORSHIP_SHARE);
+/** AC 7, paises AC 9: what a club is paid per round in a league of tier `tier` (0 = a country's first division). */
+export function sponsorshipPaid(f: Pick<Finance, "sponsorship">, tier: number): number {
+  return tier === 0 ? f.sponsorship : Math.round(f.sponsorship * SERIE_B_SPONSORSHIP_SHARE);
 }
 
-/** AC 29: (21 − position) × R$ 250.000 in the Série A, × R$ 62.500 in the Série B. */
-export function prizeFor(divisionIndex: number, position: number): number {
-  return (21 - position) * (PRIZE_PER_PLACE[divisionIndex] ?? PRIZE_PER_PLACE[1]);
+/** AC 29, paises AC 9: (21 − position) × R$ 250.000 in a first division, × R$ 62.500 in the Série B. */
+export function prizeFor(tier: number, position: number): number {
+  return (21 - position) * (PRIZE_PER_PLACE[tier] ?? PRIZE_PER_PLACE[1]);
 }
 
 export function interestFor(loan: number): number {
@@ -138,7 +138,7 @@ export function closeRoundFinances(
   clubs: Club[],
   matches: readonly Match[],
   positions: Map<string, number | null>,
-  divisionIndex = 0,
+  tier = 0,
   prizes: Map<string, number> | null = null,
   userClubId: string | null = null,
 ): void {
@@ -150,7 +150,7 @@ export function closeRoundFinances(
     const ledger: Ledger = {
       attendance,
       tickets: attendance * f.ticketPrice,
-      sponsorship: sponsorshipPaid(f, divisionIndex),
+      sponsorship: sponsorshipPaid(f, tier),
       salaries: payroll(club.players),
       interest: interestFor(f.loan),
       transfersIn: f.pendingIn,

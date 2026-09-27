@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FEE_ROUNDS, isMarketOpen, marketValue, nextRoundNumber, nextWindowStart } from "../engine/market";
 import { allClubs, findAnyClub } from "../engine/season";
-import { POSITIONS, type GameState, type Player, type Position } from "../engine/types";
+import { COUNTRIES, POSITIONS, type Country, type GameState, type Player, type Position } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { formatMoney } from "./money";
 import { ScreenTabs } from "./ScreenTabs";
@@ -71,6 +71,7 @@ export function Market() {
   const goToSquad = useGame((s) => s.goToSquad);
   const [tab, setTab] = useState<MarketTab>("buy");
   const [position, setPosition] = useState<Position | "all">("all");
+  const [country, setCountry] = useState<Country | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [offer, setOffer] = useState(0);
   const [confirmingOffer, setConfirmingOffer] = useState<string | null>(null);
@@ -114,10 +115,17 @@ export function Market() {
     );
   }
 
+  // Paises AC 18: one country at a time, the user's own first; the free agents with the user's country.
+  const home = game.leagues.find((l) => l.clubs.some((c) => c.id === club.id))?.country ?? "BR";
+  const shownCountry = country ?? home;
   // AC 18: every other club's players and the free agents, strongest first.
   const listings: Listing[] = [
-    ...allClubs(game).filter((c) => c.id !== club.id).flatMap((c) => c.players.map((player) => ({ player, clubId: c.id, clubName: c.name }))),
-    ...game.market.freeAgents.map((player) => ({ player, clubId: null, clubName: "Livre" })),
+    ...game.leagues
+      .filter((l) => l.country === shownCountry)
+      .flatMap((l) => l.clubs)
+      .filter((c) => c.id !== club.id)
+      .flatMap((c) => c.players.map((player) => ({ player, clubId: c.id, clubName: c.name }))),
+    ...(shownCountry === home ? game.market.freeAgents.map((player) => ({ player, clubId: null, clubName: "Livre" })) : []),
   ]
     .filter((l) => position === "all" || l.player.position === position)
     .sort((a, b) => b.player.rating - a.player.rating || a.player.name.localeCompare(b.player.name));
@@ -147,6 +155,16 @@ export function Market() {
           <section className="panel" style={{ "--i": 0 } as React.CSSProperties}>
             <div className="panel-head">
               <h2 className="title-bar">Jogadores</h2>
+              <label className="formation-row">
+                País
+                <select aria-label="País" value={shownCountry} onChange={(e) => setCountry(e.target.value as Country)}>
+                  {(Object.keys(COUNTRIES) as Country[]).map((c) => (
+                    <option key={c} value={c}>
+                      {COUNTRIES[c]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="formation-row">
                 Posição
                 <select aria-label="Posição" value={position} onChange={(e) => setPosition(e.target.value as Position | "all")}>

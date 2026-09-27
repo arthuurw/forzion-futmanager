@@ -45,6 +45,7 @@ export function v3Document(seed = 3, roundsPlayed = 0): Record<string, unknown> 
   }
   const doc = JSON.parse(JSON.stringify(state));
   doc.schemaVersion = 3;
+  onlyBrazil(doc);
   delete doc.market.transfers;
   doc.leagues = [doc.leagues[0]];
   delete doc.history;
@@ -150,15 +151,30 @@ const best11 = (c: Club) => [...c.players].map((p) => p.rating).sort((a, b) => b
 
 /**
  * Copa-nacional AC 35, written out (L-004): 1 for a club in the preliminary draw; otherwise by the
- * best-eleven rank among all 40 clubs, ties by id: 1-4 -> 4, 5-8 -> 3, the rest -> 2. -1 without a club.
+ * best-eleven rank among the 40 clubs of Brazil, ties by id: 1-4 -> 4, 5-8 -> 3, the rest -> 2. -1 without a club
+ * or for a club abroad (paises AC 16).
  */
 export function expectedCupGoal(s: GameState): number {
   if (!s.userClubId) return -1;
   const preliminary = s.cups[0]!.phases[0]!.ties.flatMap((t) => [t.homeId, t.awayId]);
   if (preliminary.includes(s.userClubId)) return 1;
-  const ranking = s.leagues.flatMap((l) => l.clubs).sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id));
+  // Paises AC 16: the ranking of the clubs of Brazil only; no cup goal for a club abroad.
+  const brazil = s.leagues.filter((l) => l.country === "BR").flatMap((l) => l.clubs);
+  if (!brazil.some((c) => c.id === s.userClubId)) return -1;
+  const ranking = brazil.sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id));
   const rank = ranking.findIndex((c) => c.id === s.userClubId) + 1;
   return rank <= 4 ? 4 : rank <= 8 ? 3 : 2;
+}
+
+/** Paises: a save from before v7 has only the leagues of Brazil, and no country or tier on them. */
+function onlyBrazil(doc: { leagues: Record<string, unknown>[]; history?: { divisions: { leagueId: string }[] }[] }): void {
+  doc.leagues = doc.leagues.filter((l) => l.country === "BR");
+  const ids = new Set(doc.leagues.map((l) => l.id));
+  for (const l of doc.leagues) {
+    delete l.country;
+    delete l.tier;
+  }
+  for (const r of doc.history ?? []) r.divisions = r.divisions.filter((d) => ids.has(d.leagueId));
 }
 
 /**
@@ -185,6 +201,7 @@ export function v4Document(seed = 3, roundsPlayed = 0, closedSeasons = 0): Recor
   play(roundsPlayed);
   const doc = JSON.parse(JSON.stringify(state));
   doc.schemaVersion = 4;
+  onlyBrazil(doc);
   delete doc.market.transfers;
   delete doc.cups;
   delete doc.cupGoal;
@@ -210,6 +227,7 @@ export function v5Document(seed = 3, roundsPlayed = 0): Record<string, unknown> 
   }
   const doc = JSON.parse(JSON.stringify(state));
   doc.schemaVersion = 5;
+  onlyBrazil(doc);
   delete doc.market.transfers;
   return doc;
 }

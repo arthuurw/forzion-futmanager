@@ -108,7 +108,10 @@ describe("tela Ao vivo", () => {
     startLiveFake();
     for (let i = 0; i < 44; i++) {
       advance(300);
-      const scored = useGame.getState().live!.matches.find((m) => m.homeGoals + m.awayGoals > 0);
+      // Paises: match ids repeat in every league; only the user's league is on screen.
+      const live = useGame.getState().live!;
+      const shown = userMatch(live)!.leagueId;
+      const scored = live.matches.find((m) => m.leagueId === shown && m.homeGoals + m.awayGoals > 0);
       if (!scored) continue;
       const row = screen.getByRole("region", { name: "Jogos da rodada" }).querySelector(`[data-match="${scored.matchId}"]`)!;
       expect(row.querySelector("b")!.textContent).toBe(`${scored.homeGoals} x ${scored.awayGoals}`);
@@ -258,7 +261,8 @@ describe("ao vivo com duas divisões", () => {
       const view = render(<App />);
       await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
       await user.click(await screen.findByRole("button", { name: "Pausar" }));
-      expect(useGame.getState().live!.matches).toHaveLength(20);
+      // Paises (Superseded checks): 4 leagues of 10 matches.
+      expect(useGame.getState().live!.matches).toHaveLength(40);
       const names = new Set(game.leagues[division]!.clubs.map((c) => c.name));
       const others = game.leagues[1 - division]!.clubs.map((c) => c.name);
       const games = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem");

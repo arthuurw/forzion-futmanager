@@ -35,7 +35,8 @@ describe("calendário de 44 datas", () => {
       s = playDate(s).state;
     }
     expect(seen).toEqual(expected);
-    expect(s.leagues.map((l) => l.currentRound)).toEqual([38, 38]);
+    // Paises (Superseded checks): 4 leagues.
+    expect(s.leagues.map((l) => l.currentRound)).toEqual([38, 38, 38, 38]);
     expect(s.cups[0]!.currentPhase).toBe(6);
   }, 60_000);
 
@@ -45,7 +46,7 @@ describe("calendário de 44 datas", () => {
     expect(nextDate(s)).toEqual({ kind: "cup", cupIndex: 0, phase: 0 });
     const rounds = s.leagues.map((l) => clone(l.rounds));
     const after = playDate(s).state;
-    expect(after.leagues.map((l) => l.currentRound)).toEqual([4, 4]);
+    expect(after.leagues.map((l) => l.currentRound)).toEqual([4, 4, 4, 4]);
     expect(after.leagues.map((l) => l.rounds)).toEqual(rounds);
     const cup = after.cups[0]!;
     expect(cup.phases[0]!.ties).toHaveLength(8);
@@ -61,12 +62,12 @@ describe("calendário de 44 datas", () => {
     const next = playRound(s).state;
     expect(next.cups[0]!.currentPhase).toBe(1);
     for (const t of next.cups[0]!.phases[0]!.ties) expect(t.winnerId, t.id).not.toBeNull();
-    expect(next.leagues.map((l) => l.currentRound)).toEqual([5, 5]);
+    expect(next.leagues.map((l) => l.currentRound)).toEqual([5, 5, 5, 5]);
 
     let full = newGame(53);
     for (let i = 0; i < 38; i++) full = playRound(full).state;
     expect(full.cups[0]!.currentPhase).toBe(6);
-    expect(full.leagues.map((l) => l.currentRound)).toEqual([38, 38]);
+    expect(full.leagues.map((l) => l.currentRound)).toEqual([38, 38, 38, 38]);
   }, 60_000);
 
   test("mesma seed mesma copa", () => {

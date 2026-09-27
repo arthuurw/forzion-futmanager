@@ -122,7 +122,7 @@ function detach(state: GameState, club: Club, playerId: string): Player {
 export function buyPlayer(input: GameState, playerId: string, offer: number): MarketResult {
   if (!isMarketOpen(input)) return refuse("closed");
   const user = userOf(input);
-  // AC 6: any of the other clubs, in either division.
+  // AC 6, paises AC 17: any of the other clubs, in any league of any country.
   const seller = allClubs(input).find((c) => c.id !== user.id && c.players.some((p) => p.id === playerId));
   const player = seller?.players.find((p) => p.id === playerId);
   if (!seller || !player || !Number.isInteger(offer) || offer <= 0) return refuse("not_found");
@@ -321,6 +321,12 @@ function aiClubs(state: GameState): Club[] {
   return allClubs(state).filter((c) => c.id !== state.userClubId);
 }
 
+/** Paises AC 19: whether two clubs play in leagues of the same country. */
+function sameCountry(state: GameState, a: Club, b: Club): boolean {
+  const country = (club: Club) => state.leagues.find((l) => l.clubs.includes(club))?.country;
+  return country(a) === country(b);
+}
+
 const weakestFirst = (a: Player, b: Player) => a.rating - b.rating || a.id.localeCompare(b.id);
 
 /** Ajustes-4a AC 6, AC 7: players an AI club bought this season, read from the transfer list. */
@@ -362,7 +368,8 @@ function aiSign(state: GameState, roundNumber: number, buyer: Club, player: Play
 /**
  * Gastos-da-ia AC 9-11: an AI club in the red with more than 18 players sells its most valuable
  * player at market value to the AI club under 30 players with the most to spend on them, ties by id.
- * Ajustes-4a AC 7: injured or not, but never one an AI club bought this season.
+ * Ajustes-4a AC 7: injured or not, but never one an AI club bought this season. Paises AC 19: the
+ * buyer is a club of the seller's country.
  */
 function sellFromTheRed(state: GameState, roundNumber: number): void {
   for (const seller of aiClubs(state)) {
@@ -375,7 +382,7 @@ function sellFromTheRed(state: GameState, roundNumber: number): void {
     const price = marketValue(player);
     const salary = arrivalSalary(player);
     const buyer = aiClubs(state)
-      .filter((c) => c.id !== seller.id && c.players.length < SQUAD_MAX && aiBudget(c, salary) >= price)
+      .filter((c) => c.id !== seller.id && sameCountry(state, c, seller) && c.players.length < SQUAD_MAX && aiBudget(c, salary) >= price)
       .sort((a, b) => aiBudget(b, salary) - aiBudget(a, salary) || a.id.localeCompare(b.id))[0];
     if (buyer) aiSign(state, roundNumber, buyer, player, seller, price);
   }
@@ -390,7 +397,8 @@ interface Candidate {
 /**
  * Gastos-da-ia AC 3, AC 4, AC 7: the club looks for someone at least 4 better than its weakest
  * starter, for that starter's slot, among the reserves of the AI clubs above 20 players; it buys
- * the strongest it can afford, then the cheapest, then the smallest id.
+ * the strongest it can afford, then the cheapest, then the smallest id. Paises AC 19: only from
+ * clubs of its own country.
  */
 function tryAiPurchase(state: GameState, roundNumber: number, buyer: Club): void {
   const lineup = aiLineup(buyer);
@@ -410,7 +418,7 @@ function tryAiPurchase(state: GameState, roundNumber: number, buyer: Club): void
   const fits = (p: Player) =>
     p.position === position && p.rating >= rating + AI_BUY_MIN_GAIN && p.age <= AI_BUY_MAX_AGE && p.injuryRounds === 0 && !bought.has(p.id);
   const candidates: Candidate[] = aiClubs(state)
-    .filter((c) => c.id !== buyer.id && c.players.length > AI_SELLER_ABOVE)
+    .filter((c) => c.id !== buyer.id && sameCountry(state, c, buyer) && c.players.length > AI_SELLER_ABOVE)
     .flatMap((c) => {
       const eleven = new Set(aiLineup(c).starters);
       // A reserve's asking price is its market value (AC 20 of elenco-mercado-financas).

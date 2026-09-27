@@ -192,7 +192,8 @@ describe("mercado com duas divisões", () => {
     const clubCells = rows.map((r) => within(r).getAllByRole("cell")[4]!.textContent);
     const counts = new Map<string, number>();
     for (const c of clubCells) counts.set(c!, (counts.get(c!) ?? 0) + 1);
-    for (const league of game.leagues) {
+    // Paises: the list opens on the user's country, Brasil (C18 covers the others).
+    for (const league of game.leagues.filter((l) => l.country === "BR")) {
       for (const c of league.clubs) {
         if (c.id === me.id) expect(counts.has(c.name)).toBe(false);
         else expect(counts.get(c.name), c.name).toBe(22);

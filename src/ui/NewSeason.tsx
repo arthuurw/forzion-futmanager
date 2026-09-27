@@ -1,4 +1,4 @@
-import { goalLabel } from "../engine/board";
+import { divisionAt, goalLabel } from "../engine/board";
 import { useGame } from "../store";
 import { cupGoalText } from "./Cup";
 import { POSITION_LABEL } from "./Squad";
@@ -6,6 +6,7 @@ import { POSITION_LABEL } from "./Squad";
 /** AC 14: who retired, whose contract ended, how each player's rating moved, and the new goal. */
 export function NewSeason() {
   const report = useGame((s) => s.rolloverReport);
+  const game = useGame((s) => s.game);
   const goToSquad = useGame((s) => s.goToSquad);
   if (!report) return null;
   const changes = [...report.changes].sort((a, b) => b.after - b.before - (a.after - a.before) || a.name.localeCompare(b.name, "pt-BR"));
@@ -14,7 +15,7 @@ export function NewSeason() {
       <div className="screen-head">
         <h1 className="title-bar">Nova temporada</h1>
         <span className="goal">
-          Temporada {report.season} · Meta: {goalLabel(report.divisionIndex, report.boardGoal)}
+          Temporada {report.season} · Meta: {goalLabel(divisionAt(game?.leagues ?? [], report.divisionIndex), report.boardGoal)}
           {report.cupGoal >= 0 && ` · ${cupGoalText(report.cupGoal)}`}
         </span>
       </div>

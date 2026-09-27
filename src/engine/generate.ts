@@ -1,5 +1,5 @@
 import { newCup, seedingByStrength } from "./cup";
-import { CLUB_IDENTITIES, SERIE_B_IDENTITIES, generatePlayerName, uniqueName, type ClubIdentity } from "./names";
+import { AR_IDENTITIES, CLUB_IDENTITIES, PT_IDENTITIES, SERIE_B_IDENTITIES, generatePlayerName, uniqueName, type ClubIdentity } from "./names";
 import { initialFinance, salaryFor } from "./finance";
 import { bell, createRng, mix32, pick, randInt, shuffle, type Rng } from "./rng";
 import {
@@ -11,6 +11,7 @@ import {
   SCHEMA_VERSION,
   ZERO_STATS,
   type Club,
+  type Country,
   type GameState,
   type League,
   type Market,
@@ -32,6 +33,9 @@ export const PLAYERS_PER_CLUB = SQUAD_SHAPE.reduce((n, s) => n + s.count, 0);
 /** AC 1: club strength ranges, Série A and Série B. */
 const SERIE_A_BASE = { min: 58, max: 80 } as const;
 const SERIE_B_BASE = { min: 50, max: 66 } as const;
+/** Paises AC 5: club strength ranges, Liga Argentina and Liga Portuguesa. */
+export const ARGENTINA_BASE = { min: 60, max: 76 } as const;
+export const PORTUGAL_BASE = { min: 58, max: 80 } as const;
 /** AC 23: a new game's contracts run 1 to 4 seasons. */
 const CONTRACT_MIN = 1;
 const CONTRACT_MAX = 4;
@@ -55,8 +59,9 @@ export function makePlayer(id: string, name: string, position: Position, age: nu
   return { id, name, position, age, rating, ...FRESH_CONDITION, ...ZERO_STATS, salary: salaryFor(rating), contractSeasons, cupDiscipline: {} };
 }
 
-function generatePlayer(rng: Rng, id: string, position: Position, base: number, taken: Set<string>): Player {
-  const name = uniqueName(rng, taken, generatePlayerName);
+function generatePlayer(rng: Rng, id: string, position: Position, base: number, taken: Set<string>, country: Country): Player {
+  // Door 4 (paises): the club's country picks the names.
+  const name = uniqueName(rng, taken, (r) => generatePlayerName(r, country));
   const age = generateAge(rng);
   const rating = clamp(Math.round(base + bell(rng) * RATING_SPREAD), RATING_MIN, RATING_MAX);
   // Door 5: the contract is drawn in the league's own stream.
@@ -99,12 +104,12 @@ export function takenNames(state: Pick<GameState, "leagues"> & { market?: Market
   return names;
 }
 
-function generateClub(rng: Rng, id: string, name: string, base: number, takenPlayers: Set<string>): Club {
+function generateClub(rng: Rng, id: string, name: string, base: number, takenPlayers: Set<string>, country: Country): Club {
   const players: Player[] = [];
   let n = 0;
   for (const shape of SQUAD_SHAPE) {
     for (let i = 0; i < shape.count; i++) {
-      players.push(generatePlayer(rng, `${id}-p${++n}`, shape.position, base, takenPlayers));
+      players.push(generatePlayer(rng, `${id}-p${++n}`, shape.position, base, takenPlayers, country));
     }
   }
   return { id, name, players, lineup: null, finance: initialFinance(players), forSale: [] };
@@ -149,11 +154,17 @@ export interface DivisionSpec {
   base: { min: number; max: number };
   /** Club ids run from `c<firstId>` (door 4). */
   firstId: number;
+  /** Door 1 (paises). */
+  country: Country;
+  tier: number;
 }
 
-export const SERIE_A: DivisionSpec = { identities: CLUB_IDENTITIES, base: SERIE_A_BASE, firstId: 1 };
-export const SERIE_B: DivisionSpec = { identities: SERIE_B_IDENTITIES, base: SERIE_B_BASE, firstId: 21 };
+export const SERIE_A: DivisionSpec = { identities: CLUB_IDENTITIES, base: SERIE_A_BASE, firstId: 1, country: "BR", tier: 0 };
+export const SERIE_B: DivisionSpec = { identities: SERIE_B_IDENTITIES, base: SERIE_B_BASE, firstId: 21, country: "BR", tier: 1 };
 export const SERIE_B_NAME = "Série B";
+/** Paises door 1: the leagues of the other countries, ids `l3` and `l4`, clubs `c41`-`c80`. */
+export const LIGA_ARGENTINA: DivisionSpec = { identities: AR_IDENTITIES, base: ARGENTINA_BASE, firstId: 41, country: "AR", tier: 0 };
+export const LIGA_PORTUGUESA: DivisionSpec = { identities: PT_IDENTITIES, base: PORTUGAL_BASE, firstId: 61, country: "PT", tier: 0 };
 
 export function generateLeague(rng: Rng, id: string, name: string, spec: DivisionSpec = SERIE_A, takenPlayers = new Set<string>()): League {
   const { min, max } = spec.base;
@@ -164,14 +175,24 @@ export function generateLeague(rng: Rng, id: string, name: string, spec: Divisio
   );
   // Every league has the same 20 identities; order and strength vary by seed.
   const names = shuffle(rng, spec.identities.map((c) => c.name));
-  const clubs = bases.map((base, i) => generateClub(rng, `c${spec.firstId + i}`, names[i] as string, base, takenPlayers));
+  const clubs = bases.map((base, i) => generateClub(rng, `c${spec.firstId + i}`, names[i] as string, base, takenPlayers, spec.country));
   const order = shuffle(rng, clubs.map((c) => c.id));
-  return { id, name, clubs, rounds: generateSchedule(order), currentRound: 0 };
+  return { id, name, country: spec.country, tier: spec.tier, clubs, rounds: generateSchedule(order), currentRound: 0 };
 }
 
 /** Door 5: the Série B has its own stream, so the Série A and `rngState` of a seed do not move. */
 export function generateSerieB(seed: number, taken: Set<string>): League {
   return generateLeague(createRng(mix32(seed, 4)), "l2", SERIE_B_NAME, SERIE_B, taken);
+}
+
+/**
+ * Paises door 3: the Liga Argentina (`mix32(seed, 8)`) and the Liga Portuguesa (`mix32(seed, 9)`)
+ * have their own streams, drawn after the Série B and the market with the names already taken.
+ */
+export function generateAbroad(seed: number, taken: Set<string>): League[] {
+  const argentina = generateLeague(createRng(mix32(seed, 8)), "l3", "Liga Argentina", LIGA_ARGENTINA, taken);
+  const portugal = generateLeague(createRng(mix32(seed, 9)), "l4", "Liga Portuguesa", LIGA_PORTUGUESA, taken);
+  return [argentina, portugal];
 }
 
 export function newGame(seed: number): GameState {
@@ -187,6 +208,7 @@ export function newGame(seed: number): GameState {
     transfers: [],
   };
   const serieB = generateSerieB(seed, takenNames({ leagues: [league], market }));
+  const abroad = generateAbroad(seed, takenNames({ leagues: [league, serieB], market }));
   const rngState = rng.getState();
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -194,7 +216,7 @@ export function newGame(seed: number): GameState {
     rngState,
     season: 1,
     userClubId: null,
-    leagues: [league, serieB],
+    leagues: [league, serieB, ...abroad],
     market,
     history: [],
     boardGoal: 0,

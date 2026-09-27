@@ -448,13 +448,21 @@ function clone<T>(value: T): T {
 
 /** Salt of the Série B match streams (door 2 of multiplas-temporadas). */
 const SERIE_B_MATCH_SALT = 0xb;
+/** Salt of the match streams of the leagues from index 2 on (door 2 of paises). */
+const ABROAD_MATCH_SALT = 0xe0;
 
 /**
  * Door 2: the seed of each match depends only on the save's state, the round, the match's index
- * and its division. The Série A keeps the core's formula; the Série B mixes in its own salt first.
+ * and its league's index in `leagues`. The Série A keeps the core's formula; the Série B mixes in
+ * its own salt first; league `k >= 2` uses `mix32(mix32(rngState, 0xE0), k)` (paises door 2).
  */
 export function matchSeed(rngState: number, roundNumber: number, matchIndex: number, divisionIndex = 0): number {
-  const base = divisionIndex === 0 ? rngState : mix32(rngState, SERIE_B_MATCH_SALT);
+  const base =
+    divisionIndex === 0
+      ? rngState
+      : divisionIndex === 1
+        ? mix32(rngState, SERIE_B_MATCH_SALT)
+        : mix32(mix32(rngState, ABROAD_MATCH_SALT), divisionIndex);
   return mix32(base, roundNumber * 16 + matchIndex);
 }
 
@@ -500,7 +508,7 @@ export function startRound(state: GameState): LiveRound {
     return sideFor(club, state.userClubId, players);
   };
 
-  // AC 3: the 20 matches of the round, Série A first.
+  // AC 3, paises AC 7: the 10 matches of every league, in `leagues` order.
   const matches = state.leagues.flatMap((league, division) => {
     const round = league.rounds[roundIndex];
     if (!round) throw new Error("divisions out of step");

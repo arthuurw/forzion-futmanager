@@ -156,9 +156,17 @@ export interface Round {
   matches: Match[];
 }
 
+/** Door 1 (paises, save v7): the countries of the game. Screen names live here, not in the save. */
+export type Country = "BR" | "AR" | "PT";
+export const COUNTRIES: Readonly<Record<Country, string>> = { BR: "Brasil", AR: "Argentina", PT: "Portugal" };
+
 export interface League {
   id: string;
   name: string;
+  /** Door 1 (paises): a club only moves between leagues of the same country. */
+  country: Country;
+  /** Door 1 (paises): 0 = the country's first division. */
+  tier: number;
   clubs: Club[];
   rounds: Round[];
   /** Index of the next round to play, 0..rounds.length. Equal to rounds.length = season over. */
@@ -233,7 +241,7 @@ export interface CupRecord {
   userReached: number | null;
 }
 
-export const SCHEMA_VERSION = 6 as const;
+export const SCHEMA_VERSION = 7 as const;
 
 export type Verdict = "met" | "missed" | "fired";
 
@@ -266,7 +274,10 @@ export interface GameState {
   rngState: number;
   season: number;
   userClubId: string | null;
-  /** Door 4: `leagues[0]` is the Série A and `leagues[1]` the Série B. */
+  /**
+   * Door 4: `leagues[0]` is the Série A and `leagues[1]` the Série B; door 1 (paises): then the
+   * Liga Argentina and the Liga Portuguesa.
+   */
   leagues: League[];
   market: Market;
   history: SeasonRecord[];

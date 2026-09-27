@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DIVISION_LABEL, VERDICT_TEXT, divisionOf, goalLabel } from "../engine/board";
+import { DIVISION_LABEL, VERDICT_TEXT, divisionAt, divisionOf, goalLabel } from "../engine/board";
 import { bestElevenMean } from "../engine/lineup";
 import { findAnyClub, seasonReview } from "../engine/season";
 import { useGame } from "../store";
@@ -71,7 +71,7 @@ export function End() {
                 Sua posição: {review.user.position}º na {DIVISION_LABEL[review.user.divisionIndex]}
               </p>
               <p>Prêmio: {formatMoney(review.user.prize)}</p>
-              <p>Meta: {goalLabel(review.user.divisionIndex, review.user.goal)}</p>
+              <p>Meta: {goalLabel(divisionAt(game.leagues, review.user.divisionIndex), review.user.goal)}</p>
               <p className={`verdict-text v-${review.user.verdict}`}>{VERDICT_TEXT[review.user.verdict]}</p>
             </div>
           )}

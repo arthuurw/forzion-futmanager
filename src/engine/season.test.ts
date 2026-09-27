@@ -1,4 +1,4 @@
-import { jobOffers, userBoardGoal, verdictFor } from "./board";
+import { divisionAt, jobOffers, userBoardGoal, verdictFor } from "./board";
 import { newGame } from "./generate";
 import { AI_FORMATION, aiLineup, autoLineup } from "./lineup";
 import { createRng, mix32 } from "./rng";
@@ -63,8 +63,10 @@ describe("diretoria (engine)", () => {
       [1, 4, 9, "fired"],
       [1, 20, 20, "met"],
     ];
+    // Paises: the board reads the league's role (tier and country), not its index.
+    const leagues = newGame(1).leagues;
     for (const [division, goal, position, verdict] of rows) {
-      expect(verdictFor(division, goal, position), `${division} meta ${goal} posição ${position}`).toBe(verdict);
+      expect(verdictFor(divisionAt(leagues, division), goal, position), `${division} meta ${goal} posição ${position}`).toBe(verdict);
     }
   });
 
@@ -76,11 +78,14 @@ describe("diretoria (engine)", () => {
     // Last of the Série A: the next three come from the Série B, not from the user's own division.
     state.userClubId = rank(20);
     expect(jobOffers(state)).toEqual([rank(21), rank(22), rank(23)]);
-    // 39th of 40: fewer than 3 below, so the 3 weakest others.
+    // Paises (Superseded checks): the ranking has 80 clubs; same rule, ids recalculated.
     state.userClubId = rank(39);
-    expect(jobOffers(state)).toEqual([rank(37), rank(38), rank(40)]);
-    state.userClubId = rank(40);
-    expect(jobOffers(state)).toEqual([rank(37), rank(38), rank(39)]);
+    expect(jobOffers(state)).toEqual([rank(40), rank(41), rank(42)]);
+    // 79th of 80: fewer than 3 below, so the 3 weakest others.
+    state.userClubId = rank(79);
+    expect(jobOffers(state)).toEqual([rank(77), rank(78), rank(80)]);
+    state.userClubId = rank(80);
+    expect(jobOffers(state)).toEqual([rank(77), rank(78), rank(79)]);
   });
 });
 

@@ -222,7 +222,8 @@ describe("duas divisões e várias temporadas", () => {
     const saved = await loadGame();
     if (saved.kind !== "ok") throw new Error("no save");
     for (const state of [useGame.getState().game!, saved.state]) {
-      expect(state.leagues).toHaveLength(2);
+      // Paises (Superseded checks): 4 leagues.
+      expect(state.leagues).toHaveLength(4);
       for (const league of state.leagues) {
         expect(league.currentRound, league.id).toBe(1);
         const round1 = league.rounds[0]!.matches;
@@ -300,6 +301,6 @@ describe("copa no app (copa-nacional)", () => {
     const loaded = await loadGame();
     if (loaded.kind !== "ok") throw new Error("no save");
     expect(loaded.state.cups[0]!.currentPhase).toBe(1);
-    expect(loaded.state.leagues.map((l) => l.currentRound)).toEqual([4, 4]);
+    expect(loaded.state.leagues.map((l) => l.currentRound)).toEqual([4, 4, 4, 4]);
   });
 });

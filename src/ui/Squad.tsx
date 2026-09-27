@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { divisionOf, goalLabel } from "../engine/board";
+import { divisionAt, divisionOf, goalLabel } from "../engine/board";
 import { CONTRACT_RENEWAL, isMarketOpen, releaseCost, renewalSalary } from "../engine/market";
 import { nextCompetition } from "../engine/calendar";
 import { formationSlots, isAvailableFor, validateLineup } from "../engine/lineup";
@@ -293,7 +293,7 @@ export function Squad() {
 
       <div className="action-bar">
         <span className="matchday">{nextDateLabel(game, league.rounds.length, league.currentRound)}</span>
-        <span className="goal">Meta: {goalLabel(divisionOf(game, club.id), game.boardGoal)}</span>
+        <span className="goal">Meta: {goalLabel(divisionAt(game.leagues, divisionOf(game, club.id)), game.boardGoal)}</span>
         <span className="cash">{formatMoney(club.finance.cash)}</span>
         <button onClick={goToMarket}>Mercado</button>
         <button onClick={goToFinance}>Finanças</button>

@@ -1,6 +1,8 @@
-import { CLUBS_PER_LEAGUE, PLAYERS_PER_CLUB, SERIE_B, generateLeague, newGame, takenNames } from "./generate";
+import { readFileSync } from "node:fs";
+import { CLUBS_PER_LEAGUE, LIGA_ARGENTINA, LIGA_PORTUGUESA, PLAYERS_PER_CLUB, SERIE_B, generateLeague, newGame, takenNames } from "./generate";
+import { AR_IDENTITIES, CLUB_IDENTITIES, FIRST_NAMES_BY_COUNTRY, PT_IDENTITIES, SERIE_B_IDENTITIES } from "./names";
 import { createRng, mix32 } from "./rng";
-import { AGE_MAX, AGE_MIN, POSITIONS, RATING_MAX, RATING_MIN, SCHEMA_VERSION, type Club, type Position } from "./types";
+import { AGE_MAX, AGE_MIN, COUNTRIES, POSITIONS, RATING_MAX, RATING_MIN, SCHEMA_VERSION, type Club, type Position } from "./types";
 
 function best11Mean(club: Club): number {
   const top = club.players
@@ -125,7 +127,8 @@ describe("duas divisões", () => {
   test("duas divisões com identidades fixas", () => {
     for (const seed of seeds) {
       const state = newGame(seed);
-      expect(state.leagues.map((l) => l.id), `seed ${seed}`).toEqual(["l1", "l2"]);
+      // Paises (Superseded checks): 4 leagues.
+      expect(state.leagues.map((l) => l.id), `seed ${seed}`).toEqual(["l1", "l2", "l3", "l4"]);
       const [a, b] = state.leagues as [(typeof state.leagues)[0], (typeof state.leagues)[0]];
       expect(a.clubs.map((c) => c.name).sort()).toEqual([...SERIE_A_NAMES].sort());
       expect(b.clubs.map((c) => c.name).sort()).toEqual([...SERIE_B_NAMES].sort());
@@ -197,11 +200,134 @@ describe("duas divisões", () => {
 
 describe("boletim (gastos-da-ia)", () => {
   test("jogo novo com boletim vazio", () => {
-    expect(SCHEMA_VERSION).toBe(6);
+    // Paises (Superseded checks): the save is v7.
+    expect(SCHEMA_VERSION).toBe(7);
     for (const seed of [1, 2, 3]) {
       const state = newGame(seed);
-      expect(state.schemaVersion).toBe(6);
+      expect(state.schemaVersion).toBe(7);
       expect(state.market.transfers).toEqual([]);
+    }
+  });
+});
+
+// ---------- paises ----------
+
+/** Written out here, not imported (L-004): paises AC 2, AC 3. */
+const SQUAD_3775: Record<Position, number> = { GK: 3, DF: 7, MF: 7, FW: 5 };
+const REAL_CLUBS = [
+  "River", "Boca", "Racing", "Independiente", "San Lorenzo", "Vélez", "Estudiantes", "Newell's", "Rosario Central", "Huracán",
+  "Benfica", "Porto", "Sporting", "Braga", "Vitória", "Boavista", "Marítimo", "Belenenses",
+];
+
+/** Snapshot v6 (checks.md): recorded from 889aa71, before the countries existed. */
+interface SnapshotSeed {
+  serieA: Record<string, unknown>;
+  serieB: Record<string, unknown>;
+  market: unknown;
+  rngState: number;
+}
+const snapshotV6 = () =>
+  JSON.parse(readFileSync(new URL("./__fixtures__/snapshot-v6.json", import.meta.url), "utf8")) as Record<string, SnapshotSeed>;
+
+describe("países (paises S1)", () => {
+  test("quatro ligas em ordem", () => {
+    // C1 (AC 1, door 1) and C32.
+    const s = newGame(1);
+    expect(s.leagues.map((l) => [l.id, l.country, l.tier])).toEqual([
+      ["l1", "BR", 0],
+      ["l2", "BR", 1],
+      ["l3", "AR", 0],
+      ["l4", "PT", 0],
+    ]);
+    expect(SCHEMA_VERSION).toBe(7);
+    expect(s.schemaVersion).toBe(7);
+    expect(COUNTRIES).toEqual({ BR: "Brasil", AR: "Argentina", PT: "Portugal" });
+  });
+
+  test("ligas novas com 20 clubes de 22", () => {
+    // C2 (AC 2).
+    const s = newGame(1);
+    const expectIds = (first: number) => Array.from({ length: 20 }, (_, i) => `c${first + i}`).sort();
+    expect(s.leagues[2]!.clubs.map((c) => c.id).sort()).toEqual(expectIds(41));
+    expect(s.leagues[3]!.clubs.map((c) => c.id).sort()).toEqual(expectIds(61));
+    const clubs = [...s.leagues[2]!.clubs, ...s.leagues[3]!.clubs];
+    expect(clubs).toHaveLength(40);
+    for (const c of clubs) {
+      expect(c.players, c.id).toHaveLength(22);
+      const shape = { GK: 0, DF: 0, MF: 0, FW: 0 };
+      for (const p of c.players) shape[p.position]++;
+      expect(shape, c.id).toEqual(SQUAD_3775);
+      expect(c.players.map((p) => p.id), c.id).toEqual(Array.from({ length: 22 }, (_, i) => `${c.id}-p${i + 1}`));
+    }
+    expect(new Set(s.leagues.flatMap((l) => l.clubs.map((c) => c.id))).size).toBe(80);
+  });
+
+  test("identidades fictícias dos países novos", () => {
+    // C3 (AC 3, AD-008).
+    expect(AR_IDENTITIES).toHaveLength(20);
+    expect(PT_IDENTITIES).toHaveLength(20);
+    const all = [...CLUB_IDENTITIES, ...SERIE_B_IDENTITIES, ...AR_IDENTITIES, ...PT_IDENTITIES].map((c) => c.name);
+    expect(new Set(all).size).toBe(80);
+    for (const id of [...AR_IDENTITIES, ...PT_IDENTITIES]) {
+      expect(id.colors.length, id.name).toBeGreaterThanOrEqual(1);
+      expect(id.colors.length, id.name).toBeLessThanOrEqual(3);
+      expect(["vertical", "horizontal", "diagonal", "cross", "hoops"], id.name).toContain(id.pattern);
+      for (const real of REAL_CLUBS) expect(id.name.toLowerCase(), `${id.name} ~ ${real}`).not.toContain(real.toLowerCase());
+    }
+    for (const seed of [1, 2, 3]) {
+      const s = newGame(seed);
+      expect(s.leagues[2]!.clubs.map((c) => c.name).sort()).toEqual(AR_IDENTITIES.map((c) => c.name).sort());
+      expect(s.leagues[3]!.clubs.map((c) => c.name).sort()).toEqual(PT_IDENTITIES.map((c) => c.name).sort());
+    }
+  });
+
+  test("nomes de jogador por país", () => {
+    // C4 (AC 4, door 4).
+    const { BR, AR, PT } = FIRST_NAMES_BY_COUNTRY;
+    expect(AR).not.toEqual(BR);
+    expect(PT).not.toEqual(BR);
+    expect(AR).not.toEqual(PT);
+    const s = newGame(1);
+    const first = (name: string) => name.slice(0, name.indexOf(" "));
+    for (const [k, list] of [[2, AR], [3, PT]] as const) {
+      for (const c of s.leagues[k]!.clubs) for (const p of c.players) expect(list, p.name).toContain(first(p.name));
+    }
+    const names = [
+      ...s.leagues.flatMap((l) => l.clubs.flatMap((c) => c.players.map((p) => p.name))),
+      ...s.market.freeAgents.map((p) => p.name),
+      ...s.market.juniors.map((p) => p.name),
+    ];
+    expect(names).toHaveLength(80 * 22 + 40 + 3);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  test("força dos países novos", () => {
+    // C5 (AC 5).
+    expect(LIGA_ARGENTINA.base).toEqual({ min: 60, max: 76 });
+    expect(LIGA_PORTUGUESA.base).toEqual({ min: 58, max: 80 });
+    const s = newGame(1);
+    const mean = (c: Club) => c.players.reduce((sum, p) => sum + p.rating, 0) / c.players.length;
+    for (const k of [2, 3]) {
+      const means = s.leagues[k]!.clubs.map(mean);
+      expect(Math.max(...means) - Math.min(...means), s.leagues[k]!.id).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  test("Brasil igual ao snapshot v6", () => {
+    // C6 (AC 6, door 3, door 4): the Brazil of a seed is the one of v6.
+    const snapshot = snapshotV6();
+    const withoutDoor1 = (l: unknown) => {
+      const { country, tier, ...rest } = l as Record<string, unknown>;
+      expect([country, tier].every((x) => x !== undefined)).toBe(true);
+      return rest;
+    };
+    for (const seed of [1, 2, 3]) {
+      const s = newGame(seed);
+      const v6 = snapshot[seed]!;
+      expect(withoutDoor1(s.leagues[0]), `seed ${seed}`).toEqual(v6.serieA);
+      expect(withoutDoor1(s.leagues[1]), `seed ${seed}`).toEqual(v6.serieB);
+      expect(s.market, `seed ${seed}`).toEqual(v6.market);
+      expect(s.rngState, `seed ${seed}`).toBe(v6.rngState);
     }
   });
 });

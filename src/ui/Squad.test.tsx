@@ -223,7 +223,8 @@ describe("elenco com divisões, contratos e meta", () => {
     render(<Squad />);
     const names = () => within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row").slice(1).map((r) => r.querySelector(".club-name-text")!.textContent);
     const select = screen.getByLabelText("Divisão") as HTMLSelectElement;
-    expect([...select.options].map((o) => o.textContent)).toEqual(["Série A", "Série B"]);
+    // Paises (Superseded checks): the 4 leagues.
+    expect([...select.options].map((o) => o.textContent)).toEqual(["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"]);
     expect(select.selectedOptions[0]!.textContent).toBe("Série B");
     expect(names()).toEqual(computeTable(game.leagues[1]!).map((r) => r.name));
     await user.selectOptions(select, "Série A");

@@ -14,9 +14,9 @@ const expectedFans = (mean: number) => Math.round(Math.min(60_000, Math.max(15_0
 type Doc = { leagues: { clubs: { id: string; players: { id: string; rating: number }[] }[]; rounds: unknown }[] };
 
 // Copa-nacional C60 supersedes multiplas-temporadas C48, C49: v3, v2 and v1 reach v5 through v4.
-// Gastos-da-ia (Superseded checks): and v6 after it.
+// Gastos-da-ia (Superseded checks): and v6 after it. Paises (Superseded checks): and v7 after it.
 function expectV4Finances(state: GameState, doc: Doc) {
-  expect(state.schemaVersion).toBe(6);
+  expect(state.schemaVersion).toBe(7);
   const league = state.leagues[0]!;
   expect(league.rounds).toEqual(doc.leagues[0]!.rounds);
   league.clubs.forEach((club, i) => {
@@ -52,7 +52,8 @@ function expectedGoalA(state: GameState): number {
 
 /** What every v4 migration adds: the Série B caught up, contracts, zeroed numbers, history, goal. */
 function expectV4Additions(state: GameState, roundsPlayed: number) {
-  expect(state.leagues.map((l) => l.id)).toEqual(["l1", "l2"]);
+  // Paises (Superseded checks): 4 leagues.
+  expect(state.leagues.map((l) => l.id)).toEqual(["l1", "l2", "l3", "l4"]);
   const b = state.leagues[1]!;
   expect(new Set(b.clubs.map((c) => c.id))).toEqual(new Set(Array.from({ length: 20 }, (_, i) => `c${21 + i}`)));
   expect(b.rounds).toHaveLength(38);
@@ -89,7 +90,7 @@ describe("migração do save", () => {
     // The Série A is the same save, plus contracts and zeroed numbers.
     const withoutV4 = (x: unknown) =>
       JSON.parse(JSON.stringify(x), (k, v) =>
-        ["contractSeasons", "seasonGames", "seasonGoals", "careerGames", "careerGoals", "cupDiscipline", "transfers"].includes(k) ? undefined : v,
+        ["contractSeasons", "seasonGames", "seasonGoals", "careerGames", "careerGoals", "cupDiscipline", "transfers", "country", "tier"].includes(k) ? undefined : v,
       );
     expect(withoutV4(a)).toEqual(oldA);
     expect(a.currentRound).toBe(5);
@@ -125,13 +126,14 @@ describe("migração do save", () => {
 
   // Copa-nacional C56, C61 supersede multiplas-temporadas C50, C51: v5 is current, v4 migrates, 6 is incompatible.
   // Gastos-da-ia C30 (Superseded checks): v6 is current and 7 is incompatible.
+  // Paises C30 (Superseded checks): v7 is current and 8 is incompatible.
   test("v5 passa direto", () => {
     const r = migrateSave(v3Document(5, 2));
     if (r.kind !== "ok") throw new Error("v3 not migrated");
-    expect(r.state.schemaVersion).toBe(6);
+    expect(r.state.schemaVersion).toBe(7);
     const copy = JSON.parse(JSON.stringify(r.state));
     expect(migrateSave(copy)).toEqual({ kind: "ok", state: r.state });
-    expect(migrateSave({ schemaVersion: 7 })).toEqual({ kind: "incompatible", version: 7 });
+    expect(migrateSave({ schemaVersion: 8 })).toEqual({ kind: "incompatible", version: 8 });
   });
 
   test("série B migrada vem da seed", () => {
@@ -221,7 +223,7 @@ describe("migração v4 -> v5 (copa-nacional)", () => {
   test("v4 no meio da temporada ganha copa", () => {
     const doc = v4Document(93, 12) as unknown as V4Doc;
     const s = migrated(JSON.parse(JSON.stringify(doc)));
-    expect(s.schemaVersion).toBe(6);
+    expect(s.schemaVersion).toBe(7);
     const cup = s.cups[0]!;
     for (const k of [0, 1]) {
       expect(cup.phases[k]!.ties).toHaveLength(k === 0 ? 8 : 16);
@@ -237,7 +239,8 @@ describe("migração v4 -> v5 (copa-nacional)", () => {
     expect(nextDate(s)).toEqual({ kind: "league", roundIndex: 12 });
     // No money and no condition moved.
     const oldClubs = new Map(doc.leagues.flatMap((l) => l.clubs).map((c) => [c.id, c]));
-    for (const c of s.leagues.flatMap((l) => l.clubs)) {
+    // Paises: the clubs of the v4 document, the ones of Brazil.
+    for (const c of s.leagues.filter((l) => l.country === "BR").flatMap((l) => l.clubs)) {
       const old = oldClubs.get(c.id)!;
       expect(c.finance.cash, c.id).toBe(old.finance.cash);
       c.players.forEach((p, i) => {
@@ -282,8 +285,8 @@ describe("migração v4 -> v5 (copa-nacional)", () => {
   test("v1 v2 e v3 viram v5", () => {
     for (const doc of [v1Document(), v2Document(), v3Document(3, 6)]) {
       const s = migrated(doc);
-      expect(s.schemaVersion).toBe(6);
-      expect(s.leagues).toHaveLength(2);
+      expect(s.schemaVersion).toBe(7);
+      expect(s.leagues).toHaveLength(4);
       const cup = s.cups[0]!;
       expect(cup.seeding).toHaveLength(40);
       expect(cup.phases[0]!.ties).toHaveLength(8);
@@ -295,13 +298,15 @@ describe("migração v4 -> v5 (copa-nacional)", () => {
   });
 
   // Gastos-da-ia C30 supersedes copa-nacional C61 («versão acima de 5 incompatível»).
-  test("versão acima de 6 incompatível", () => {
-    expect(migrateSave({ schemaVersion: 7 })).toEqual({ kind: "incompatible", version: 7 });
+  // Paises C30 supersedes gastos-da-ia C30: 8 is incompatible, 7 loads as it is.
+  test("versão acima de 7 incompatível", () => {
+    expect(migrateSave({ schemaVersion: 8 })).toEqual({ kind: "incompatible", version: 8 });
     expect(migrateSave({ schemaVersion: "x" })).toEqual({ kind: "incompatible", version: "x" });
-    const v6 = { ...(v5Document(98, 1) as object), schemaVersion: 6, market: { ...(v5Document(98, 1).market as object), transfers: [] } };
-    const r = migrateSave(v6);
+    const v7 = JSON.parse(JSON.stringify(newGame(98)));
+    expect(v7.schemaVersion).toBe(7);
+    const r = migrateSave(v7);
     expect(r.kind).toBe("ok");
-    if (r.kind === "ok") expect(r.state).toBe(v6);
+    if (r.kind === "ok") expect(r.state).toBe(v7);
   });
 
   test("sementes da migração da copa", () => {
@@ -353,33 +358,48 @@ describe("migração v5 -> v6 (gastos-da-ia)", () => {
     expect(doc.schemaVersion).toBe(5);
     expect("transfers" in (doc.market as object)).toBe(false);
     const s = migrated(JSON.parse(JSON.stringify(doc)));
-    expect(s.schemaVersion).toBe(6);
+    expect(s.schemaVersion).toBe(7);
     expect(s.market.transfers).toEqual([]);
-    // Without those two fields, the document is the v5 one.
-    const without = JSON.parse(JSON.stringify(s)) as Record<string, unknown> & { market: Record<string, unknown> };
+    // Without those two fields, the document is the v5 one (paises: and without v7's leagues abroad, country and tier).
+    const without = JSON.parse(JSON.stringify(s)) as Record<string, unknown> & { market: Record<string, unknown>; leagues: Record<string, unknown>[] };
     delete without.market.transfers;
     without.schemaVersion = 5;
+    without.leagues = without.leagues.slice(0, 2);
+    for (const l of without.leagues) {
+      delete l.country;
+      delete l.tier;
+    }
     expect(without).toEqual(doc);
   });
 
-  test("cadeia até v6", () => {
+  // Paises C29 supersedes gastos-da-ia C29 («cadeia até v6»): every older version reaches v7 with 4 leagues.
+  test("cadeia até v7", () => {
     const docs: [number, Record<string, unknown>][] = [
       [1, v1Document()],
       [2, v2Document()],
       [3, v3Document(3, 2)],
       [4, v4Document(3, 2)],
+      [5, v5Document(3, 2)],
     ];
     expect(docs.map(([v, d]) => [v, d.schemaVersion])).toEqual([
       [1, 1],
       [2, 2],
       [3, 3],
       [4, 4],
+      [5, 5],
     ]);
     for (const [v, doc] of docs) {
       expect("transfers" in ((doc.market as object | undefined) ?? {}), `v${v}`).toBe(false);
+      expect((doc.leagues as unknown[]).length, `v${v}`).toBeLessThanOrEqual(2);
       const s = migrated(doc);
-      expect(s.schemaVersion, `v${v}`).toBe(6);
+      expect(s.schemaVersion, `v${v}`).toBe(7);
       expect(s.market.transfers, `v${v}`).toEqual([]);
+      expect(s.leagues.map((l) => [l.id, l.country, l.tier]), `v${v}`).toEqual([
+        ["l1", "BR", 0],
+        ["l2", "BR", 1],
+        ["l3", "AR", 0],
+        ["l4", "PT", 0],
+      ]);
     }
   });
 });

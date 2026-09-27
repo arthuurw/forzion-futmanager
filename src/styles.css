@@ -1606,6 +1606,20 @@ tr.down td:last-child {
     display: inline-block !important;
   }
 
+  /* Four tabs (Mercado) do not fit a phone in one row. */
+  .screen-tabs {
+    flex-wrap: wrap;
+  }
+
+  .top-strip .logo {
+    font-size: 1.05rem;
+  }
+
+  .top-strip .logo,
+  .top-strip .season {
+    white-space: nowrap;
+  }
+
   .screen-body,
   .squad-body,
   .round-body {
@@ -1628,8 +1642,9 @@ tr.down td:last-child {
     width: 100%;
   }
 
+  /* Grow to fill the row, never shrink below the label: a fourth tab wraps instead of clipping. */
   .screen-tabs .tab {
-    flex: 1;
+    flex: 1 0 auto;
   }
 
   /* Série B names run to two lines: the grid scrolls inside instead of pushing the page. */

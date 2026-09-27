@@ -72,7 +72,7 @@ Nas rodadas de janela, clubes da IA com sobra compram um jogador melhor para a p
 
 **Acceptance Criteria**
 
-1. The sistema SHALL calcular a sobra de um clube da IA para um gasto `g` com salário novo `s` como `caixa − 10 × (folha + s)`, e SHALL permitir o gasto só quando `g ≤ sobra`
+1. The sistema SHALL calcular a sobra de um clube da IA para um gasto `g` com salário `s` como `caixa − 10 × (folha + s)`, onde `s` é o salário que o jogador já tem na compra do AC 3 e o salário do AC 5 na venda do vermelho (AC 10), e SHALL permitir o gasto só quando `g ≤ sobra`
 2. WHEN uma rodada de liga fecha e a próxima rodada da liga está numa janela aberta THEN o sistema SHALL dar a cada clube da IA, na ordem das divisões (A depois B) e dos clubes dentro delas, uma chance de 25% de tentar uma compra, sorteada do `Rng` da door 3
 3. WHEN um clube da IA tenta uma compra THEN o sistema SHALL escolher como alvo a posição do titular de menor força em `aiLineup`, e SHALL considerar só jogadores dessa posição com força pelo menos 4 acima desse titular, idade até 32, preço dentro da sobra, de outro clube da IA com mais de 20 jogadores e fora dos titulares desse clube em `aiLineup`. Livres não entram
 4. WHEN há candidatos THEN o sistema SHALL comprar o de maior força, desempatando pelo menor preço e depois pelo menor id. O preço é `askingPrice` do vendedor, que para um reserva é o `marketValue`

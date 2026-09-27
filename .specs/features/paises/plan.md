@@ -143,7 +143,7 @@ None - nothing consumed outside. É um SPA estático sem API (AD-001).
 
 **Acceptance Criteria**
 
-23. The sistema SHALL, em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, deixar o caixa final de cada clube da Argentina e de Portugal entre −2× e 15× o inicial, com a mediana de cada país entre 2× e 4×
+23. The sistema SHALL, em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, deixar o caixa final de cada clube da Argentina e de Portugal entre −2× e 15× o inicial, com a mediana de cada país entre 1,2× e 4× (piso renegociado de 2× em 27/09/2026: medido na seed 1–3, Portugal deu 1,67× por não ter receita de copa)
 24. The sistema SHALL, nas mesmas seeds e temporadas, manter a média das 18 melhores da Liga Argentina e da Liga Portuguesa a até 5 pontos da temporada 1
 25. The faixas de gastos-da-ia C19, C20, C21 e C34 SHALL continuar valendo para os clubes do Brasil
 

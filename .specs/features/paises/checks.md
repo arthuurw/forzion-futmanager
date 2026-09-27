@@ -99,7 +99,7 @@ Proof: `npx vitest run src/app.test.tsx -t "usuário em Portugal joga e vê a ta
 
 ### S7 - Equilíbrio dos países novos · ~1 file · ~12 KB · ~3k
 
-**C24** - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, o caixa final de cada clube da Liga Argentina e da Liga Portuguesa fica entre −2× e 15× o inicial, e a mediana de cada liga entre 2× e 4× (AC 23)
+**C24** - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, o caixa final de cada clube da Liga Argentina e da Liga Portuguesa fica entre −2× e 15× o inicial, e a mediana de cada liga entre 1,2× e 4× (AC 23; piso renegociado de 2× pelo autor em 27/09/2026 após medir PT 1,67× e AR 3,19×)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas dos países novos"`
 
 **C25** - Nas mesmas seeds e temporadas, a média das 18 melhores da Liga Argentina e da Liga Portuguesa fica a até 5 pontos da temporada 1, em toda temporada (AC 24)

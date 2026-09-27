@@ -116,6 +116,7 @@ None - nothing consumed outside. É um SPA estático sem API (AD-001).
 14. WHILE o clube do usuário está numa liga sem rebaixamento a demissão SHALL acontecer só por terminar 5 ou mais posições abaixo da meta
 15. WHEN o usuário é demitido THEN as 3 propostas de emprego SHALL vir do ranking de força dos 80 clubes, com a regra de hoje (os 3 logo abaixo dele), podendo ser de qualquer país
 16. The meta de copa SHALL ser calculada pelo ranking de força só dos clubes do Brasil, e um usuário na Argentina ou em Portugal SHALL ter meta de copa -1 (sem copa)
+30. WHEN o usuário demitido aceita uma proposta de emprego THEN a virada SHALL tratar o clube de destino e o clube antigo como clubes da IA (renovação de contratos e juniores até 22 jogadores), e o usuário SHALL assumir o clube de destino só depois disso (acrescentado em 27/09/2026 pelo autor: com 80 clubes, o destino começava a temporada com menos de 11 jogadores)
 
 **Independent test:** um usuário demitido do 5º mais forte da Liga Portuguesa recebe 3 propostas, e numa seed conhecida pelo menos uma é de outro país.
 

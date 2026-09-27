@@ -5,7 +5,7 @@ Plan: `.specs/features/paises/plan.md`
 
 ## Intent
 
-33 checks in 8 slices · 5 one-way doors · 0 open
+34 checks in 8 slices · 5 one-way doors · 0 open
 
 Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`). Telas usam `@testing-library/react` em jsdom. Todo valor esperado é literal ou calculado no próprio teste, nunca pela função de produção sob teste (L-004). «Todo», «cada» e «todas» são provados por tabela sobre o conjunto inteiro (L-005). Lições aplicadas: L-003 (fiação pelo ponto de entrada), L-007 (fixture com o membro excluído), L-009 (door nova no build ganha check), L-015 (contagem contra total independente), L-018 (fixture em que os valores candidatos diferem).
 
@@ -38,7 +38,7 @@ Proof: `npx vitest run src/engine/generate.test.ts -t "Brasil igual ao snapshot 
 **C7** - Depois de `playRound` num jogo novo, as 4 ligas têm `currentRound` 1 e as 10 partidas da rodada 1 de cada uma têm resultado (AC 7)
 Proof: `npx vitest run src/engine/season.test.ts -t "quatro ligas jogam a rodada"`
 
-**C8** - O placar da partida `i` da rodada 1 da Liga Argentina e da Liga Portuguesa é o de `simulateMatch` com o `Rng` de `matchSeed` sobre a base `mix32(mix32(rngState, 0xE0), k)`, com `k` 2 e 3, recalculado no teste pela fórmula literal. Os placares da Série A e da Série B nas rodadas 1 e 2 são iguais aos do snapshot v6 (AC 8, door 2)
+**C8** - O placar da partida `i` da rodada 1 da Liga Argentina e da Liga Portuguesa (`k` 2 e 3) é o do motor da rodada ao vivo (`makeMatch` com os times da IA e `runToEnd`) com a semente `mix32(mix32(mix32(rngState, 0xE0), k), 1 * 16 + i)`, recalculada no teste pela fórmula literal; a semente rejeitada `mix32(rngState, 0xA + k)` dá placares diferentes em pelo menos uma partida. Os placares da Série A e da Série B nas rodadas 1 e 2 são iguais aos do snapshot v6 (AC 8, door 2; reescrito em 27/09/2026 pelo autor: `simulateMatch` não usa o banco e diverge da rodada real em 1 a 3 de 20 partidas)
 Proof: `npx vitest run src/engine/live.test.ts -t "semente das ligas novas"`
 
 **C9** - Ao fechar a rodada 1, um clube da Liga Argentina e um da Liga Portuguesa têm `lastRound.sponsorship` igual ao `finance.sponsorship` inteiro. Ao fechar a rodada 38, o prêmio de cada clube das duas ligas é (21 − posição) × R$ 250.000 (AC 9)
@@ -68,6 +68,10 @@ Proof: `npx vitest run src/engine/board.test.ts -t "propostas de emprego de qual
 
 **C16** - `userCupGoal` de um usuário da Série A usa o posto no ranking de força só dos 40 clubes do Brasil (fixture em que o posto entre os 80 e entre os 40 dão metas diferentes). Um usuário da Liga Argentina ou da Liga Portuguesa tem meta de copa -1 (AC 16, L-018)
 Proof: `npx vitest run src/engine/board.test.ts -t "meta de copa só com o Brasil"`
+
+**C34** - Um usuário demitido que aceita a proposta de um clube cujo elenco tem jogadores no último ano de contrato: depois da virada, o clube de destino e o clube antigo têm pelo menos 22 jogadores cada, os contratos que a regra da IA renova foram renovados no destino, e `userClubId` é o destino. Pela tela Fim, o teste «demitido escolhe proposta» volta a escolher a proposta que leva a `c79` e passa sem mudar nenhum valor esperado (AC 30, L-007)
+Proof: `npx vitest run src/engine/rollover.test.ts -t "clube do demitido passa pela virada da IA"`
+Proof: `npx vitest run src/ui/End.test.tsx -t "demitido escolhe proposta"`
 
 ### S5 - Mercado com o mundo · ~4 files · ~70 KB · ~18k
 

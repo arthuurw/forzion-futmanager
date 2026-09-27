@@ -5,7 +5,11 @@ import { useGame, userClub, type GameStore } from "./store";
 import { render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { Banner } from "./ui/Banner";
-import { expectedCupGoal } from "./engine/test-fixtures";
+import userEvent from "@testing-library/user-event";
+import { App } from "./App";
+import { userBoardGoal } from "./engine/board";
+import { AI_FORMATION, autoLineup } from "./engine/lineup";
+import { atCupDate, expectedCupGoal } from "./engine/test-fixtures";
 import { resetAll, seededGame } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can look at the store mid-save. */
@@ -236,4 +240,40 @@ describe("copa pelo store (copa-nacional)", () => {
     expect(chosen.cupGoal).toBe(expectedCupGoal(chosen));
     expect(chosen.cupGoal).toBeGreaterThanOrEqual(3);
   });
+});
+
+describe("data de copa sem o usuário pelo store (ajustes-4a)", () => {
+  test("eliminado com suspenso de copa joga a data", async () => {
+    // Before the Quartas; the user takes the loser of the first Oitavas tie.
+    const game = atCupDate(143, 3);
+    const tie = game.cups[0]!.phases[2]!.ties[0]!;
+    game.userClubId = tie.winnerId === tie.homeId ? tie.awayId : tie.homeId;
+    game.boardGoal = userBoardGoal(game);
+    game.cupGoal = 2;
+    const me = userClub(game)!;
+    for (const p of me.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0, cupDiscipline: {} });
+    me.lineup = autoLineup(me, AI_FORMATION);
+    const suspended = me.players.find((p) => p.id === me.lineup!.starters[1])!;
+    suspended.cupDiscipline = { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } };
+    expect(game.cups[0]!.phases[3]!.ties.some((t) => t.homeId === me.id || t.awayId === me.id)).toBe(false);
+
+    const user = userEvent.setup();
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    const phases: string[] = [];
+    const stop = useGame.subscribe((s) => phases.push(s.phase));
+    render(createElement(App));
+    const play = screen.getByRole("button", { name: "Jogar rodada" });
+    expect(play).toBeEnabled();
+    await user.click(play);
+    await screen.findByRole("heading", { level: 1, name: "Copa Nacional · Quartas" });
+    stop();
+    const s = useGame.getState();
+    expect(s.phase).toBe("round");
+    expect(phases).not.toContain("live");
+    expect(s.live).toBeNull();
+    expect(s.lastRound!.cup).toEqual({ cupIndex: 0, phase: 3 });
+    expect(s.game!.cups[0]!.currentPhase).toBe(4);
+    // The suspension is only served by playing the cup (copa-nacional AC 25).
+    expect(userClub(s.game!)!.players.find((p) => p.id === suspended.id)!.cupDiscipline["cup-nat"]!.suspendedRounds).toBe(1);
+  }, 60_000);
 });

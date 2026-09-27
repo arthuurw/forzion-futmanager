@@ -7,7 +7,7 @@ import type { GameState } from "../engine/types";
 import { useGame } from "../store";
 import { App } from "../App";
 import { Round } from "./Round";
-import { cupGame, resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
+import { cupGame, preliminaryWithCupSuspended, resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
 import { computeTable } from "../engine/table";
 
 const ctl = vi.hoisted(() => ({ fail: false }));
@@ -180,5 +180,21 @@ describe("resultados da copa (copa-nacional)", () => {
     expect(within(screen.getByRole("region", { name: "Confrontos" })).getAllByRole("listitem")[0]!).toHaveTextContent(
       `${nameIn(state, mine.homeId)} 1 x 1 (pên. 4 x 3) ${nameIn(state, mine.awayId)}`,
     );
+  });
+});
+
+describe("rodada antes de data de copa sem o usuário (ajustes-4a)", () => {
+  test("data de copa sem o usuário libera o suspenso de copa", () => {
+    const off = preliminaryWithCupSuspended(142, (s) => s.cups[0]!.seeding[0]!);
+    expect(off.game.cups[0]!.phases[0]!.ties.some((t) => t.homeId === off.game.userClubId || t.awayId === off.game.userClubId)).toBe(false);
+    useGame.setState({ phase: "round", game: off.game, lastRound: off.lastRound });
+    const { unmount } = render(<Round />);
+    expect(screen.getByText("Copa Nacional · Preliminar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
+    unmount();
+    const on = preliminaryWithCupSuspended(142, (s) => s.cups[0]!.phases[0]!.ties[0]!.homeId);
+    useGame.setState({ phase: "round", game: on.game, lastRound: on.lastRound });
+    render(<Round />);
+    expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
   });
 });

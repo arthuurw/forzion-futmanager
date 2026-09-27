@@ -15,17 +15,17 @@ Na derivação, o AC 7 e o AC 8 do plano foram reescritos antes de qualquer chec
 
 ### S1 - A escalação segue o próximo jogo do usuário · ~7 files · ~95 KB · ~24k
 
-**C1** - Tabela sobre a competição usada na validação da escalação do usuário, com um titular só com suspensão de copa (A) e outro só com suspensão de liga (B): próxima data é de copa e o usuário não tem confronto na fase → a validação falha só por B; próxima data é de copa e o usuário tem confronto → falha só por A; próxima data é de liga → falha só por B (AC 1, AC 2)
+**C1** ✓ - Tabela sobre a competição usada na validação da escalação do usuário, com um titular só com suspensão de copa (A) e outro só com suspensão de liga (B): próxima data é de copa e o usuário não tem confronto na fase → a validação falha só por B; próxima data é de copa e o usuário tem confronto → falha só por A; próxima data é de liga → falha só por B (AC 1, AC 2)
 Proof: `npx vitest run src/engine/calendar.test.ts -t "competição do próximo jogo do usuário"`
 
-**C2** - A regra do C1 vale para um clube eliminado numa fase anterior e para um clube entre os 24 que pulam a Preliminar, na data da Preliminar: nos dois casos a competição do próximo jogo é a liga (AC 4)
+**C2** ✓ - A regra do C1 vale para um clube eliminado numa fase anterior e para um clube entre os 24 que pulam a Preliminar, na data da Preliminar: nos dois casos a competição do próximo jogo é a liga (AC 4)
 Proof: `npx vitest run src/engine/calendar.test.ts -t "eliminado e isento da preliminar"`
 
-**C3** - Numa data de copa sem o usuário e com um titular só com suspensão de copa: na tela Elenco, «Jogar rodada» está ligado e não aparece «Faltam»; na tela de Resultados, «Jogar rodada» está ligado; na tela Condição, esse jogador não tem a marca «Suspenso (copa)». Com o usuário na fase, as três telas bloqueiam e marcam como hoje (AC 3, L-007)
+**C3** ✓ - Numa data de copa sem o usuário e com um titular só com suspensão de copa: na tela Elenco, «Jogar rodada» está ligado e não aparece «Faltam»; na tela de Resultados, «Jogar rodada» está ligado; na tela Condição, esse jogador não tem a marca «Suspenso (copa)». Com o usuário na fase, as três telas bloqueiam e marcam como hoje (AC 3, L-007)
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "data de copa sem o usuário libera o suspenso de copa"`
 Proof: `npx vitest run src/ui/Round.test.tsx -t "data de copa sem o usuário libera o suspenso de copa"`
 
-**C4** - Pela store: um usuário eliminado com um titular suspenso na copa aperta «Jogar rodada» na data de copa seguinte; a data fecha direto, sem a tela «Ao vivo», e a tela de resultados dela aparece (AC 3 com copa-nacional AC 44, L-003)
+**C4** ✓ - Pela store: um usuário eliminado com um titular suspenso na copa aperta «Jogar rodada» na data de copa seguinte; a data fecha direto, sem a tela «Ao vivo», e a tela de resultados dela aparece (AC 3 com copa-nacional AC 44, L-003)
 Proof: `npx vitest run src/store.test.ts -t "eliminado com suspenso de copa joga a data"`
 
 ### S2 - A IA não compra lesionado nem revende quem acabou de comprar · ~3 files · ~70 KB · ~18k

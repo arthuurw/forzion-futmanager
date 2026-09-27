@@ -5,7 +5,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { userBoardGoal } from "../engine/board";
 import { newGame } from "../engine/generate";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
-import { playRound } from "../engine/season";
+import { playDate, playRound, type RoundOutcome } from "../engine/season";
 import { atCupDate } from "../engine/test-fixtures";
 import type { GameState } from "../engine/types";
 import { useGame } from "../store";
@@ -57,4 +57,24 @@ export function cupGame(seed: number, phase: number, pick: (s: GameState) => str
   const club = state.leagues.flatMap((l) => l.clubs).find((c) => c.id === state.userClubId)!;
   club.lineup = autoLineup(club, AI_FORMATION, "balanced", 0, { kind: "cup", cupId: "cup-nat" });
   return state;
+}
+
+/**
+ * Ajustes-4a: the game right after league round 4 (the next date is the cup's Preliminar), with
+ * that round as the last one shown. The user takes the club `pick` chooses, with a clean squad and
+ * an auto-filled eleven whose second starter is suspended in the cup only.
+ */
+export function preliminaryWithCupSuspended(seed: number, pick: (s: GameState) => string) {
+  let s = newGame(seed);
+  for (let i = 0; i < 3; i++) s = playDate(s).state;
+  const { state, ...lastRound }: RoundOutcome = playDate(s);
+  state.userClubId = pick(state);
+  state.boardGoal = userBoardGoal(state);
+  state.cupGoal = 2;
+  const club = state.leagues.flatMap((l) => l.clubs).find((c) => c.id === state.userClubId)!;
+  for (const p of club.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0, cupDiscipline: {} });
+  club.lineup = autoLineup(club, AI_FORMATION);
+  const suspended = club.players.find((p) => p.id === club.lineup!.starters[1])!;
+  suspended.cupDiscipline = { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } };
+  return { game: state, lastRound, suspended };
 }

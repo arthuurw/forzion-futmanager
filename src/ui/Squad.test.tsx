@@ -6,7 +6,7 @@ import { playDate } from "../engine/season";
 import { POSITIONS, type GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Squad } from "./Squad";
-import { resetAll, seededGame, seededGameIn } from "./test-utils";
+import { preliminaryWithCupSuspended, resetAll, seededGame, seededGameIn } from "./test-utils";
 import { computeTable } from "../engine/table";
 
 beforeEach(resetAll);
@@ -325,8 +325,10 @@ describe("elenco com a copa (copa-nacional)", () => {
       leagueOnly.suspendedRounds = 1;
       return { cupOnly, leagueOnly };
     };
-    // Next date: the cup's preliminary.
-    const cupNext = seededGame(102, 0, 4);
+    // Next date: the cup's preliminary, which the user plays (ajustes-4a: a cup date without the
+    // user reads the league). Seed 102's Série B club 0 is in the Preliminar.
+    const cupNext = seededGameIn(1, 102, 0, 4);
+    expect(cupNext.cups[0]!.phases[0]!.ties.some((t) => t.homeId === cupNext.userClubId || t.awayId === cupNext.userClubId)).toBe(true);
     const a = mark(cupNext);
     useGame.setState({ phase: "squad", game: cupNext });
     const { unmount } = render(<Squad />);
@@ -353,5 +355,30 @@ describe("elenco com a copa (copa-nacional)", () => {
     await user.click(screen.getByRole("button", { name: "Copa" }));
     expect(screen.getByRole("heading", { level: 1, name: "Copa Nacional" })).toBeInTheDocument();
     expect(useGame.getState().phase).toBe("cup");
+  });
+});
+
+describe("elenco em data de copa sem o usuário (ajustes-4a)", () => {
+  test("data de copa sem o usuário libera o suspenso de copa", () => {
+    const rowOf = (name: string) => within(screen.getByRole("table", { name: "Elenco" })).getByText(name).closest("tr")!;
+    // The top seed skips the Preliminar: the next date is the cup's, without the user.
+    const off = preliminaryWithCupSuspended(141, (s) => s.cups[0]!.seeding[0]!);
+    expect(off.game.cups[0]!.phases[0]!.ties.some((t) => t.homeId === off.game.userClubId || t.awayId === off.game.userClubId)).toBe(false);
+    useGame.setState({ phase: "squad", game: off.game });
+    const { unmount } = render(<Squad />);
+    expect(screen.getByText("Copa Nacional · Preliminar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
+    expect(screen.queryByText(/Faltam/)).not.toBeInTheDocument();
+    expect(within(rowOf(off.suspended.name)).queryByText("Suspenso (copa)")).not.toBeInTheDocument();
+    expect(rowOf(off.suspended.name)).not.toHaveClass("out");
+    unmount();
+    // A club in the Preliminar: blocked and marked, as before.
+    const on = preliminaryWithCupSuspended(141, (s) => s.cups[0]!.phases[0]!.ties[0]!.homeId);
+    useGame.setState({ phase: "squad", game: on.game });
+    render(<Squad />);
+    expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
+    expect(screen.getByText("Faltam 1 titulares")).toBeInTheDocument();
+    expect(within(rowOf(on.suspended.name)).getByText("Suspenso (copa)")).toBeInTheDocument();
+    expect(rowOf(on.suspended.name)).toHaveClass("out");
   });
 });

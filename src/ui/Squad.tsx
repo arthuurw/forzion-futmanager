@@ -63,7 +63,7 @@ export function Squad() {
   if (!club) return null;
   const league = userLeague(game);
   const lineup = club.lineup;
-  // Copa-nacional AC 23, 29: availability is for the next date's competition.
+  // Copa-nacional AC 23, 29, ajustes-4a AC 1-3: availability is for the user's next match's competition.
   const competition = nextCompetition(game);
   const isAvailable = (p: (typeof club.players)[number]) => isAvailableFor(p, competition);
   const validation = validateLineup(club, lineup, competition);

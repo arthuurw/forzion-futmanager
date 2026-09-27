@@ -28,7 +28,16 @@ export function competitionOf(state: Pick<GameState, "cups">, date: GameDate): C
   return cup ? { kind: "cup", cupId: cup.id } : LEAGUE;
 }
 
-/** The competition of the next date to play. */
-export function nextCompetition(state: Pick<GameState, "leagues" | "cups">): Competition {
-  return competitionOf(state, nextDate(state));
+/**
+ * The competition of the user's next match, whose discipline the user's lineup reads (ajustes-4a
+ * AC 1-4): a cup date the user's club has no tie in - eliminated, or not in the Preliminar - reads
+ * the league, the user's next match.
+ */
+export function nextCompetition(state: Pick<GameState, "leagues" | "cups" | "userClubId">): Competition {
+  const date = nextDate(state);
+  if (date.kind === "cup") {
+    const ties = state.cups[date.cupIndex]?.phases[date.phase]?.ties ?? [];
+    if (!ties.some((t) => t.homeId === state.userClubId || t.awayId === state.userClubId)) return LEAGUE;
+  }
+  return competitionOf(state, date);
 }

@@ -28,7 +28,7 @@ Reutiliza `calendar.nextDate`/`competitionOf`, `lineup.isAvailableFor`/`validate
 | Front | What changes |
 | --- | --- |
 | domain | existing term: `nextCompetition(state)` respondia «a competição da próxima data». Para a escalação do usuário passa a valer «a competição do próximo jogo do usuário». Quem lê hoje: `Squad` (validação e marcas), `Round` (`canPlay`) e `Condition` (marca «Suspenso (copa)»). A escalação da IA e o banco ao vivo continuam pela data, porque só montam times de quem joga |
-| domain | existing criterion: copa-nacional AC 23 («WHILE a próxima data é uma fase de copa ... na validação da escalação do usuário») passa a valer só quando o usuário joga a fase. Os testes de C29 da copa usam uma data que o usuário joga e não mudam |
+| domain | existing criterion: copa-nacional AC 23 («WHILE a próxima data é uma fase de copa ... na validação da escalação do usuário») passa a valer só quando o usuário joga a fase. Os testes de C29 da copa usam uma data que o usuário joga e não mudam. O teste de C35 da copa («suspensões pela próxima data») usava um clube que pula a Preliminar: só a fixture muda, para um clube da Preliminar (Série B, clube 0, seed 102); nenhum valor esperado muda |
 | domain | existing term: candidato da compra da IA (gastos-da-ia AC 3) ganha dois filtros: sem lesão e sem compra pela IA nesta temporada. A venda do vermelho (AC 9) ganha só o segundo: continua vendendo lesionado |
 | domain | existing criterion: as faixas de gastos-da-ia C19, C20, C21 e C34 continuam valendo sem mudança; as compras mudam e a medição tem de ser refeita |
 | stored data | nothing to migrate: o boletim já existe no save v6 |

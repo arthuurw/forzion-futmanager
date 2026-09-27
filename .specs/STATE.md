@@ -16,13 +16,15 @@
 | AD-010 | Toda tela cabe na janela sem rolagem de página; em telas estreitas (≤ 900 px) um painel por vez via abas | pedido do autor; visual estilo PS2 | active | 2026-09-26 |
 | AD-011 | A Série B tem 20 identidades fixas inspiradas na Série B (apelido + cidade/estado + cores), em `SERIE_B_IDENTITIES`; clubes mudam de divisão mantendo id e identidade | mesmo padrão da AD-009, sem nome ou escudo real (AD-008); plano de multiplas-temporadas | active | 2026-09-26 |
 | AD-012 | O valor de mercado segue a força atual (`salaryFor(força) × 50 × fator de idade`), não o salário guardado; o salário só muda na contratação ou na renovação | com evolução por idade, um jovem que cresce precisa valer mais; plano de multiplas-temporadas (AC 21) | active | 2026-09-26 |
+| AD-013 | Competições além da liga vivem em `GameState.cups[]` (a copa nacional é `cups[0]`, id `"cup-nat"`); a disciplina de copa fica em `Player.cupDiscipline[cupId]`, e `yellowCards`/`suspendedRounds` de topo são só da liga | a copa continental (4c) entra como mais um elemento sem save novo; plano de copa-nacional (doors 1 e 6) | active | 2026-09-26 |
+| AD-014 | O calendário não é gravado: a próxima data sai de `League.currentRound` e de `CupPhase.afterLeagueRound` (`engine/calendar.nextDate`) | um ponteiro próprio duplicaria o estado e poderia divergir; plano de copa-nacional (door 4) | active | 2026-09-26 |
 
 ## Handoff
 
-**Feature**: multiplas-temporadas
-**Where**: concluída - C1–C56 PASS (round 3 scoped, `validate_verification.py` 0). Save v4 com Série B, histórico e meta
+**Feature**: copa-nacional (sub-projeto 4a; o 4 foi quebrado em 4a copa nacional -> 4b países -> 4c copa continental)
+**Where**: plano e checks escritos (C1–C63), `validate_plan.py` e `validate_checks.py` 0 - build não iniciado, por pedido do autor
 **In progress**: nada
-**Next step**: sub-projeto 4 (copas e países). A IA não gasta dinheiro, então o caixa dos clubes da IA só cresce; se isso pesar, é assunto para um sub-projeto futuro
+**Next step**: build com um builder (~91k, budget 150k), depois o Verifier
 **Blockers**: none
-**Uncommitted**: none
+**Uncommitted**: `.specs/features/copa-nacional/plan.md`, `.specs/features/copa-nacional/checks.md`, `.specs/STATE.md`
 **Branch**: main

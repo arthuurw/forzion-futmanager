@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { isMarketOpen, releaseCost } from "../engine/market";
+import { divisionOf, goalLabel } from "../engine/board";
+import { CONTRACT_RENEWAL, isMarketOpen, releaseCost, renewalSalary } from "../engine/market";
 import { formationSlots, isAvailable, validateLineup } from "../engine/lineup";
 import { userLeague } from "../engine/season";
 import { FORMATION_NAMES, POSITIONS, POSTURES, type FormationName, type Position, type Posture } from "../engine/types";
@@ -9,7 +10,7 @@ import { formatMoney } from "./money";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
 import { ScreenTabs } from "./ScreenTabs";
-import { Table } from "./Table";
+import { DivisionTable } from "./Table";
 
 export const POSITION_LABEL: Record<Position, string> = { GK: "GOL", DF: "ZAG", MF: "MEI", FW: "ATA" };
 
@@ -48,9 +49,12 @@ export function Squad() {
   const releasePlayer = useGame((s) => s.releasePlayer);
   const goToMarket = useGame((s) => s.goToMarket);
   const goToFinance = useGame((s) => s.goToFinance);
+  const goToHistory = useGame((s) => s.goToHistory);
+  const renewContract = useGame((s) => s.renewContract);
   const message = useGame((s) => s.marketMessage);
   const [tab, setTab] = useState<SquadTab>("pitch");
   const [releasing, setReleasing] = useState<string | null>(null);
+  const [renewing, setRenewing] = useState<string | null>(null);
   if (!game) return null;
   const club = userClub(game);
   if (!club) return null;
@@ -62,6 +66,7 @@ export function Squad() {
   const starterIds = new Set(lineup?.starters.filter((id): id is string => !!id));
   const marketOpen = isMarketOpen(game);
   const toRelease = club.players.find((p) => p.id === releasing) ?? null;
+  const toRenew = club.players.find((p) => p.id === renewing) ?? null;
 
   // AC 9: by position, then rating descending.
   const roster = [...club.players].sort(
@@ -174,6 +179,7 @@ export function Squad() {
                   <th className="num">Idade</th>
                   <th className="num">Força</th>
                   <th className="num">Salário</th>
+                  <th className="num">Contr.</th>
                   <th className="num">Cond</th>
                   <th>Moral</th>
                   <th />
@@ -192,6 +198,17 @@ export function Squad() {
                       {p.rating}
                     </td>
                     <td className="num">{formatMoney(p.salary)}</td>
+                    <td className="num contract">
+                      {p.contractSeasons}
+                      {p.contractSeasons === 1 && (
+                        <>
+                          <span className="last-year">Último ano</span>
+                          <button className="mini" aria-label={`Renovar ${p.name}`} title="Renovar" onClick={() => setRenewing(p.id)}>
+                            Renovar
+                          </button>
+                        </>
+                      )}
+                    </td>
                     <td className="num">
                       <FitnessBar value={p.fitness} />
                     </td>
@@ -227,10 +244,28 @@ export function Squad() {
         <section className={panelClass("table")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Classificação</h2>
           <div className="fill">
-            <Table league={league} highlightClubId={club.id} />
+            <DivisionTable game={game} highlightClubId={club.id} />
           </div>
         </section>
       </div>
+
+      {toRenew && (
+        <div role="alertdialog" aria-label="Confirmar renovação" className="panel confirm inline">
+          <p>
+            Renovar {toRenew.name} por {CONTRACT_RENEWAL} temporadas com salário {formatMoney(renewalSalary(toRenew))} por rodada. Confirmar?
+          </p>
+          <button
+            className="primary"
+            onClick={() => {
+              setRenewing(null);
+              void renewContract(toRenew.id);
+            }}
+          >
+            Confirmar
+          </button>
+          <button onClick={() => setRenewing(null)}>Cancelar</button>
+        </div>
+      )}
 
       {toRelease && (
         <div role="alertdialog" aria-label="Confirmar dispensa" className="panel confirm inline">
@@ -254,9 +289,11 @@ export function Squad() {
         <span className="matchday">
           Rodada {league.currentRound + 1} de {league.rounds.length}
         </span>
+        <span className="goal">Meta: {goalLabel(divisionOf(game, club.id), game.boardGoal)}</span>
         <span className="cash">{formatMoney(club.finance.cash)}</span>
         <button onClick={goToMarket}>Mercado</button>
         <button onClick={goToFinance}>Finanças</button>
+        <button onClick={goToHistory}>Histórico</button>
         {message && (
           <p role="status" className="missing">
             {message}

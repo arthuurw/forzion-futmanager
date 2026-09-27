@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FEE_ROUNDS, isMarketOpen, marketValue, nextRoundNumber, nextWindowStart } from "../engine/market";
-import { findClub, userLeague } from "../engine/season";
+import { allClubs, findAnyClub } from "../engine/season";
 import { POSITIONS, type Player, type Position } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { formatMoney } from "./money";
@@ -34,7 +34,6 @@ export function Market() {
   if (!game) return null;
   const club = userClub(game);
   if (!club) return null;
-  const league = userLeague(game);
   const next = nextRoundNumber(game);
 
   const head = (
@@ -73,7 +72,7 @@ export function Market() {
 
   // AC 18: every other club's players and the free agents, strongest first.
   const listings: Listing[] = [
-    ...league.clubs.filter((c) => c.id !== club.id).flatMap((c) => c.players.map((player) => ({ player, clubId: c.id, clubName: c.name }))),
+    ...allClubs(game).filter((c) => c.id !== club.id).flatMap((c) => c.players.map((player) => ({ player, clubId: c.id, clubName: c.name }))),
     ...game.market.freeAgents.map((player) => ({ player, clubId: null, clubName: "Livre" })),
   ]
     .filter((l) => position === "all" || l.player.position === position)
@@ -211,7 +210,7 @@ export function Market() {
               <ul className="offers fill">
                 {game.market.offers.map((o) => {
                   const player = club.players.find((p) => p.id === o.playerId);
-                  const buyer = findClub(league, o.buyerId);
+                  const buyer = findAnyClub(game, o.buyerId);
                   if (!player) return null;
                   return (
                     <li key={o.id}>

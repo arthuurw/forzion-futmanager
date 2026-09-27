@@ -1,5 +1,7 @@
+import { useState } from "react";
+import { DIVISION_LABEL, divisionOf } from "../engine/board";
 import { computeTable } from "../engine/table";
-import type { League } from "../engine/types";
+import type { GameState, League } from "../engine/types";
 import { Flag } from "./Flag";
 
 const COLUMNS = ["P", "J", "V", "E", "D", "GP", "GC", "SG"] as const;
@@ -46,5 +48,27 @@ export function Table({ league, highlightClubId }: { league: League; highlightCl
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** AC 5: the user's division by default, with a «Divisão» selector for the other one. */
+export function DivisionTable({ game, highlightClubId }: { game: GameState; highlightClubId: string | null }) {
+  const own = Math.max(0, highlightClubId ? divisionOf(game, highlightClubId) : 0);
+  const [division, setDivision] = useState(own);
+  const league = game.leagues[division] ?? game.leagues[0]!;
+  return (
+    <>
+      <label className="formation-row division-select">
+        Divisão
+        <select aria-label="Divisão" value={division} onChange={(e) => setDivision(Number(e.target.value))}>
+          {game.leagues.map((l, i) => (
+            <option key={l.id} value={i}>
+              {DIVISION_LABEL[i] ?? l.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <Table league={league} highlightClubId={highlightClubId} />
+    </>
   );
 }

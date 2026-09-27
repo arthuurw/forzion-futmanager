@@ -11,7 +11,8 @@ beforeEach(resetAll);
 /** Written out here, not imported (L-004). */
 const brl = (n: number) => `${n < 0 ? "-" : ""}R$ ${String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 const factor = (age: number) => (age <= 21 ? 1.5 : age <= 27 ? 1.2 : age <= 30 ? 1 : age <= 33 ? 0.6 : 0.3);
-const value = (p: Player) => Math.round((p.salary * 50 * factor(p.age)) / 10_000) * 10_000;
+// Value follows the rating since multiplas-temporadas (C26).
+const value = (p: Player) => Math.round((Math.round((2000 * 1.09 ** (p.rating - 40)) / 100) * 100 * 50 * factor(p.age)) / 10_000) * 10_000;
 /** Worst goalkeeper: never among the AI's eleven, so the asking price is the value. */
 const reserveGk = (c: Club) => c.players.filter((p) => p.position === "GK").sort((a, b) => a.rating - b.rating)[0]!;
 
@@ -44,7 +45,8 @@ describe("tela Mercado", () => {
     const table = screen.getByRole("table", { name: "Mercado" });
     expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Nome", "Pos", "Idade", "Força", "Clube", "Valor", "Salário"]);
     const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows).toHaveLength(19 * 22 + 40);
+    // Supersedes elenco-mercado-financas C18: the 39 other clubs of both divisions (multiplas-temporadas C9).
+    expect(rows).toHaveLength(39 * 22 + 40);
     const cells = rows.map((r) => within(r).getAllByRole("cell").map((c) => c.textContent));
     const ratings = cells.map((c) => Number(c[3]));
     expect(ratings).toEqual([...ratings].sort((a, b) => b - a));
@@ -57,14 +59,14 @@ describe("tela Mercado", () => {
 
     await user.selectOptions(screen.getByLabelText("Posição"), "FW");
     const forwards = within(screen.getByRole("table", { name: "Mercado" })).getAllByRole("row").slice(1);
-    expect(forwards).toHaveLength(19 * 5 + 10);
+    expect(forwards).toHaveLength(39 * 5 + 10);
     for (const r of forwards) expect(within(r).getAllByRole("cell")[1]!.textContent).toBe("ATA");
   });
 
   test("filtro sem jogadores", async () => {
     const user = userEvent.setup();
     const game = seededGame(2);
-    for (const c of game.leagues[0]!.clubs) if (c.id !== game.userClubId) c.players = c.players.filter((p) => p.position !== "FW");
+    for (const c of game.leagues.flatMap((l) => l.clubs)) if (c.id !== game.userClubId) c.players = c.players.filter((p) => p.position !== "FW");
     game.market.freeAgents = game.market.freeAgents.filter((p) => p.position !== "FW");
     show(game);
     await user.selectOptions(screen.getByLabelText("Posição"), "FW");

@@ -2,6 +2,7 @@ import "fake-indexeddb/auto";
 import { screen } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
+import { userBoardGoal } from "../engine/board";
 import { newGame } from "../engine/generate";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
 import { playRound } from "../engine/season";
@@ -21,13 +22,19 @@ export function resetStore(): void {
 
 /** A game with the user's club chosen and its lineup auto-filled, `roundsPlayed` rounds in. */
 export function seededGame(seed = 1, clubIndex = 0, roundsPlayed = 0): GameState {
+  return seededGameIn(0, seed, clubIndex, roundsPlayed);
+}
+
+/** Same as `seededGame`, with the user's club in division `division` (0 = Série A). The goal is the board's. */
+export function seededGameIn(division: number, seed = 1, clubIndex = 0, roundsPlayed = 0): GameState {
   let state = newGame(seed);
-  const club = state.leagues[0]!.clubs[clubIndex]!;
+  const club = state.leagues[division]!.clubs[clubIndex]!;
   state.userClubId = club.id;
+  state.boardGoal = userBoardGoal(state);
   club.lineup = autoLineup(club, AI_FORMATION);
   for (let i = 0; i < roundsPlayed; i++) state = playRound(state).state;
   // Rounds leave players injured or suspended: pick an available eleven again, as a manager would.
-  const user = state.leagues[0]!.clubs[clubIndex]!;
+  const user = state.leagues[division]!.clubs[clubIndex]!;
   user.lineup = autoLineup(user, user.lineup?.formation ?? AI_FORMATION);
   return state;
 }

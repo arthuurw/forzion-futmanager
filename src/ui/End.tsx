@@ -1,30 +1,96 @@
-import { userLeague } from "../engine/season";
-import { computeTable } from "../engine/table";
+import { useState } from "react";
+import { DIVISION_LABEL, VERDICT_TEXT, divisionOf, goalLabel } from "../engine/board";
+import { bestElevenMean } from "../engine/lineup";
+import { findAnyClub, seasonReview } from "../engine/season";
 import { useGame } from "../store";
+import { formatMoney } from "./money";
 import { NewGameButton } from "./NewGameButton";
-import { Table } from "./Table";
+import { DivisionTable } from "./Table";
 
-/** AC 29: season over, champion named, final table, no more rounds to play. */
+/** AC 9, AC 34: the season's summary, the board's verdict and, when fired, the job offers. */
 export function End() {
   const game = useGame((s) => s.game);
+  const nextSeason = useGame((s) => s.nextSeason);
+  const saving = useGame((s) => s.saving);
+  const [job, setJob] = useState<string | null>(null);
   if (!game) return null;
-  const league = userLeague(game);
-  const champion = computeTable(league)[0];
+  const review = seasonReview(game);
+  const name = (id: string) => findAnyClub(game, id).name;
+  const [a, b] = review.divisions;
+  const fired = review.user?.verdict === "fired";
+
   return (
     <div className="screen">
       <div className="screen-body end-body">
         <section className="panel champion-card" style={{ "--i": 0 } as React.CSSProperties}>
-          <h1>Fim da temporada</h1>
+          <h1>Fim da temporada {review.season}</h1>
           <div className="trophy" aria-hidden="true" />
-          {champion && <p className="champion">Campeão: {champion.name}</p>}
+          {review.divisions.map((d) => (
+            <div key={d.leagueId} className="division-result">
+              <span className="division-name">{d.label}</span>
+              <p className="champion">Campeão: {name(d.championId)}</p>
+            </div>
+          ))}
+          <div className="moves">
+            {b && (
+              <section aria-label="Sobem">
+                <h2>Sobem</h2>
+                <ol>
+                  {b.promotedIds.map((id) => (
+                    <li key={id}>{name(id)}</li>
+                  ))}
+                </ol>
+              </section>
+            )}
+            {a && (
+              <section aria-label="Descem">
+                <h2>Descem</h2>
+                <ol>
+                  {a.relegatedIds.map((id) => (
+                    <li key={id}>{name(id)}</li>
+                  ))}
+                </ol>
+              </section>
+            )}
+          </div>
+          {review.user && (
+            <div className="verdict">
+              <p>
+                Sua posição: {review.user.position}º na {DIVISION_LABEL[review.user.divisionIndex]}
+              </p>
+              <p>Prêmio: {formatMoney(review.user.prize)}</p>
+              <p>Meta: {goalLabel(review.user.divisionIndex, review.user.goal)}</p>
+              <p className={`verdict-text ${review.user.verdict}`}>{VERDICT_TEXT[review.user.verdict]}</p>
+            </div>
+          )}
+          {fired && (
+            <section aria-label="Propostas de emprego" className="job-offers">
+              <h2>Propostas de emprego</h2>
+              <ul>
+                {review.jobOffers.map((id) => {
+                  const club = findAnyClub(game, id);
+                  return (
+                    <li key={id}>
+                      <button aria-pressed={job === id} className={job === id ? "selected" : undefined} onClick={() => setJob(id)}>
+                        {club.name} · {DIVISION_LABEL[divisionOf(game, id)]} · força {bestElevenMean(club).toFixed(1)}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
           <div className="champion-actions">
-            <NewGameButton primary />
+            <button className="primary" disabled={saving || (fired && !job)} onClick={() => void nextSeason(job ?? undefined)}>
+              Próxima temporada
+            </button>
+            <NewGameButton />
           </div>
         </section>
         <section className="panel" style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Classificação final</h2>
           <div className="fill">
-            <Table league={league} highlightClubId={game.userClubId} />
+            <DivisionTable game={game} highlightClubId={game.userClubId} />
           </div>
         </section>
       </div>

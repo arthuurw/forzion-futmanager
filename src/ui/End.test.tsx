@@ -18,7 +18,8 @@ describe("tela Fim", () => {
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
 
-    expect(await screen.findByText("Fim da temporada")).toBeInTheDocument();
+    // Supersedes the core's title «Fim da temporada»: it now names the season (multiplas-temporadas C12).
+    expect(await screen.findByText("Fim da temporada 1")).toBeInTheDocument();
     const final = useGame.getState().game!.leagues[0]!;
     expect(final.currentRound).toBe(38);
     const table = computeTable(final);

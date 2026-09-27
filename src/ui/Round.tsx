@@ -6,7 +6,7 @@ import { useGame, userClub } from "../store";
 import { Flag } from "./Flag";
 import { formatMoney, formatNumber } from "./money";
 import { ScreenTabs } from "./ScreenTabs";
-import { Table } from "./Table";
+import { DivisionTable } from "./Table";
 
 type RoundTab = "match" | "results" | "table";
 
@@ -95,7 +95,7 @@ export function Round() {
         <section className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
           <h2 className="title-bar">Classificação</h2>
           <div className="fill">
-            <Table league={league} highlightClubId={club.id} />
+            <DivisionTable game={game} highlightClubId={club.id} />
           </div>
         </section>
       </div>

@@ -4,9 +4,11 @@ import { Banner } from "./ui/Banner";
 import { ChooseClub } from "./ui/ChooseClub";
 import { End } from "./ui/End";
 import { Finance } from "./ui/Finance";
+import { History } from "./ui/History";
 import { Home } from "./ui/Home";
 import { Live } from "./ui/Live";
 import { Market } from "./ui/Market";
+import { NewSeason } from "./ui/NewSeason";
 import { Round } from "./ui/Round";
 import { Squad } from "./ui/Squad";
 
@@ -40,6 +42,8 @@ export function App() {
         {phase === "live" && <Live />}
         {phase === "round" && <Round />}
         {phase === "end" && <End />}
+        {phase === "newSeason" && <NewSeason />}
+        {phase === "history" && <History />}
       </div>
     </main>
   );

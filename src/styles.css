@@ -1676,6 +1676,12 @@ tr.down td:last-child {
     gap: 8px;
   }
 
+  /* A season line with league and cup goals is wider than a phone: it wraps instead of widening the page. */
+  .screen-head .goal {
+    white-space: normal;
+    min-width: 0;
+  }
+
   .screen-tabs {
     width: 100%;
   }

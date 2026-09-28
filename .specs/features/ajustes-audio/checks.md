@@ -11,10 +11,10 @@ Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`) e, para o layout, o scri
 
 ### S1 - As telas cabem no celular com os botões de som · ~5 files · ~75 KB · ~19k
 
-**C1** - `npm run check:layout` sai com 0 e imprime, para cada uma das 11 telas (`home`, `chooseClub`, `squad`, `market`, `finance`, `live`, `round`, `cup`, `history`, `end`, `newSeason`), `scrollHeight` ≤ 700 e `scrollWidth` ≤ 400 do documento, medidos numa janela de 400 × 700 px (AC 1, door 1)
+**C1** - ✓ `npm run check:layout` sai com 0 e imprime, para cada uma das 11 telas (`home`, `chooseClub`, `squad`, `market`, `finance`, `live`, `round`, `cup`, `history`, `end`, `newSeason`), `scrollHeight` ≤ 700 e `scrollWidth` ≤ 400 do documento, medidos numa janela de 400 × 700 px (AC 1, door 1)
 Proof: `npm run check:layout`
 
-**C2** - Na mesma execução, em cada uma das 11 telas, o retângulo de cada botão «Música» e «Efeitos» fica inteiro dentro de 0..400 × 0..700 (AC 2)
+**C2** - ✓ Na mesma execução, em cada uma das 11 telas, o retângulo de cada botão «Música» e «Efeitos» fica inteiro dentro de 0..400 × 0..700 (AC 2)
 Proof: `npm run check:layout`
 
 **C3** - ✓ Na mesma execução, na tela inicial, o retângulo dos botões de som não cruza o do título (`.logo-big`), o do subtítulo (`.tagline`) nem o de nenhum botão de `.menu` (AC 3)

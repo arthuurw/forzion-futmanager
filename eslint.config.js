@@ -15,6 +15,11 @@ export default tseslint.config(
     },
   },
   {
+    // dev scripts (layout check) run on Node, which also has fetch and WebSocket
+    files: ["scripts/**/*.mjs"],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
     // door 3: the engine imports nothing from the UI or persistence layers
     files: ["src/engine/**/*.ts"],
     rules: {

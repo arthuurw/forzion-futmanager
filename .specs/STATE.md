@@ -20,13 +20,14 @@
 | AD-014 | O calendário não é gravado: a próxima data sai de `League.currentRound` e de `CupPhase.afterLeagueRound` (`engine/calendar.nextDate`) | um ponteiro próprio duplicaria o estado e poderia divergir; plano de copa-nacional (door 4) | active | 2026-09-26 |
 | AD-015 | Nome do produto é «Forzion FutManager» (marca do autor); o banco IndexedDB passa de `brasfoot` para `forzion-futmanager`, sem cópia do banco antigo. Substitui só o nome do banco na door 1 de nucleo-liga-partida (C15); store, chave e documento continuam iguais | «Brasfoot» é marca de terceiros; antes do lançamento não há save de usuário real a preservar | active | 2026-09-27 |
 | AD-016 | Cada `League` tem `country` (`"BR"`, `"AR"`, `"PT"`) e `tier` (0 = primeira divisão); `leagues` continua plano, com a Série A e a Série B em 0 e 1 e os países novos depois; clube só muda de divisão dentro do país; a copa nacional é só `BR` | o 4c escolhe os classificados da copa continental por país; mantém AD-003 e a door 4 de multiplas-temporadas; plano de paises (door 1) | active | 2026-09-27 |
+| AD-017 | Cada copa tem um formato fixo pelo id em `engine/cup` (nomes das fases, datas, prêmios, fase preliminar, sais das sementes); o save guarda só nomes e âncoras. A continental é `cups[1]`, id `"cup-cont"`, com sais próprios (`0xd1`, `0xc1`); save v8 | uma terceira copa entra como mais um formato sem mudar o motor; a nacional mantém as sementes; plano de copa-continental (doors 1 e 2) | active | 2026-09-28 |
 
 ## Handoff
 
-**Feature**: ajustes-audio verificada (PASS, d57f34a..25bbc74, 12 checks, profile light); as 5 músicas CC0 commitadas em d57f34a
-**Where**: as quatro pendências do handoff de 27/09 fechadas: botões de som no celular com prova em navegador (`npm run check:layout`), pulo aos 89' só com apito final, pênaltis cobrança por cobrança, campeões das 4 ligas na Nova temporada
+**Feature**: copa-continental verificada (PASS, b2d75dd..a9385c1, 27 checks, profile light); sub-projeto 4 (copas + países) completo
+**Where**: 16 clubes (6 BR, 5 AR, 5 PT), mata-mata depois das rodadas 7, 13, 25 e 31, save v8, abas na tela Copa
 **In progress**: nada
-**Next step**: sub-projeto 4c, copa continental (clubes classificados por país, AD-013 e AD-016). Achados não bloqueantes do Verifier: C6 usa `toContain`, o `check:layout` sorteia a seed a cada execução e a sobreposição do C3 nunca foi vista falhando (L-022, L-023)
+**Next step**: sub-projeto 5, lançamento (polish, exportar/importar save, deploy). Achados não bloqueantes do Verifier: sementes da migração v7→v8 sem check (L-024), C13 conta cartões sem ligar ao jogador (L-025), `check:layout` ainda sorteia a seed (L-023)
 **Blockers**: none
-**Uncommitted**: nada
+**Uncommitted**: `bash.exe.stackdump` (log de crash do shell, alterado nesta sessão)
 **Branch**: main

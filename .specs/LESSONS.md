@@ -150,6 +150,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C1/C2 / src/store.ts:266 randomSeed (verification.md Finding 2) (layout)
 - last seen: 2026-09-28T21:06:50Z
 
+### L-024 - When a migration seeds its own random streams, a check must pin each seed formula, not only the migrated result.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: copa-continental
+- evidence: src/engine/migrate.ts:162-163 (verification.md observation 1) (checks)
+- last seen: 2026-09-28T21:52:34Z
+
+### L-025 - Tie a counted side effect to the entity that caused it, not to a count of any entity that changed.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: copa-continental
+- evidence: C13 / src/engine/continental.test.ts:223,229 (verification.md observation 2) (tests)
+- last seen: 2026-09-28T21:52:34Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

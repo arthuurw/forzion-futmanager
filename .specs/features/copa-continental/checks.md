@@ -131,7 +131,6 @@ Proof: `npx vitest run src/persistence/save.test.ts -t "save v8 com as duas copa
 | `rollover.test.ts:461` `cups` com tamanho 1 depois da virada | tamanho 2; as linhas seguintes sobre `cups[0]` não mudam | C4, C6 |
 | `save.test.ts:38` `cups` com tamanho 1 | tamanho 2 | C27 |
 | audit de migrações que comparam o documento final inteiro a um v7 (se houver em `migrate.test.ts`) | ganham `cups[1]` | C24 |
-
 | _achado na build_ - limite de versão incompatível (`migrate.test.ts` «versão acima de 7 incompatível» e «v5 passa direto», `save.test.ts` «sem save e save incompatível», `Home.test.tsx` «save de versão 6 incompatível») | a primeira versão desconhecida passa de 8 a 9, e um v8 passa direto | C24, C27 |
 | _achado na build_ - documentos antigos comparados de volta (`migrate.test.ts` `backToV6` e «v5 vira v6»; `test-fixtures.ts` `onlyBrazil`) | o documento migrado perde também a `cups[1]` antes da comparação; um documento anterior ao v8 não tem continental | C24, C26 |
 | _achado na build_ - `rollover.test.ts` «histórico da temporada» e «copa no histórico» | `SeasonRecord.cups` ganha o registro da continental depois do da nacional (Flow hop 6) | C4, C21 |

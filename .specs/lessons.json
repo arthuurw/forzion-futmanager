@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 24,
+  "next_id": 26,
   "lessons": [
     {
       "id": "L-001",
@@ -426,6 +426,42 @@
       ],
       "created": "2026-09-28T21:06:50Z",
       "last_seen": "2026-09-28T21:06:50Z"
+    },
+    {
+      "id": "L-024",
+      "key": "spec_precision_gap::when a migration seeds its own random streams a check must pin each seed formula not only the migrated result",
+      "text": "When a migration seeds its own random streams, a check must pin each seed formula, not only the migrated result.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "copa-continental"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "src/engine/migrate.ts:162-163 (verification.md observation 1) (checks)"
+      ],
+      "created": "2026-09-28T21:52:34Z",
+      "last_seen": "2026-09-28T21:52:34Z"
+    },
+    {
+      "id": "L-025",
+      "key": "spec_precision_gap::tie a counted side effect to the entity that caused it not to a count of any entity that changed",
+      "text": "Tie a counted side effect to the entity that caused it, not to a count of any entity that changed.",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "copa-continental"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C13 / src/engine/continental.test.ts:223,229 (verification.md observation 2) (tests)"
+      ],
+      "created": "2026-09-28T21:52:34Z",
+      "last_seen": "2026-09-28T21:52:34Z"
     }
   ]
 }

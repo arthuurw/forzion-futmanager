@@ -100,3 +100,26 @@ export function finalOrder(league: League): string[] {
   rows.sort((x, y) => y.points - x.points || y.wins - x.wins || y.diff - x.diff || y.scored - x.scored || x.name.localeCompare(y.name, "pt-BR"));
   return rows.map((r) => r.id);
 }
+
+/** Captures every file the page hands the browser to download (lancamento): its name and its text. */
+export function captureDownloads(): { name: string; text: Promise<string> }[] {
+  const files: { name: string; text: Promise<string> }[] = [];
+  const blobs = new Map<string, Blob>();
+  let n = 0;
+  URL.createObjectURL = vi.fn((blob: Blob) => {
+    const url = `blob:test/${n++}`;
+    blobs.set(url, blob);
+    return url;
+  });
+  URL.revokeObjectURL = vi.fn();
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+    const blob = blobs.get(this.getAttribute("href") ?? "");
+    files.push({ name: this.download, text: blob ? blob.text() : Promise.resolve("") });
+  });
+  return files;
+}
+
+/** A save file as `File`, ready for `user.upload`. */
+export function saveFileOf(text: string, name = "jogo.json"): File {
+  return new File([text], name, { type: "application/json" });
+}

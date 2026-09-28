@@ -60,10 +60,11 @@ describe("música (audio S1, S3)", () => {
   });
 
   test("contexto de cada tela", () => {
-    // C15: the 12 phases.
+    // C15: the 12 phases; lancamento C31 adds the 13th, «Sobre», on the title music.
     const table: [Phase, string][] = [
       ["home", "abertura"],
       ["chooseClub", "abertura"],
+      ["about", "abertura"],
       ["squad", "gestao"],
       ["market", "gestao"],
       ["finance", "gestao"],

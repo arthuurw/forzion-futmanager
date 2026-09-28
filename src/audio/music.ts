@@ -11,6 +11,7 @@ export const PHASE_CONTEXT: Record<Phase, MusicContext> = {
   loading: "none",
   home: "abertura",
   chooseClub: "abertura",
+  about: "abertura",
   squad: "gestao",
   market: "gestao",
   finance: "gestao",

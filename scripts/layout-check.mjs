@@ -146,7 +146,7 @@ function problems(screen, m) {
     if (!t) out.push(`sem o botão «${name}»`);
     else if (!within(t)) out.push(`«${name}» fora da janela (${fmt(t)})`);
   }
-  if (screen === "home") {
+  if (screen === "home" || screen === "homeSave") {
     if (m.title.length < 3) out.push("título, subtítulo ou menu não encontrados");
     for (const t of m.title) if (m.group && crosses(m.group, t)) out.push(`botões de som sobre ${t.name}`);
   }
@@ -286,6 +286,16 @@ async function run({ build, inject }) {
     await click("Próxima temporada");
     await wait("nova temporada", "__lc.h1() === 'Nova temporada'", 30000);
     await measure("newSeason");
+
+    // Lancamento AC 27: reloaded with a save, the title menu has its 5 buttons; then «Sobre».
+    await page.send("Page.navigate", { url: base });
+    await wait("página recarregada", "document.readyState === 'complete' && !!window.__lc === false");
+    await js(PAGE_HELPERS);
+    await wait("tela inicial com save", "__lc.enabled('Continuar') && __lc.enabled('Exportar jogo') && __lc.enabled('Sobre')");
+    await measure("homeSave");
+    await click("Sobre");
+    await wait("sobre", "__lc.has('Voltar') && document.querySelector('.about') !== null");
+    await measure("about");
   } catch (e) {
     console.log(`ERRO ${e.message}`);
     failures.push("erro");
@@ -312,7 +322,7 @@ async function run({ build, inject }) {
       }, 10000).catch(() => console.log(`aviso: perfil temporário não removido: ${profile}`));
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -325,7 +335,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 12 telas cabem em 400 × 700 px");
+  console.log("layout: as 14 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

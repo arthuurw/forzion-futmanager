@@ -21,6 +21,7 @@ import { finishCupDate, startCupDate } from "./engine/cup";
 import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
 import type { Club, Finance, FormationName, GameState, Posture } from "./engine/types";
+import { decodeSaveFile } from "./engine/saveFile";
 import { isStorageAvailable, loadGame, saveGame } from "./persistence/save";
 import { formatMoney } from "./ui/money";
 
@@ -36,7 +37,8 @@ export type Phase =
   | "end"
   | "newSeason"
   | "history"
-  | "cup";
+  | "cup"
+  | "about";
 export type SaveStatus = "ok" | "failed" | "unavailable";
 export type LastRound = Omit<RoundOutcome, "state">;
 export type Clock = "running" | "paused" | "halftime";
@@ -113,6 +115,12 @@ export interface GameStore {
   saving: boolean;
   /** What the last «Próxima temporada» changed (AC 14). In memory only. */
   rolloverReport: RolloverReport | null;
+  /** Why the last «Importar jogo» was refused, if it was (lancamento AC 10-13). */
+  importMessage: string | null;
+  /** A valid imported game waiting for «Sim, substituir» (lancamento AC 7). */
+  pendingImport: GameState | null;
+  /** `navigator.storage.persist()` was already asked this session (lancamento AC 20). */
+  persistRequested: boolean;
   init(): Promise<void>;
   newGame(seed?: number): void;
   chooseClub(clubId: string): Promise<void>;
@@ -155,11 +163,35 @@ export interface GameStore {
   continueGame(): void;
   goToSquad(): void;
   goHome(): void;
+  goToAbout(): void;
+  /** Reads an exported file's text; a valid game over an existing save waits for `confirmImport`. */
+  importFile(text: string): Promise<void>;
+  confirmImport(): Promise<void>;
+  cancelImport(): void;
 }
 
 type Set = (partial: Partial<GameStore>) => void;
+type Get = () => GameStore;
 
-async function persist(game: GameState, set: Set): Promise<void> {
+export const IMPORT_TEXT = {
+  invalid: "Arquivo inválido: não é um jogo salvo",
+  malformed: "Arquivo corrompido: não foi possível ler o jogo",
+  version: (v: unknown) => `Versão do jogo salvo não suportada (${String(v)})`,
+};
+
+/** Lancamento AC 20-21: after the session's first good save, ask the browser not to evict the save. */
+function requestPersistence(set: Set, get: Get): void {
+  if (get().persistRequested) return;
+  set({ persistRequested: true });
+  try {
+    const storage = typeof navigator === "undefined" ? undefined : navigator.storage;
+    if (typeof storage?.persist === "function") void storage.persist().catch(() => undefined);
+  } catch {
+    // The browser said no; the game goes on.
+  }
+}
+
+async function persist(game: GameState, set: Set, get: Get): Promise<void> {
   if (!isStorageAvailable()) {
     set({ saveStatus: "unavailable" });
     return;
@@ -169,7 +201,14 @@ async function persist(game: GameState, set: Set): Promise<void> {
     set({ saveStatus: "ok", hasSave: true, incompatibleVersion: null });
   } catch {
     set({ saveStatus: "failed" });
+    return;
   }
+  requestPersistence(set, get);
+}
+
+/** The screen «Continuar» opens for this game. */
+function openingPhase(game: GameState): Phase {
+  return isSeasonOver(userLeague(game)) ? "end" : "squad";
 }
 
 /** Returns a new state with the user's club replaced by `edit(club)`. */
@@ -204,9 +243,16 @@ export const useGame = create<GameStore>()((set, get) => {
       return false;
     }
     set({ saving: true });
-    await persist(r.state, set);
+    await persist(r.state, set, get);
     set({ game: r.state, marketMessage: null, saving: false });
     return true;
+  }
+
+  /** Lancamento AC 6 and AC 14: the imported game is written to the slot and opens even if the write fails. */
+  async function openImported(game: GameState): Promise<void> {
+    set({ game, pendingImport: null, importMessage: null, lastRound: null, live: null, rolloverReport: null });
+    await persist(game, set, get);
+    set({ phase: openingPhase(game) });
   }
 
   /** Closes the live round at 90': results, condition, save, then the results screen. */
@@ -216,7 +262,7 @@ export const useGame = create<GameStore>()((set, get) => {
     set({ finishing: true });
     const { state, ...lastRound } = live.cup ? finishCupDate(game, live) : finishRound(game, live);
     set({ game: state, lastRound });
-    await persist(state, set);
+    await persist(state, set, get);
     set({ phase: isSeasonOver(userLeague(state)) ? "end" : "round", live: null, finishing: false });
   }
 
@@ -245,6 +291,9 @@ export const useGame = create<GameStore>()((set, get) => {
     marketMessage: null,
     saving: false,
     rolloverReport: null,
+    importMessage: null,
+    pendingImport: null,
+    persistRequested: false,
 
     async init() {
       // Only the first mount reads storage; StrictMode's second effect run is a no-op.
@@ -274,7 +323,7 @@ export const useGame = create<GameStore>()((set, get) => {
       // AC 30: the board sets the goal when the manager arrives.
       const next = { ...chosen, boardGoal: userBoardGoal(chosen), cupGoal: userCupGoal(chosen) };
       set({ game: next });
-      await persist(next, set);
+      await persist(next, set, get);
       set({ phase: "squad" });
     },
 
@@ -316,7 +365,7 @@ export const useGame = create<GameStore>()((set, get) => {
       set({ finishing: true, lastRound: null });
       const { state, ...lastRound } = finishCupDate(game, live);
       set({ game: state, lastRound });
-      await persist(state, set);
+      await persist(state, set, get);
       set({ phase: "round", live: null, finishing: false });
     },
 
@@ -389,7 +438,7 @@ export const useGame = create<GameStore>()((set, get) => {
       if (!game || saving || !isSeasonOver(userLeague(game))) return;
       set({ saving: true });
       const { state, report } = rollOver(game, jobClubId);
-      await persist(state, set);
+      await persist(state, set, get);
       set({ game: state, rolloverReport: report, phase: "newSeason", saving: false, lastRound: null, marketMessage: null });
     },
 
@@ -404,7 +453,7 @@ export const useGame = create<GameStore>()((set, get) => {
     continueGame() {
       const game = get().game;
       if (!game) return;
-      set({ phase: isSeasonOver(userLeague(game)) ? "end" : "squad", lastRound: null, live: null });
+      set({ phase: openingPhase(game), lastRound: null, live: null });
     },
 
     goToSquad() {
@@ -413,6 +462,29 @@ export const useGame = create<GameStore>()((set, get) => {
 
     goHome() {
       set({ phase: "home" });
+    },
+
+    goToAbout() {
+      set({ phase: "about" });
+    },
+
+    async importFile(text) {
+      const r = decodeSaveFile(text);
+      if (r.kind === "invalid_json" || r.kind === "not_a_save") return set({ importMessage: IMPORT_TEXT.invalid, pendingImport: null });
+      if (r.kind === "malformed") return set({ importMessage: IMPORT_TEXT.malformed, pendingImport: null });
+      if (r.kind === "unsupported_version") return set({ importMessage: IMPORT_TEXT.version(r.version), pendingImport: null });
+      const { hasSave, incompatibleVersion } = get();
+      if (hasSave || incompatibleVersion !== null) return set({ pendingImport: r.state, importMessage: null });
+      await openImported(r.state);
+    },
+
+    async confirmImport() {
+      const game = get().pendingImport;
+      if (game) await openImported(game);
+    },
+
+    cancelImport() {
+      set({ pendingImport: null });
     },
   };
 });

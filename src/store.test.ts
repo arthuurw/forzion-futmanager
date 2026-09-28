@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { saveGame } from "./persistence/save";
+import { encodeSaveFile } from "./engine/saveFile";
 import type { GameState } from "./engine/types";
 import { useGame, userClub, type GameStore } from "./store";
 import { render, screen } from "@testing-library/react";
@@ -277,4 +278,70 @@ describe("data de copa sem o usuário pelo store (ajustes-4a)", () => {
     // The suspension is only served by playing the cup (copa-nacional AC 25).
     expect(userClub(s.game!)!.players.find((p) => p.id === suspended.id)!.cupDiscipline["cup-nat"]!.suspendedRounds).toBe(1);
   }, 60_000);
+});
+
+describe("importar e armazenamento persistente (lancamento)", () => {
+  function stubStorage(storage: unknown) {
+    Object.defineProperty(navigator, "storage", { value: storage, configurable: true });
+  }
+  afterEach(() => stubStorage(undefined));
+
+  async function chooseFirstClub() {
+    useGame.getState().newGame(7);
+    await useGame.getState().chooseClub(useGame.getState().game!.leagues[0]!.clubs[0]!.id);
+  }
+
+  test("importar com gravação falhando abre o jogo e avisa", async () => {
+    ctl.fail = true;
+    const game = seededGame(6, 1, 2);
+    useGame.setState({ phase: "home", hasSave: false, game: null });
+    await useGame.getState().importFile(encodeSaveFile(game, "2026-09-28T12:00:00.000Z"));
+    expect(useGame.getState().phase).toBe("squad");
+    expect(useGame.getState().game).toEqual(game);
+    expect(useGame.getState().saveStatus).toBe("failed");
+    render(createElement(Banner));
+    expect(screen.getByText("Não foi possível salvar")).toBeInTheDocument();
+  });
+
+  test("pede armazenamento persistente uma vez por sessão", async () => {
+    const persist = vi.fn(async () => true);
+    stubStorage({ persist });
+    await chooseFirstClub();
+    expect(useGame.getState().saveStatus).toBe("ok");
+    expect(persist).toHaveBeenCalledTimes(1);
+    await useGame.getState().playRound();
+    await useGame.getState().skipToEnd();
+    expect(vi.mocked(saveGame).mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  test("sem persist ou com persist rejeitando segue sem erro", async () => {
+    stubStorage({});
+    await chooseFirstClub();
+    expect(useGame.getState().saveStatus).toBe("ok");
+    expect(useGame.getState().phase).toBe("squad");
+
+    resetAll();
+    const persist = vi.fn(() => Promise.reject(new Error("negado")));
+    stubStorage({ persist });
+    await chooseFirstClub();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(useGame.getState().saveStatus).toBe("ok");
+    expect(useGame.getState().phase).toBe("squad");
+  });
+
+  test("gravação que falha não pede persistência", async () => {
+    const persist = vi.fn(async () => true);
+    stubStorage({ persist });
+    ctl.fail = true;
+    await chooseFirstClub();
+    expect(useGame.getState().saveStatus).toBe("failed");
+    expect(persist).not.toHaveBeenCalled();
+    ctl.fail = false;
+    await useGame.getState().playRound();
+    await useGame.getState().skipToEnd();
+    expect(useGame.getState().saveStatus).toBe("ok");
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
 });

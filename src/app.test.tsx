@@ -432,3 +432,33 @@ describe("som no app (audio)", () => {
     expect(musicRamps(backend.calls)).toEqual([]);
   });
 });
+
+describe("lançamento no app (lancamento)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test("uma tela que quebra mostra a tela de erro", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const game = seededGame(3);
+    // A club with no player list: the squad screen throws while rendering.
+    (game.leagues[0]!.clubs[0] as unknown as { players: unknown }).players = undefined;
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    expect(await screen.findByText("Algo deu errado")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recarregar" })).toBeInTheDocument();
+  });
+
+  test("a tela Sobre fica no título", async () => {
+    const backend = fakeBackend();
+    installAudio(backend);
+    localStorage.clear();
+    const user = userEvent.setup();
+    const view = render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Sobre" }));
+    expect(screen.getByText("Clubes, jogadores e competições são fictícios.")).toBeInTheDocument();
+    expect(view.container.querySelector(".title-audio")).not.toBeNull();
+    expect(view.container.querySelector(".top-strip")).toBeNull();
+    await waitFor(() => expect(trackStarts(backend.calls)).toEqual(["audio/music/abertura.mp3"]));
+    await user.click(screen.getByRole("button", { name: "Voltar" }));
+    expect(screen.getByRole("button", { name: "Novo jogo" })).toBeInTheDocument();
+  });
+});

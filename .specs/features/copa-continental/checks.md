@@ -158,3 +158,5 @@ Regra para os outros testes existentes: mudar um valor esperado fora das linhas 
 - Tamanho por fatia (wc -c dos arquivos que cada uma toca ÷ 4): S1 ≈ 32k; S2 entra em 50k; S3 em 81k; S4 em 92k. Código e testes novos (`continental.test.ts`, formato das copas, abas) ≈ 60 KB → ~15k, total ~107k, abaixo do budget de 150k: one builder
 - Mechanism: one builder (cabe no budget, sem pergunta)
 - **Settled mid-build:** as linhas _achado na build_ da tabela Superseded são asserções antigas do mesmo tipo das linhas aprovadas (versão atual, `cups` e histórico com a continental); nenhuma mudou um valor esperado fora da consequência direta do plano. O autor pediu para seguir sem rodada de perguntas (26/09/2026)
+- **Boundary:** C1-C27 closed at `d7494d8`
+- **Abandoned:** nada

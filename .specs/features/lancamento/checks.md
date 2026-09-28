@@ -3,7 +3,7 @@
 Profile: light
 Plan: `.specs/features/lancamento/plan.md`
 
-36 checks in 6 slices · 3 one-way doors · 1 open, of which 0 block (1 blocks go-live)
+36 checks in 6 slices · 3 one-way doors · 2 open, of which 0 block (2 block go-live)
 
 Comando base: `npx vitest run <arquivo> -t "<nome>"` (vitest 5, `npm test` = `vitest run`).
 
@@ -45,6 +45,7 @@ Proof: `npx vitest run src/ui/Home.test.tsx -t "arquivo inválido mostra o aviso
 
 **C10** - `decodeSaveFile` devolve `not_a_save` para: JSON sem `format`, `format` diferente (`"outro-jogo"`), um array, `null`, e um `GameState` cru sem envelope (AC 11)
 Proof: `npx vitest run src/engine/saveFile.test.ts -t "JSON que não é arquivo de save"`
+Proof: `npx vitest run src/ui/Home.test.tsx -t "JSON que não é arquivo de save mostra o aviso e mantém o save"` (round 2: a tela mostra «Arquivo inválido: não é um jogo salvo» e o slot continua igual - lacuna do Verifier, round 1)
 
 **C11** - `decodeSaveFile` com `save.schemaVersion` 9 devolve `unsupported_version` com `version: 9`; a tela inicial mostra «Versão do jogo salvo não suportada (9)» e o slot continua igual (AC 12)
 Proof: `npx vitest run src/engine/saveFile.test.ts -t "versão não suportada"`
@@ -141,6 +142,7 @@ Proof: `test -z "$(git ls-files bash.exe.stackdump)" && git check-ignore -q bash
 | resultado da leitura do arquivo (5) | `ok` C8, C15 · `invalid_json` C9 · `not_a_save` C10 · `unsupported_version` C11 · `malformed` C12 | - |
 | `GET` URL pública statuses (1) | 200 C35 | - |
 | falhas de forma do save v8 (10) | C12, table-driven over all 10 | - |
+| resultado recusado -> aviso na tela (4) | `invalid_json` C9 · `not_a_save` C10 · `unsupported_version` C11 · `malformed` C13 | - |
 | entradas `not_a_save` (5) | sem format C10 · format errado C10 · array C10 · null C10 · GameState cru C10 | - |
 | estado do slot ao importar (3) | vazio C5 · com save C6 · incompatível C6 | - |
 | botões do menu inicial (5) | Continuar C24 · Exportar jogo C1, C24 · Importar jogo C4, C24 · Novo jogo C24 · Sobre C24 | - |
@@ -162,7 +164,7 @@ Proof: `test -z "$(git ls-files bash.exe.stackdump)" && git check-ignore -q bash
 - failure modes: C14 (gravação do importado falha), C16 (erro de render), C22 (persist ausente ou rejeitando)
 - idempotency: C6 - importar de novo passa pela mesma confirmação e só substitui o slot único
 - authorization: n/a - jogo local sem contas; publicar exige o token do autor no GitHub
-- concurrency: n/a - `saving` do store já serializa gravações; a importação acontece só na tela inicial, sem partida em andamento; publicações simultâneas: `concurrency` do workflow (C33 lê o arquivo)
+- concurrency: n/a - a importação acontece só na tela inicial, onde nenhuma outra gravação está em curso (sem partida ao vivo, mercado ou virada abertos); o `saving` do store guarda só mercado e virada, não a importação. Publicações simultâneas: `concurrency` do workflow (C33 lê o arquivo)
 - data lifecycle: C21 (pedido de armazenamento persistente contra despejo), C15 (o arquivo exportado guarda a carreira fora do navegador)
 - dependency failure: C22 (Storage API ausente), C14 (IndexedDB falhando); GitHub Pages fora do ar: n/a - sem fallback, o jogo já carregado segue rodando
 - state transitions: C5 (home → squad/end), C25, C28 (home ↔ about), C7 (confirmação → menu)

@@ -205,6 +205,10 @@ describe("exportar e importar (lancamento)", () => {
     await refused("isto não é json", "Arquivo inválido: não é um jogo salvo");
   });
 
+  test("JSON que não é arquivo de save mostra o aviso e mantém o save", async () => {
+    await refused(JSON.stringify({ format: "outro-jogo", save: seededGame(5) }), "Arquivo inválido: não é um jogo salvo");
+  });
+
   test("versão não suportada mostra o aviso", async () => {
     await refused(encodeSaveFile({ ...seededGame(5), schemaVersion: 9 } as unknown as GameState, ISO), "Versão do jogo salvo não suportada (9)");
   });

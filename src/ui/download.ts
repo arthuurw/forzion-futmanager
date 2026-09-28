@@ -16,5 +16,6 @@ export function downloadSave(game: GameState): void {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Revoked on the next task: revoking right after click() can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

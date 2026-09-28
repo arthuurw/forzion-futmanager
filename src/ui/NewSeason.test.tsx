@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import type { GameState } from "../engine/types";
@@ -133,4 +133,30 @@ describe("campeões na nova temporada (ajustes-audio)", () => {
     expect(rows).toEqual(expected);
     expect(table.closest(".fill")).not.toBeNull();
   }, 60_000);
+});
+
+describe("continental na nova temporada (copa-continental)", () => {
+  test("classificação para a continental", async () => {
+    // C22 (AC 22, L-007): the Série A champion always qualifies; a Série B club that did not win
+    // the national cup never does.
+    const base = endedSeason();
+    const serieA = base.leagues[0]!;
+    const champion = serieA.clubs.find((c) => c.id === finalOrder(serieA)[0])!.id;
+    const cupWinner = base.cups[0]!.phases[5]!.ties[0]!.winnerId;
+    const serieB = base.leagues[1]!.clubs.find((c) => c.id !== cupWinner)!.id;
+    const cases: [string, string, boolean][] = [
+      ["classificado", champion, true],
+      ["não classificado", serieB, false],
+    ];
+    for (const [label, userClubId, qualified] of cases) {
+      const game = { ...(JSON.parse(JSON.stringify(base)) as GameState), userClubId };
+      game.boardGoal = 20;
+      const after = await turnSeason(game);
+      expect(after.cups[1]!.seeding.includes(after.userClubId!), label).toBe(qualified);
+      const line = document.querySelector(".screen-head .goal")!.textContent!;
+      expect(line.includes("Copa Continental"), `${label}: ${line}`).toBe(qualified);
+      cleanup();
+      resetAll();
+    }
+  }, 120_000);
 });

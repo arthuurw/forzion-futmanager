@@ -510,3 +510,33 @@ describe("som ao vivo (audio)", () => {
     expect(useGame.getState().lastRound!.userEvents.at(-1)).toMatchObject({ minute: 90, type: "fulltime" });
   }, 90_000);
 });
+
+describe("ao vivo na continental (copa-continental)", () => {
+  test("continental ao vivo para o classificado", async () => {
+    // C10 (AC 10, L-003): stopped after round 7, the user's club in the Oitavas.
+    const user = userEvent.setup();
+    const game = cupGame(131, 0, (s) => s.cups[1]!.phases[0]!.ties[0]!.homeId, 1);
+    expect(game.leagues[0]!.currentRound).toBe(7);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    expect(useGame.getState().phase).toBe("live");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ao vivo · Copa Continental · Oitavas");
+  });
+
+  test("continental fecha sem tela para quem não joga", async () => {
+    // C11 (AC 11, L-007): a Série B club, never in a new game's continental cup.
+    const user = userEvent.setup();
+    const game = cupGame(132, 0, (s) => s.leagues[1]!.clubs[0]!.id, 1);
+    expect(game.cups[1]!.seeding).not.toContain(game.userClubId);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    expect(useGame.getState().phase).not.toBe("live");
+    expect(screen.queryByRole("heading", { level: 1, name: /^Ao vivo/ })).not.toBeInTheDocument();
+    const cup = useGame.getState().game!.cups[1]!;
+    expect(cup.currentPhase).toBe(1);
+    expect(cup.phases[0]!.ties).toHaveLength(8);
+    for (const t of cup.phases[0]!.ties) expect(t.winnerId, t.id).not.toBeNull();
+  });
+});

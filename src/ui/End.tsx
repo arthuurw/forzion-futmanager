@@ -39,7 +39,7 @@ export function End() {
               <h2 className="division-name">{c.name}</h2>
               {c.championId && <p className="champion">Campeão: {name(c.championId)}</p>}
               {c.runnerUpId && <p>Vice: {name(c.runnerUpId)}</p>}
-              {review.user && <p>Sua campanha: {reachedText(c.userReached)}</p>}
+              {review.user && <p>Sua campanha: {reachedText(c.userReached, c.cupId)}</p>}
             </section>
           ))}
           </div>

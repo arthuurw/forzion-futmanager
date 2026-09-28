@@ -216,3 +216,33 @@ describe("fim com países (paises)", () => {
     expect(screen.getByText(`Sua posição: ${position}º na Liga Portuguesa`).closest(".fill")).not.toBeNull();
   }, 60_000);
 });
+
+describe("campanha por copa (copa-continental)", () => {
+  test("campanha com as fases de cada copa", () => {
+    // C20 (AC 20): the club that went out in each phase, read off the ties here (L-004).
+    const base = endedSeason();
+    const loserOf = (cup: number, phase: number) => {
+      const t = base.cups[cup]!.phases[phase]!.ties[0]!;
+      return t.winnerId === t.homeId ? t.awayId : t.homeId;
+    };
+    const winnerOf = (cup: number, phase: number) => base.cups[cup]!.phases[phase]!.ties[0]!.winnerId!;
+    const cases: [string, string, string][] = [
+      ["Copa Continental", loserOf(1, 0), "Oitavas"],
+      ["Copa Continental", loserOf(1, 1), "Quartas"],
+      ["Copa Continental", loserOf(1, 3), "Final"],
+      ["Copa Continental", winnerOf(1, 3), "Campeão"],
+      ["Copa Nacional", loserOf(0, 3), "Quartas"],
+      ["Copa Nacional", loserOf(0, 5), "Final"],
+      ["Copa Nacional", winnerOf(0, 5), "Campeão"],
+    ];
+    for (const [cup, userClubId, reached] of cases) {
+      useGame.setState({ phase: "end", game: { ...clone(base), userClubId }, hasSave: true });
+      const view = render(<App />);
+      const region = screen.getByRole("region", { name: cup });
+      expect(within(region).getByText(`Sua campanha: ${reached}`), `${cup} ${reached}`).toBeInTheDocument();
+      if (cup === "Copa Continental") expect(region.textContent).not.toMatch(/16 avos|Preliminar/);
+      view.unmount();
+      resetAll();
+    }
+  }, 60_000);
+});

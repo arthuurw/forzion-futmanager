@@ -2,7 +2,7 @@
 /**
  * Door 1 of ajustes-audio: AD-010 measured in a real browser. Builds the app, serves it with
  * `vite preview`, drives the installed Chrome (or Edge) headless over the DevTools Protocol at
- * 400 × 700 px through the 11 screens, and exits 1 naming every screen that scrolls, that cuts a
+ * 400 × 700 px through the 11 screens and the Copa screen's continental tab, and exits 1 naming every screen that scrolls, that cuts a
  * sound switch, or (title screen) whose switches overlap the title, the tagline or the menu.
  *
  * Flags: `--no-build` reuses `dist/`; `--inject=<screen>` adds an 800 px tall element to that
@@ -226,7 +226,18 @@ async function run({ build, inject }) {
     ]) {
       await click(button);
       await wait(screen, h1.startsWith("'") ? `__lc.h1() === ${h1}` : h1);
+      // The Copa screen opens on the continental tab for a qualified club: measure each tab by name.
+      if (screen === "cup") {
+        await click("Copa Nacional");
+        await wait("cup", "__lc.h1() === 'Copa Nacional'");
+      }
       await measure(screen);
+      if (screen === "cup") {
+        // Copa-continental AC 23: the continental cup's tab, four phases with country codes.
+        await click("Copa Continental");
+        await wait("cupCont", "__lc.h1() === 'Copa Continental'");
+        await measure("cupCont");
+      }
       await click("Voltar ao elenco");
       await wait("elenco", "__lc.enabled('Mercado')");
     }
@@ -301,7 +312,7 @@ async function run({ build, inject }) {
       }, 10000).catch(() => console.log(`aviso: perfil temporário não removido: ${profile}`));
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "history", "end", "newSeason"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -314,7 +325,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 11 telas cabem em 400 × 700 px");
+  console.log("layout: as 12 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

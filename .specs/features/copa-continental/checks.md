@@ -40,10 +40,10 @@ Proof: `npx vitest run src/engine/continental.test.ts -t "sementes da continenta
 **C9** - ✓ Jogando uma temporada inteira sem decisões a partir de um jogo novo, a sequência das datas é exatamente: 4 rodadas, C0, 3 rodadas, K0, 3 rodadas, C1, 3 rodadas, K1, 3 rodadas, C2, 6 rodadas, C3, 3 rodadas, K2, 3 rodadas, C4, 3 rodadas, K3, 3 rodadas, C5, 4 rodadas - 48 datas (C = nacional, K = continental); no fim, `cups[0].currentPhase` é 6 e `cups[1].currentPhase` é 4 (AC 9)
 Proof: `npx vitest run src/engine/calendar.test.ts -t "sequência das 48 datas"`
 
-**C10** - Pela tela, com o clube do usuário classificado e o jogo parado depois da rodada 7: apertar «Jogar rodada» abre a tela ao vivo com o título `Ao vivo · Copa Continental · Oitavas` (AC 10, L-003)
+**C10** - ✓ Pela tela, com o clube do usuário classificado e o jogo parado depois da rodada 7: apertar «Jogar rodada» abre a tela ao vivo com o título `Ao vivo · Copa Continental · Oitavas` (AC 10, L-003)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "continental ao vivo para o classificado"`
 
-**C11** - Pela tela, com o clube do usuário fora da continental e o jogo parado depois da rodada 7: apertar «Jogar rodada» não abre a tela ao vivo, e a continental passa a `currentPhase` 1 com as 8 Oitavas decididas (AC 11, L-007)
+**C11** - ✓ Pela tela, com o clube do usuário fora da continental e o jogo parado depois da rodada 7: apertar «Jogar rodada» não abre a tela ao vivo, e a continental passa a `currentPhase` 1 com as 8 Oitavas decididas (AC 11, L-007)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "continental fecha sem tela para quem não joga"`
 
 **C12** - ✓ Tabela das 4 fases pelo ponto de entrada da data (`playDate`): para cada confronto, o caixa do vencedor sobe o prêmio da fase (Oitavas 800.000, Quartas 1.500.000, Semifinal 2.500.000, Final 5.000.000) mais a renda se foi mandante; o caixa do perdedor sobe só a renda se foi mandante, e nada se foi visitante; `lastRound.cupPrize` mostra o prêmio (AC 12, L-003, L-005)
@@ -60,28 +60,28 @@ Proof: `npx vitest run src/engine/continental.test.ts -t "veredito não lê a co
 
 ### S3 - As telas mostram as duas copas · 12 files · 125 KB · ~31k
 
-**C16** - Na tela Copa há exatamente duas abas, «Copa Nacional» e «Copa Continental»; na aba nacional aparecem as 6 regiões de fase dela, e na continental as 4 («Oitavas», «Quartas», «Semifinal», «Final»), com os confrontos sorteados de cada uma (AC 16)
+**C16** - ✓ Na tela Copa há exatamente duas abas, «Copa Nacional» e «Copa Continental»; na aba nacional aparecem as 6 regiões de fase dela, e na continental as 4 («Oitavas», «Quartas», «Semifinal», «Final»), com os confrontos sorteados de cada uma (AC 16)
 Proof: `npx vitest run src/ui/Cup.test.tsx -t "duas abas com as fases de cada copa"`
 
-**C17** - Tabela: com o clube do usuário no `seeding` da continental, a tela Copa abre com o título «Copa Continental»; com um clube classificado só para a nacional, abre com «Copa Nacional»; sem clube, abre com «Copa Nacional» (AC 17)
+**C17** - ✓ Tabela: com o clube do usuário no `seeding` da continental, a tela Copa abre com o título «Copa Continental»; com um clube classificado só para a nacional, abre com «Copa Nacional»; sem clube, abre com «Copa Nacional» (AC 17)
 Proof: `npx vitest run src/ui/Cup.test.tsx -t "aba inicial da tela Copa"`
 
-**C18** - Na aba continental, cada um dos 16 clubes das Oitavas tem ao lado a sigla do seu país, lida no teste da liga do clube: «BRA», «ARG» ou «POR»; a aba nacional não mostra sigla (AC 18)
+**C18** - ✓ Na aba continental, cada um dos 16 clubes das Oitavas tem ao lado a sigla do seu país, lida no teste da liga do clube: «BRA», «ARG» ou «POR»; a aba nacional não mostra sigla (AC 18)
 Proof: `npx vitest run src/ui/Cup.test.tsx -t "sigla do país na continental"`
 
-**C19** - Tabela: usuário de um clube argentino na aba «Copa Nacional» → «Fora da competição»; usuário de um clube brasileiro não classificado na aba «Copa Continental» → «Fora da competição»; usuário classificado ainda vivo → «Na disputa» (AC 19, L-007)
+**C19** - ✓ Tabela: usuário de um clube argentino na aba «Copa Nacional» → «Fora da competição»; usuário de um clube brasileiro não classificado na aba «Copa Continental» → «Fora da competição»; usuário classificado ainda vivo → «Na disputa» (AC 19, L-007)
 Proof: `npx vitest run src/ui/Cup.test.tsx -t "fora da competição"`
 
-**C20** - Tabela pela tela Fim: continental com `userReached` 0 → «Sua campanha: Oitavas», 1 → «Quartas», 3 → «Final», 4 → «Campeão»; nacional com 3 → «Quartas», 5 → «Final», 6 → «Campeão»; na região «Copa Continental» nunca aparece «16 avos» nem «Preliminar» (AC 20)
+**C20** - ✓ Tabela pela tela Fim: continental com `userReached` 0 → «Sua campanha: Oitavas», 1 → «Quartas», 3 → «Final», 4 → «Campeão»; nacional com 3 → «Quartas», 5 → «Final», 6 → «Campeão»; na região «Copa Continental» nunca aparece «16 avos» nem «Preliminar» (AC 20)
 Proof: `npx vitest run src/ui/End.test.tsx -t "campanha com as fases de cada copa"`
 
-**C21** - Na tela Histórico, a tabela «Campeões» tem a coluna «Copa Continental»; numa temporada fechada com continental ela mostra o nome do campeão lido do registro, e numa temporada com `cups` só da nacional mostra «-» (AC 21)
+**C21** - ✓ Na tela Histórico, a tabela «Campeões» tem a coluna «Copa Continental»; numa temporada fechada com continental ela mostra o nome do campeão lido do registro, e numa temporada com `cups` só da nacional mostra «-» (AC 21)
 Proof: `npx vitest run src/ui/History.test.tsx -t "coluna da Copa Continental"`
 
-**C22** - Tabela pela tela Nova temporada: clube do usuário no `seeding` da nova continental → a linha da temporada contém «Copa Continental»; não classificado → não contém (AC 22)
+**C22** - ✓ Tabela pela tela Nova temporada: clube do usuário no `seeding` da nova continental → a linha da temporada contém «Copa Continental»; não classificado → não contém (AC 22)
 Proof: `npx vitest run src/ui/NewSeason.test.tsx -t "classificação para a continental"`
 
-**C23** - `npm run check:layout` sai com 0 e imprime a linha `cupCont`, medida depois de clicar na aba «Copa Continental», com `scrollHeight` ≤ 700 e `scrollWidth` ≤ 400 (AC 23, AD-010)
+**C23** - ✓ `npm run check:layout` sai com 0 e imprime a linha `cupCont`, medida depois de clicar na aba «Copa Continental», com `scrollHeight` ≤ 700 e `scrollWidth` ≤ 400 (AC 23, AD-010)
 Proof: `npm run check:layout`
 
 ### S4 - Um save antigo ganha a continental · 3 files · 42 KB · ~11k
@@ -137,6 +137,7 @@ Proof: `npx vitest run src/persistence/save.test.ts -t "save v8 com as duas copa
 | _achado na build_ - `rollover.test.ts` «histórico da temporada» e «copa no histórico» | `SeasonRecord.cups` ganha o registro da continental depois do da nacional (Flow hop 6) | C4, C21 |
 | _achado na build_ - asserções que acham o campeão de liga por texto na tela Fim (`End.test.tsx` «fim com usuário em Portugal», `app.test.tsx` «recarregar no fim mostra o mesmo resumo») | o campeão da continental pode ser o de uma liga; a busca fica dentro do quadro da liga, sem mudar o valor esperado | C20 |
 | _achado na build_ - fixtures que dependiam do calendário de 44 datas (`cup.test.ts` `season`, `Live.test.tsx` «disputa de pênaltis soa pela tela ao vivo») | `season` só junta as datas da nacional; a disputa passa à seed 3, 10º confronto, porque a data da continental muda os elencos antes; nenhum valor esperado muda | C9 |
+| _achado na build_ - `History.test.tsx` «campeões por temporada» | a linha ganha a coluna «Copa Continental», com «-» nas temporadas sem continental | C21 |
 
 Regra para os outros testes existentes: mudar um valor esperado fora das linhas acima é parada e pergunta.
 

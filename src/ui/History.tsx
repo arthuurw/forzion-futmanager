@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { DIVISION_LABEL } from "../engine/board";
 import { findAnyClub, topScorers, userLeague } from "../engine/season";
-import type { DivisionRecord } from "../engine/types";
+import { CONTINENTAL_CUP_ID } from "../engine/cup";
+import type { DivisionRecord, SeasonRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { ScreenTabs } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
 type HistoryTab = "scorers" | "stats" | "champions";
+
+/** Copa-continental AC 21: null for a season closed before the continental cup existed. */
+function continentalChampion(r: SeasonRecord): string | null {
+  return r.cups.find((c) => c.cupId === CONTINENTAL_CUP_ID)?.championId ?? null;
+}
 
 function scorerText(d: DivisionRecord | undefined): string {
   const s = d?.topScorer;
@@ -130,6 +136,7 @@ export function History() {
                       <th>Campeão Série B</th>
                       <th>Artilheiro Série B</th>
                       <th>Copa Nacional</th>
+                      <th>Copa Continental</th>
                       <th>Sua posição</th>
                     </tr>
                   </thead>
@@ -142,6 +149,7 @@ export function History() {
                         <td>{r.divisions[1] ? clubName(r.divisions[1].championId) : "—"}</td>
                         <td>{scorerText(r.divisions[1])}</td>
                         <td>{r.cups[0] ? clubName(r.cups[0].championId) : "-"}</td>
+                        <td>{continentalChampion(r) ? clubName(continentalChampion(r)!) : "-"}</td>
                         <td>{r.userPosition ? `${r.userPosition}º na ${division(r.userLeagueId)}` : "—"}</td>
                       </tr>
                     ))}

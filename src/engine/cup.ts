@@ -72,6 +72,11 @@ function formatOf(cupId: string): CupFormat {
   return format;
 }
 
+/** The names of a cup's phases, first to final; a closed season's record keeps only the cup id. */
+export function cupPhaseNames(cupId: string): readonly string[] {
+  return formatOf(cupId).phaseNames;
+}
+
 /** AC 7: each division by strength, the Série A first. */
 export function seedingByStrength(leagues: readonly League[]): string[] {
   return leagues.flatMap((l) => strengthRanking(l.clubs));

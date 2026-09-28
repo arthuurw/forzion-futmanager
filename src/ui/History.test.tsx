@@ -102,6 +102,8 @@ describe("tela Histórico", () => {
           b!.clubs[k]!.name,
           `Artilheiro B${season} (${b!.clubs[k]!.name}) · ${15 + k} gols`,
           "-",
+          // Copa-continental (Superseded checks): the continental cup's column, «-» here too.
+          "-",
           `${4 + k}º na Série A`,
         ];
       }),
@@ -203,4 +205,34 @@ describe("liga do usuário no histórico (ajustes-audio)", () => {
     expect(row![col]).toBe(`${position}º na Liga Portuguesa`);
     expect(row![col]).not.toContain("Série A");
   }, 60_000);
+});
+
+describe("continental no histórico (copa-continental)", () => {
+  test("coluna da Copa Continental", async () => {
+    // C21 (AC 21): one season with the continental cup, one from before it.
+    const game = seededGame(145);
+    const a = game.leagues[0]!;
+    const record = (season: number, withContinental: boolean): SeasonRecord => ({
+      season,
+      userClubId: game.userClubId,
+      userLeagueId: "l1",
+      userPosition: 3,
+      verdict: "met",
+      prize: 1,
+      cups: [
+        { cupId: "cup-nat", championId: a.clubs[1]!.id, runnerUpId: a.clubs[2]!.id, userReached: 2 },
+        ...(withContinental ? [{ cupId: "cup-cont", championId: a.clubs[5]!.id, runnerUpId: a.clubs[6]!.id, userReached: 0 }] : []),
+      ],
+      divisions: [{ leagueId: "l1", championId: a.clubs[0]!.id, promotedIds: [], relegatedIds: [], topScorer: null }],
+    });
+    game.history = [record(1, false), record(2, true)];
+    const user = await openHistory(game);
+    await user.click(screen.getByRole("tab", { name: "Campeões" }));
+    const table = screen.getByRole("table", { name: "Campeões" });
+    const col = within(table).getAllByRole("columnheader").map((h) => h.textContent).indexOf("Copa Continental");
+    expect(col).toBeGreaterThan(0);
+    const bySeason = new Map(cellsOf(table).map((r) => [r[0], r[col]]));
+    expect(bySeason.get("2")).toBe(a.clubs[5]!.name);
+    expect(bySeason.get("1")).toBe("-");
+  });
 });

@@ -7,6 +7,7 @@ import { POSITION_LABEL } from "./Squad";
 /**
  * AC 14: who retired, whose contract ended, how each player's rating moved, and the new goal.
  * Ajustes-audio AC 10: the champions of the 4 leagues, from the season just closed.
+ * Copa-continental AC 22: whether the user's club plays the continental cup.
  */
 export function NewSeason() {
   const report = useGame((s) => s.rolloverReport);
@@ -14,6 +15,8 @@ export function NewSeason() {
   const goToSquad = useGame((s) => s.goToSquad);
   if (!report) return null;
   const closed = game?.history.at(-1);
+  // Copa-continental AC 22: the user's club is in the new continental cup.
+  const qualified = !!game?.userClubId && !!game.cups[1]?.seeding.includes(game.userClubId);
   const leagueLabel = (leagueId: string) => DIVISION_LABEL[game?.leagues.findIndex((l) => l.id === leagueId) ?? -1] ?? "";
   const changes = [...report.changes].sort((a, b) => b.after - b.before - (a.after - a.before) || a.name.localeCompare(b.name, "pt-BR"));
   return (
@@ -23,6 +26,7 @@ export function NewSeason() {
         <span className="goal">
           Temporada {report.season} · {DIVISION_LABEL[report.divisionIndex] ?? ""} · Meta: {goalLabel(divisionAt(game?.leagues ?? [], report.divisionIndex), report.boardGoal)}
           {report.cupGoal >= 0 && ` · ${cupGoalText(report.cupGoal)}`}
+          {qualified && " · Copa Continental"}
         </span>
       </div>
       <div className="screen-body new-season-body">

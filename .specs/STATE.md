@@ -21,13 +21,14 @@
 | AD-015 | Nome do produto é «Forzion FutManager» (marca do autor); o banco IndexedDB passa de `brasfoot` para `forzion-futmanager`, sem cópia do banco antigo. Substitui só o nome do banco na door 1 de nucleo-liga-partida (C15); store, chave e documento continuam iguais | «Brasfoot» é marca de terceiros; antes do lançamento não há save de usuário real a preservar | active | 2026-09-27 |
 | AD-016 | Cada `League` tem `country` (`"BR"`, `"AR"`, `"PT"`) e `tier` (0 = primeira divisão); `leagues` continua plano, com a Série A e a Série B em 0 e 1 e os países novos depois; clube só muda de divisão dentro do país; a copa nacional é só `BR` | o 4c escolhe os classificados da copa continental por país; mantém AD-003 e a door 4 de multiplas-temporadas; plano de paises (door 1) | active | 2026-09-27 |
 | AD-017 | Cada copa tem um formato fixo pelo id em `engine/cup` (nomes das fases, datas, prêmios, fase preliminar, sais das sementes); o save guarda só nomes e âncoras. A continental é `cups[1]`, id `"cup-cont"`, com sais próprios (`0xd1`, `0xc1`); save v8 | uma terceira copa entra como mais um formato sem mudar o motor; a nacional mantém as sementes; plano de copa-continental (doors 1 e 2) | active | 2026-09-28 |
+| AD-018 | O arquivo exportado é o envelope `{ "format": "forzion-futmanager-save", "exportedAt", "save" }` e a importação só aceita esse envelope; o build usa `base: "./"` e publica no GitHub Pages por Actions só com test, lint e build verdes | o arquivo fica no disco do usuário para sempre; caminho relativo serve em qualquer host; plano de lancamento (doors 1, 2 e 3) | active | 2026-09-28 |
 
 ## Handoff
 
-**Feature**: copa-continental verificada (PASS, b2d75dd..a9385c1, 27 checks, profile light); sub-projeto 4 (copas + países) completo
-**Where**: 16 clubes (6 BR, 5 AR, 5 PT), mata-mata depois das rodadas 7, 13, 25 e 31, save v8, abas na tela Copa
-**In progress**: nada
-**Next step**: sub-projeto 5, lançamento (polish, exportar/importar save, deploy). Achados não bloqueantes do Verifier: sementes da migração v7→v8 sem check (L-024), C13 conta cartões sem ligar ao jogador (L-025), `check:layout` ainda sorteia a seed (L-023)
-**Blockers**: none
-**Uncommitted**: `bash.exe.stackdump` (log de crash do shell, alterado nesta sessão)
+**Feature**: lancamento (sub-projeto 5) - Verifier round 2 FAIL só em C35 (35/36, b41e1d3..28b542f, profile light): o site público não existe porque criar o repositório no GitHub foi negado pela permissão da sessão
+**Where**: exportar/importar save (envelope, AD-018), tela Sobre, tela de erro, pedido de armazenamento persistente, versão 1.0.0, favicon e meta, `base: "./"`, `.github/workflows/deploy.yml`, `scripts/dist-check.mjs`
+**In progress**: nada no código
+**Next step**: o autor cria o repositório `arthuurw/forzion-futmanager` (privado; Pages em repo privado pode exigir plano pago - senão público), ativa Pages com fonte GitHub Actions, adiciona o remoto e faz push de `main`; depois re-verificar só C35. Achados antigos ainda abertos: L-023, L-024, L-025
+**Blockers**: go-live bloqueado pela criação do repositório remoto (plano, perguntas abertas 1 e 2)
+**Uncommitted**: nenhum
 **Branch**: main

@@ -138,6 +138,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: checks.md Superseded row 2 vs AC 18 (verification.md Finding 2) (checks)
 - last seen: 2026-09-27T20:03:35Z
 
+### L-022 - When a criterion says every event of a tick plays, assert the exact list of effects, not toContain on one event's effects.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: ajustes-audio
+- evidence: C6 / src/ui/Live.test.tsx:452-454 (verification.md Finding 1) (checks)
+- last seen: 2026-09-28T21:06:50Z
+
+### L-023 - Give a browser layout check a fixed seed option so a green run is reproducible and not one random game.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `layout` · harmful: 0
+- features: ajustes-audio
+- evidence: C1/C2 / src/store.ts:266 randomSeed (verification.md Finding 2) (layout)
+- last seen: 2026-09-28T21:06:50Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

@@ -23,10 +23,10 @@
 
 ## Handoff
 
-**Feature**: audio verificada (PASS, b33837a..f4c7fcb, 26 checks); ajustes-4a e paises também verificadas
-**Where**: as 5 faixas CC0 (OpenGameArt, licenças conferidas nas páginas) estão em `public/audio/music/` com `CREDITS.md`, sem commit, aguardando o autor ouvir
+**Feature**: ajustes-audio verificada (PASS, d57f34a..25bbc74, 12 checks, profile light); as 5 músicas CC0 commitadas em d57f34a
+**Where**: as quatro pendências do handoff de 27/09 fechadas: botões de som no celular com prova em navegador (`npm run check:layout`), pulo aos 89' só com apito final, pênaltis cobrança por cobrança, campeões das 4 ligas na Nova temporada
 **In progress**: nada
-**Next step**: o autor ouve as faixas e os efeitos; commit das músicas ou troca pelas reservas do `CREDITS.md`/relatório. Pendências: layout do top strip com os botões de áudio em celular (AD-010, sem check); «Pular para o fim» aos 89' toca também os eventos do 90'; pênaltis soam juntos no mesmo tick; o AC 22 do paises sem check para a liga do usuário no Histórico nem campeões na Nova temporada
+**Next step**: sub-projeto 4c, copa continental (clubes classificados por país, AD-013 e AD-016). Achados não bloqueantes do Verifier: C6 usa `toContain`, o `check:layout` sorteia a seed a cada execução e a sobreposição do C3 nunca foi vista falhando (L-022, L-023)
 **Blockers**: none
-**Uncommitted**: `public/audio/` (músicas aguardando o autor)
+**Uncommitted**: nada
 **Branch**: main

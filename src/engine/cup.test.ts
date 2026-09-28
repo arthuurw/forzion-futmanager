@@ -33,7 +33,8 @@ function season(seed: number): { dates: CupDate[]; final: GameState } {
       const d = nextDate(s);
       const before = s;
       s = playDate(s).state;
-      if (d.kind === "cup") dates.push({ phase: d.phase, before, after: s });
+      // Copa-continental: these checks are about the national cup, `cups[0]`.
+      if (d.kind === "cup" && d.cupIndex === 0) dates.push({ phase: d.phase, before, after: s });
     }
     seasons.set(seed, { dates, final: s });
   }

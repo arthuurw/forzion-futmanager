@@ -241,7 +241,7 @@ export interface CupRecord {
   userReached: number | null;
 }
 
-export const SCHEMA_VERSION = 7 as const;
+export const SCHEMA_VERSION = 8 as const;
 
 export type Verdict = "met" | "missed" | "fired";
 
@@ -283,7 +283,10 @@ export interface GameState {
   history: SeasonRecord[];
   /** Worst acceptable final position for the user this season; 0 before a club is chosen (AC 30). */
   boardGoal: number;
-  /** Door 1 (copa-nacional): `cups[0]` is the national cup, id `"cup-nat"`. */
+  /**
+   * Door 1 (copa-nacional): `cups[0]` is the national cup, id `"cup-nat"`; door 1
+   * (copa-continental, save v8): `cups[1]` is the continental cup, id `"cup-cont"`.
+   */
   cups: Cup[];
   /** Index of the cup phase the user must reach; -1 = no cup goal (no club). */
   cupGoal: number;

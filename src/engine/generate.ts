@@ -1,4 +1,4 @@
-import { newCup, seedingByStrength } from "./cup";
+import { continentalByStrength, countryLookup, newContinentalCup, newCup, seedingByStrength } from "./cup";
 import { AR_IDENTITIES, CLUB_IDENTITIES, PT_IDENTITIES, SERIE_B_IDENTITIES, generatePlayerName, uniqueName, type ClubIdentity } from "./names";
 import { initialFinance, salaryFor } from "./finance";
 import { bell, createRng, mix32, pick, randInt, shuffle, type Rng } from "./rng";
@@ -210,18 +210,20 @@ export function newGame(seed: number): GameState {
   const serieB = generateSerieB(seed, takenNames({ leagues: [league], market }));
   const abroad = generateAbroad(seed, takenNames({ leagues: [league, serieB], market }));
   const rngState = rng.getState();
+  const leagues = [league, serieB, ...abroad];
   return {
     schemaVersion: SCHEMA_VERSION,
     seed,
     rngState,
     season: 1,
     userClubId: null,
-    leagues: [league, serieB, ...abroad],
+    leagues,
     market,
     history: [],
     boardGoal: 0,
     // Copa-nacional AC 7, AC 11: seeded by strength, the preliminary drawn from the new game's state (door 3).
-    cups: [newCup(seedingByStrength([league, serieB]), rngState)],
+    // Copa-continental AC 2, AC 6: the first divisions by strength, the Oitavas drawn with its own seed (door 2).
+    cups: [newCup(seedingByStrength([league, serieB]), rngState), newContinentalCup(continentalByStrength(leagues), countryLookup(leagues), rngState)],
     cupGoal: -1,
   };
 }

@@ -15,7 +15,7 @@ import {
 import { nextDate } from "./calendar";
 import { nextSeason } from "./rollover";
 import { playDate, playRound } from "./season";
-import type { Club, GameState } from "./types";
+import type { Club, GameState, Player } from "./types";
 
 const V4_PLAYER_FIELDS = ["contractSeasons", "seasonGames", "seasonGoals", "careerGames", "careerGoals"];
 
@@ -131,15 +131,15 @@ export function busySeason(seed = 21): GameState {
 }
 
 /**
- * A game played date by date until the next date is cup phase `phase`. With `userClubId`, that
+ * A game played date by date until the next date is phase `phase` of `cups[cupIndex]`. With `userClubId`, that
  * club is the user's, with an auto-filled lineup before every date.
  */
-export function atCupDate(seed: number, phase: number, userClubId: string | null = null): GameState {
+export function atCupDate(seed: number, phase: number, userClubId: string | null = null, cupIndex = 0): GameState {
   let s = newGame(seed);
   s.userClubId = userClubId;
   for (;;) {
     const date = nextDate(s);
-    if (date.kind === "cup" && date.phase === phase) return s;
+    if (date.kind === "cup" && date.cupIndex === cupIndex && date.phase === phase) return s;
     if (date.kind === "over") throw new Error("no such cup date");
     const me = s.leagues.flatMap((l) => l.clubs).find((c) => c.id === s.userClubId);
     if (me) me.lineup = autoLineup(me, AI_FORMATION);
@@ -175,6 +175,18 @@ function onlyBrazil(doc: { leagues: Record<string, unknown>[]; history?: { divis
     delete l.tier;
   }
   for (const r of doc.history ?? []) r.divisions = r.divisions.filter((d) => ids.has(d.leagueId));
+  withoutContinental(doc);
+}
+
+/** Copa-continental: a save from before v8 has no continental cup, record or discipline. */
+function withoutContinental(doc: Record<string, unknown>): void {
+  const notCont = (c: { id?: string; cupId?: string }) => c.id !== "cup-cont" && c.cupId !== "cup-cont";
+  if (Array.isArray(doc.cups)) doc.cups = doc.cups.filter(notCont);
+  for (const r of (doc.history ?? []) as { cups?: { cupId: string }[] }[]) if (r.cups) r.cups = r.cups.filter(notCont);
+  const market = doc.market as { freeAgents: Player[]; juniors: Player[] } | undefined;
+  const leagues = doc.leagues as { clubs: { players: Player[] }[] }[];
+  const players = [...leagues.flatMap((l) => l.clubs.flatMap((c) => c.players)), ...(market?.freeAgents ?? []), ...(market?.juniors ?? [])];
+  for (const p of players) if (p.cupDiscipline) delete p.cupDiscipline["cup-cont"];
 }
 
 /**
@@ -229,5 +241,34 @@ export function v5Document(seed = 3, roundsPlayed = 0): Record<string, unknown> 
   doc.schemaVersion = 5;
   onlyBrazil(doc);
   delete doc.market.transfers;
+  return doc;
+}
+
+/**
+ * A document shaped like a v7 save (paises): no continental cup, so none is ever played. The user
+ * manages the first Série A club, `roundsPlayed` rounds in; with `closedSeasons`, that many
+ * seasons were played and turned first.
+ */
+export function v7Document(seed = 3, roundsPlayed = 0, closedSeasons = 0): Record<string, unknown> {
+  let state = newGame(seed);
+  state.cups = state.cups.slice(0, 1);
+  state.userClubId = state.leagues[0]!.clubs[0]!.id;
+  state.boardGoal = 20;
+  const me = () => state.leagues.flatMap((l) => l.clubs).find((c) => c.id === state.userClubId)!;
+  const play = (rounds: number) => {
+    for (let i = 0; i < rounds; i++) {
+      me().lineup = autoLineup(me(), AI_FORMATION);
+      state = playRound(state).state;
+    }
+  };
+  for (let k = 0; k < closedSeasons; k++) {
+    play(38);
+    state.boardGoal = 20;
+    state = nextSeason(state).state;
+    state.cups = state.cups.slice(0, 1);
+  }
+  play(roundsPlayed);
+  const doc = JSON.parse(JSON.stringify(state));
+  doc.schemaVersion = 7;
   return doc;
 }

@@ -201,10 +201,10 @@ describe("duas divisões", () => {
 describe("boletim (gastos-da-ia)", () => {
   test("jogo novo com boletim vazio", () => {
     // Paises (Superseded checks): the save is v7.
-    expect(SCHEMA_VERSION).toBe(7);
+    expect(SCHEMA_VERSION).toBe(8);
     for (const seed of [1, 2, 3]) {
       const state = newGame(seed);
-      expect(state.schemaVersion).toBe(7);
+      expect(state.schemaVersion).toBe(8);
       expect(state.market.transfers).toEqual([]);
     }
   });
@@ -239,8 +239,8 @@ describe("países (paises S1)", () => {
       ["l3", "AR", 0],
       ["l4", "PT", 0],
     ]);
-    expect(SCHEMA_VERSION).toBe(7);
-    expect(s.schemaVersion).toBe(7);
+    expect(SCHEMA_VERSION).toBe(8);
+    expect(s.schemaVersion).toBe(8);
     expect(COUNTRIES).toEqual({ BR: "Brasil", AR: "Argentina", PT: "Portugal" });
   });
 

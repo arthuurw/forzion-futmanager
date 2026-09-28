@@ -6,6 +6,8 @@ import { LEAGUE, type Competition, type GameState } from "./types";
 
 /** The league round (1-based) each cup phase comes right after. */
 export const CUP_AFTER_ROUNDS = [4, 10, 16, 22, 28, 34] as const;
+/** Copa-continental AC 9: the continental cup's phases, never on a national cup's date. */
+export const CONTINENTAL_AFTER_ROUNDS = [7, 13, 25, 31] as const;
 
 export type GameDate = { kind: "cup"; cupIndex: number; phase: number } | { kind: "league"; roundIndex: number } | { kind: "over" };
 

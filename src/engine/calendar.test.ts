@@ -7,10 +7,10 @@ import type { Club, GameState, Player } from "./types";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 
-/** «L» for a league round, «Ck» for cup phase k. */
+/** «L» for a league round, «Ck» for national cup phase k, «Kk» for continental phase k. */
 function label(s: GameState): string {
   const d = nextDate(s);
-  if (d.kind === "cup") return `C${d.phase}`;
+  if (d.kind === "cup") return `${d.cupIndex === 1 ? "K" : "C"}${d.phase}`;
   if (d.kind === "league") return "L";
   return "over";
 }
@@ -23,11 +23,15 @@ function withUser(seed: number): GameState {
   return s;
 }
 
-describe("calendário de 44 datas", () => {
-  test("sequência das 44 datas", () => {
+describe("calendário de 48 datas", () => {
+  // Copa-continental C9 (supersedes the 44-date sequence of copa-nacional): K0-K3 after rounds 7, 13, 25, 31.
+  test("sequência das 48 datas", () => {
     const L = (n: number) => Array<string>(n).fill("L");
-    const expected = [...L(4), "C0", ...L(6), "C1", ...L(6), "C2", ...L(6), "C3", ...L(6), "C4", ...L(6), "C5", ...L(4)];
-    expect(expected).toHaveLength(44);
+    const expected = [
+      ...L(4), "C0", ...L(3), "K0", ...L(3), "C1", ...L(3), "K1", ...L(3), "C2", ...L(6), "C3",
+      ...L(3), "K2", ...L(3), "C4", ...L(3), "K3", ...L(3), "C5", ...L(4),
+    ];
+    expect(expected).toHaveLength(48);
     let s = newGame(51);
     const seen: string[] = [];
     while (nextDate(s).kind !== "over") {
@@ -38,6 +42,7 @@ describe("calendário de 44 datas", () => {
     // Paises (Superseded checks): 4 leagues.
     expect(s.leagues.map((l) => l.currentRound)).toEqual([38, 38, 38, 38]);
     expect(s.cups[0]!.currentPhase).toBe(6);
+    expect(s.cups[1]!.currentPhase).toBe(4);
   }, 60_000);
 
   test("data de copa não mexe na liga", () => {

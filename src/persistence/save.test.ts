@@ -34,8 +34,9 @@ describe("save (door 1, door 7)", () => {
     expect(DB_NAME).toBe("forzion-futmanager");
     expect(STORE).toBe("saves");
     expect(SLOT).toBe("slot-1");
-    expect(doc.schemaVersion).toBe(7);
-    expect(doc.cups).toHaveLength(1);
+    // Copa-continental (Superseded checks): v8 with the continental cup.
+    expect(doc.schemaVersion).toBe(8);
+    expect(doc.cups).toHaveLength(2);
     expect(doc.cups[0].id).toBe("cup-nat");
     expect(doc.cups[0].seeding).toHaveLength(40);
     expect(doc.cups[0].phases).toHaveLength(6);
@@ -105,9 +106,10 @@ describe("save (door 1, door 7)", () => {
     expect(await loadGame()).toEqual({ kind: "none" });
     const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
     // Paises (Superseded checks): v7 is current, so the first unknown version is 8.
-    await db.put(STORE, { schemaVersion: 8 }, SLOT);
+    // Copa-continental (Superseded checks): v8 is current, so the first unknown version is 9.
+    await db.put(STORE, { schemaVersion: 9 }, SLOT);
     db.close();
-    expect(await loadGame()).toEqual({ kind: "incompatible", version: 8 });
+    expect(await loadGame()).toEqual({ kind: "incompatible", version: 9 });
   });
 
   test("carrega save v1 migrado", async () => {
@@ -118,7 +120,7 @@ describe("save (door 1, door 7)", () => {
     expect(loaded.kind).toBe("ok");
     if (loaded.kind !== "ok") return;
     // Gastos-da-ia (Superseded checks): v1 now reaches v6. Paises (Superseded checks): v7.
-    expect(loaded.state.schemaVersion).toBe(7);
+    expect(loaded.state.schemaVersion).toBe(8);
     expect(loaded.state.leagues[0]!.clubs[0]!.players[0]).toMatchObject({ fitness: 100, morale: 0, idleRounds: 0 });
   });
 });
@@ -132,7 +134,7 @@ describe("boletim no save (gastos-da-ia)", () => {
       { round: 1, kind: "buy", playerId: moved.id, playerName: moved.name, fromId: b.id, toId: a.id, amount: 1_990_000 },
       { round: 1, kind: "release", playerId: a.players[7]!.id, playerName: a.players[7]!.name, fromId: a.id, toId: null, amount: 88_000 },
     ];
-    expect(state.schemaVersion).toBe(7);
+    expect(state.schemaVersion).toBe(8);
     const lines = JSON.parse(JSON.stringify(state.market.transfers));
     await saveGame(state);
     const loaded = await loadGame();
@@ -203,7 +205,7 @@ describe("save com países (paises)", () => {
     expect(loaded.kind).toBe("ok");
     if (loaded.kind !== "ok") return;
     expect(loaded.state).toEqual(expected);
-    expect(loaded.state.schemaVersion).toBe(7);
+    expect(loaded.state.schemaVersion).toBe(8);
     expect(loaded.state.userClubId).toBe(club.id);
     expect(loaded.state.leagues.map((l) => [l.id, l.country, l.tier])).toEqual([
       ["l1", "BR", 0],
@@ -211,5 +213,17 @@ describe("save com países (paises)", () => {
       ["l3", "AR", 0],
       ["l4", "PT", 0],
     ]);
+  });
+});
+
+describe("save com a continental (copa-continental)", () => {
+  test("save v8 com as duas copas", async () => {
+    // C27 (door 1).
+    await saveGame(newGame(13));
+    const loaded = await loadGame();
+    expect(loaded.kind).toBe("ok");
+    if (loaded.kind !== "ok") return;
+    expect(loaded.state.schemaVersion).toBe(8);
+    expect(loaded.state.cups.map((c) => c.id)).toEqual(["cup-nat", "cup-cont"]);
   });
 });

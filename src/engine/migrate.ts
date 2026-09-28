@@ -1,6 +1,6 @@
 import { userBoardGoal, userCupGoal } from "./board";
 import { nextDate } from "./calendar";
-import { catchUpPhase, newCup, seedingByStrength } from "./cup";
+import { catchUpPhase, continentalByStrength, countryLookup, newContinentalCup, newCup, seedingByStrength } from "./cup";
 import { generateAbroad, generateFreeAgents, generateSerieB, takenNames } from "./generate";
 import { initialFinance, salaryFor } from "./finance";
 import { aiLineup, formationSlots, isAvailable } from "./lineup";
@@ -155,17 +155,41 @@ function v6ToV7(doc: GameState): GameState {
   const played = doc.leagues[0]!.currentRound;
   const base = mix32(doc.seed, ABROAD_CATCH_UP_SALT);
   abroad.forEach((league, i) => catchUp(league, played, base, doc.leagues.length + i));
-  return { ...doc, schemaVersion: SCHEMA_VERSION, leagues: [...doc.leagues, ...abroad] };
+  return { ...doc, schemaVersion: 7, leagues: [...doc.leagues, ...abroad] } as unknown as GameState;
+}
+
+/** Copa-continental door 3: the draws' state and the matches' state of a migrated continental cup. */
+const CONTINENTAL_DRAW_SALT = 8;
+const CONTINENTAL_MATCH_SALT = 9;
+
+/**
+ * v7 -> v8 (copa-continental AC 24-26, door 3): the continental cup seeded by strength; the phases
+ * the calendar has already passed are drawn and played with scores only - no money, no condition.
+ * The history and the national cup do not move.
+ */
+function v7ToV8(doc: GameState): GameState {
+  const state = doc;
+  const drawState = mix32(state.seed, CONTINENTAL_DRAW_SALT);
+  const matchState = mix32(state.seed, CONTINENTAL_MATCH_SALT);
+  const cup = newContinentalCup(continentalByStrength(state.leagues), countryLookup(state.leagues), drawState);
+  state.cups = [...state.cups, cup];
+  const played = state.leagues[0]?.currentRound ?? 0;
+  const index = state.cups.length - 1;
+  while ((cup.phases[cup.currentPhase]?.afterLeagueRound ?? Infinity) <= played) catchUpPhase(state, index, matchState, drawState);
+  state.schemaVersion = SCHEMA_VERSION;
+  return state;
 }
 
 /**
- * Door 1: reads any stored document. v7 passes through; v6 to v1 migrate forward, each through
- * the next (copa-nacional AC 51, 53; gastos-da-ia AC 22, 23; paises AC 26-28); anything else is
- * incompatible (paises AC 29).
+ * Door 1: reads any stored document. v8 passes through; v7 to v1 migrate forward, each through
+ * the next (copa-nacional AC 51, 53; gastos-da-ia AC 22, 23; paises AC 26-28; copa-continental
+ * AC 24); anything else is incompatible (paises AC 29).
  */
 export function migrateSave(doc: unknown): MigrationResult {
   const version = typeof doc === "object" && doc !== null ? (doc as { schemaVersion?: unknown }).schemaVersion : undefined;
   if (version === SCHEMA_VERSION) return { kind: "ok", state: doc as GameState };
+  // A v7 save already has the countries; `tagBrazil` below is only for saves from before them.
+  if (version === 7) return { kind: "ok", state: v7ToV8(JSON.parse(JSON.stringify(doc)) as GameState) };
   if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6) return { kind: "incompatible", version };
   let old = JSON.parse(JSON.stringify(doc)) as OldDocument;
   // The board and the cup of the steps below read the country and the tier.
@@ -175,5 +199,5 @@ export function migrateSave(doc: unknown): MigrationResult {
   const v4 = version <= 3 ? v3ToV4(old) : (old as unknown as GameState);
   const v5 = version <= 4 ? v4ToV5(v4) : v4;
   const v6 = version <= 5 ? v5ToV6(v5) : v5;
-  return { kind: "ok", state: v6ToV7(v6) };
+  return { kind: "ok", state: v7ToV8(v6ToV7(v6)) };
 }

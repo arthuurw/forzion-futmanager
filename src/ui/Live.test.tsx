@@ -455,9 +455,10 @@ describe("som ao vivo (audio)", () => {
   });
 
   test("disputa de pênaltis soa pela tela ao vivo", async () => {
-    // Ajustes-audio C9 (AC 7, AC 9, L-003): seed 1, the user home in the third tie of the cup's
-    // second phase, level at 90' and through on penalties.
-    startOnFakeClock(1, cupGame(1, 1, (s) => s.cups[0]!.phases[1]!.ties[2]!.homeId));
+    // Ajustes-audio C9 (AC 7, AC 9, L-003): the user home in a tie of the cup's second phase, level
+    // at 90' and through on penalties. Copa-continental: the continental date after round 7 changes
+    // the squads before this phase, so the tie is now seed 3's tenth (7 x 6 on penalties).
+    startOnFakeClock(3, cupGame(3, 1, (s) => s.cups[0]!.phases[1]!.ties[9]!.homeId));
     runTo(89);
     expect(userMatch(runToEnd(useGame.getState().live!))!.penalties).not.toBeNull();
     const userId = useGame.getState().live!.userClubId!;

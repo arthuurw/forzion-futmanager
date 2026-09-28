@@ -273,8 +273,10 @@ describe("duas divisões e várias temporadas", () => {
     const prize = (21 - position) * 250_000;
     const verdict = position <= game.boardGoal ? "Meta cumprida" : position >= game.boardGoal + 5 || (game.boardGoal === 16 && position > 16) ? "Demitido" : "Meta não cumprida";
     const brl = (n: number) => `R$ ${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
-    expect(screen.getByText(`Campeão: ${tableA[0]!.name}`)).toBeInTheDocument();
-    expect(screen.getByText(`Campeão: ${tableB[0]!.name}`)).toBeInTheDocument();
+    // Copa-continental: a cup's champion can also be a league's, so each is read in its league's box.
+    const boxes = [...document.querySelectorAll<HTMLElement>(".champions .division-result")];
+    expect(within(boxes[0]!).getByText(`Campeão: ${tableA[0]!.name}`)).toBeInTheDocument();
+    expect(within(boxes[1]!).getByText(`Campeão: ${tableB[0]!.name}`)).toBeInTheDocument();
     expect(screen.getByText(`Sua posição: ${position}º na Série A`)).toBeInTheDocument();
     expect(screen.getByText(`Prêmio: ${brl(prize)}`)).toBeInTheDocument();
     expect(screen.getByText(verdict)).toBeInTheDocument();

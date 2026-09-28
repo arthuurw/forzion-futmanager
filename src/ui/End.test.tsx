@@ -206,9 +206,11 @@ describe("fim com países (paises)", () => {
     expect(screen.getByText("Meta: até o 16º")).toBeInTheDocument();
     const labels = [...document.querySelectorAll(".champions .division-name")].map((e) => e.textContent);
     expect(labels.slice(0, 4)).toEqual(["Série A", "Série B", "Liga Argentina", "Liga Portuguesa"]);
+    // Copa-continental: a cup's champion can also be a league's, so each is read in its league's box.
+    const boxes = [...document.querySelectorAll<HTMLElement>(".champions .division-result")].slice(0, 4);
     for (const k of [0, 1, 2, 3]) {
       const champion = computeTable(game.leagues[k]!)[0]!.name;
-      const shown = screen.getByText(`Campeão: ${champion}`);
+      const shown = within(boxes[k]!).getByText(`Campeão: ${champion}`);
       expect(shown.closest(".fill"), champion).not.toBeNull();
     }
     expect(screen.getByText(`Sua posição: ${position}º na Liga Portuguesa`).closest(".fill")).not.toBeNull();

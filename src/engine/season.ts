@@ -142,7 +142,7 @@ export interface CupReview {
   name: string;
   championId: string | null;
   runnerUpId: string | null;
-  /** Phase index the user reached, 6 = champion; null without a club. */
+  /** Phase index the user reached, the cup's number of phases = champion; null without a club. */
   userReached: number | null;
 }
 

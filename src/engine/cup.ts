@@ -1,15 +1,16 @@
 /**
- * The national cup (copa-nacional): seeding, draws, single-match ties with penalties, and what a
- * cup date does to squads and money. Door 1 (shape), door 2 (match seeds), door 3 (draw seeds).
+ * The cups (copa-nacional, copa-continental): seeding, draws, single-match ties with penalties,
+ * and what a cup date does to squads and money. Door 1 (shape), door 2 (match seeds) and door 3
+ * (draw seeds) of copa-nacional; doors 1 and 2 of copa-continental.
  */
 import { strengthRanking } from "./board";
-import { CUP_AFTER_ROUNDS, nextDate } from "./calendar";
+import { CONTINENTAL_AFTER_ROUNDS, CUP_AFTER_ROUNDS, nextDate } from "./calendar";
 import { applyRound } from "./condition";
 import { attendanceFor } from "./finance";
 import { makeMatch, resultOf, roundSnapshot, runToEnd, sideFor, userMatch, type LiveMatch, type LiveRound } from "./live";
 import { createRng, mix32, randInt } from "./rng";
 import type { RoundOutcome } from "./season";
-import type { Competition, Cup, GameState, League, Ledger, Tie } from "./types";
+import type { Competition, Country, Cup, GameState, League, Ledger, Tie } from "./types";
 
 export const NATIONAL_CUP_ID = "cup-nat";
 export const NATIONAL_CUP_NAME = "Copa Nacional";
@@ -21,32 +22,79 @@ export const PRELIMINARY_CLUBS = 16;
 /** `userReached` / `cupReached` for the champion: one past the final. */
 export const CHAMPION_REACHED = CUP_PHASE_NAMES.length;
 
-/** Door 2 and door 3. */
-const MATCH_SALT = 0xc0;
-const DRAW_SALT = 0xd0;
+export const CONTINENTAL_CUP_ID = "cup-cont";
+export const CONTINENTAL_CUP_NAME = "Copa Continental";
+export const CONTINENTAL_PHASE_NAMES = ["Oitavas", "Quartas", "Semifinal", "Final"] as const;
+/** Copa-continental AC 12. */
+export const CONTINENTAL_PRIZES = [800_000, 1_500_000, 2_500_000, 5_000_000] as const;
+/** Copa-continental AC 2-4: places per country. */
+export const CONTINENTAL_PLACES: Readonly<Record<Country, number>> = { BR: 6, AR: 5, PT: 5 };
+/** Copa-continental AC 5: the order the countries alternate in the seeding. */
+const CONTINENTAL_COUNTRIES: readonly Country[] = ["BR", "AR", "PT"];
+
+/** What is fixed about a cup, by its id; the save keeps only the names and the anchors. */
+interface CupFormat {
+  name: string;
+  phaseNames: readonly string[];
+  afterRounds: readonly number[];
+  prizes: readonly number[];
+  /** Clubs at the bottom of the seeding that play phase 0; 0 = every club starts in phase 0. */
+  preliminary: number;
+  /** Copa-nacional doors 2 and 3; copa-continental door 2. */
+  matchSalt: number;
+  drawSalt: number;
+}
+
+const FORMATS: Readonly<Record<string, CupFormat>> = {
+  [NATIONAL_CUP_ID]: {
+    name: NATIONAL_CUP_NAME,
+    phaseNames: CUP_PHASE_NAMES,
+    afterRounds: CUP_AFTER_ROUNDS,
+    prizes: CUP_PRIZES,
+    preliminary: PRELIMINARY_CLUBS,
+    matchSalt: 0xc0,
+    drawSalt: 0xd0,
+  },
+  [CONTINENTAL_CUP_ID]: {
+    name: CONTINENTAL_CUP_NAME,
+    phaseNames: CONTINENTAL_PHASE_NAMES,
+    afterRounds: CONTINENTAL_AFTER_ROUNDS,
+    prizes: CONTINENTAL_PRIZES,
+    preliminary: 0,
+    matchSalt: 0xc1,
+    drawSalt: 0xd1,
+  },
+};
+
+function formatOf(cupId: string): CupFormat {
+  const format = FORMATS[cupId];
+  if (!format) throw new Error(`unknown cup ${cupId}`);
+  return format;
+}
 
 /** AC 7: each division by strength, the Série A first. */
 export function seedingByStrength(leagues: readonly League[]): string[] {
   return leagues.flatMap((l) => strengthRanking(l.clubs));
 }
 
-/** Door 2: the seed of tie `i` of phase `k`, from the `rngState` at the start of the date. */
-export function cupMatchSeed(rngState: number, phase: number, tie: number): number {
-  return mix32(mix32(rngState, MATCH_SALT), phase * 32 + tie);
+/** Door 2: the seed of tie `i` of phase `k`, from the `rngState` at the start of the date; each cup has its own salt. */
+export function cupMatchSeed(rngState: number, phase: number, tie: number, cupId = NATIONAL_CUP_ID): number {
+  return mix32(mix32(rngState, formatOf(cupId).matchSalt), phase * 32 + tie);
 }
 
-/** Door 3: the draw's stream for phase `k`. */
-export function drawSeed(rngState: number, phase: number): number {
-  return mix32(mix32(rngState, DRAW_SALT), phase);
+/** Door 3: the draw's stream for phase `k`; each cup has its own salt (copa-continental door 2). */
+export function drawSeed(rngState: number, phase: number, cupId = NATIONAL_CUP_ID): number {
+  return mix32(mix32(rngState, formatOf(cupId).drawSalt), phase);
 }
 
 /** Who enters the draw of phase `k`, in seeding order (AC 8, AC 9). */
 function qualified(cup: Cup, k: number): string[] {
   const rank = new Map(cup.seeding.map((id, i) => [id, i]));
   const bySeed = (ids: string[]) => ids.sort((a, b) => rank.get(a)! - rank.get(b)!);
-  if (k === 0) return cup.seeding.slice(-PRELIMINARY_CLUBS);
+  const preliminary = formatOf(cup.id).preliminary;
+  if (k === 0) return preliminary ? cup.seeding.slice(-preliminary) : [...cup.seeding];
   const winners = cup.phases[k - 1]!.ties.map((t) => t.winnerId).filter((id): id is string => !!id);
-  if (k === 1) return bySeed([...cup.seeding.slice(0, cup.seeding.length - PRELIMINARY_CLUBS), ...winners]);
+  if (k === 1 && preliminary) return bySeed([...cup.seeding.slice(0, cup.seeding.length - preliminary), ...winners]);
   return bySeed(winners);
 }
 
@@ -57,31 +105,115 @@ function qualified(cup: Cup, k: number): string[] {
 export function drawPhase(cup: Cup, k: number, rngState: number): void {
   const phase = cup.phases[k];
   if (!phase || phase.ties.length) return;
-  const rng = createRng(drawSeed(rngState, k));
+  const clubs = shuffledQualified(cup, k, rngState);
+  for (let i = 0; i + 1 < clubs.length; i += 2) addTie(cup, k, clubs[i]!, clubs[i + 1]!);
+}
+
+function shuffledQualified(cup: Cup, k: number, rngState: number): string[] {
+  const rng = createRng(drawSeed(rngState, k, cup.id));
   const clubs = qualified(cup, k);
   for (let i = clubs.length - 1; i > 0; i--) {
     const j = randInt(rng, 0, i);
     [clubs[i], clubs[j]] = [clubs[j]!, clubs[i]!];
   }
-  const rank = new Map(cup.seeding.map((id, i) => [id, i]));
-  for (let i = 0; i + 1 < clubs.length; i += 2) {
-    const [a, b] = [clubs[i]!, clubs[i + 1]!];
-    const [homeId, awayId] = rank.get(a)! > rank.get(b)! ? [a, b] : [b, a];
-    phase.ties.push({ id: `${cup.id}-p${k}-m${phase.ties.length}`, homeId, awayId, result: null, penalties: null, winnerId: null });
+  return clubs;
+}
+
+/** AC 10: the club lower in the seeding plays at home. */
+function addTie(cup: Cup, k: number, a: string, b: string): void {
+  const phase = cup.phases[k]!;
+  const [homeId, awayId] = cup.seeding.indexOf(a) > cup.seeding.indexOf(b) ? [a, b] : [b, a];
+  phase.ties.push({ id: `${cup.id}-p${k}-m${phase.ties.length}`, homeId, awayId, result: null, penalties: null, winnerId: null });
+}
+
+/**
+ * Copa-continental AC 6: phase 0 with no tie between two clubs of the same country. The shuffled
+ * clubs are paired in turn: the first club of the country with the most clubs left meets the first
+ * club left of another country, which always succeeds while no country has more than half.
+ */
+function drawSeparated(cup: Cup, countryOf: (clubId: string) => Country | undefined, rngState: number): void {
+  const left = shuffledQualified(cup, 0, rngState);
+  const count = (country: Country | undefined) => left.filter((id) => countryOf(id) === country).length;
+  while (left.length > 1) {
+    const a = left.reduce((best, id) => (count(countryOf(id)) > count(countryOf(best)) ? id : best));
+    left.splice(left.indexOf(a), 1);
+    const b = left.find((id) => countryOf(id) !== countryOf(a)) ?? left[0]!;
+    left.splice(left.indexOf(b), 1);
+    addTie(cup, 0, a, b);
   }
+}
+
+function emptyCup(cupId: string, seeding: readonly string[]): Cup {
+  const format = formatOf(cupId);
+  return {
+    id: cupId,
+    name: format.name,
+    seeding: [...seeding],
+    phases: format.phaseNames.map((name, k) => ({ name, afterLeagueRound: format.afterRounds[k]!, ties: [] })),
+    currentPhase: 0,
+  };
 }
 
 /** A season's cup: six phases on the calendar and the preliminary round already drawn (AC 11). */
 export function newCup(seeding: string[], rngState: number): Cup {
-  const cup: Cup = {
-    id: NATIONAL_CUP_ID,
-    name: NATIONAL_CUP_NAME,
-    seeding: [...seeding],
-    phases: CUP_PHASE_NAMES.map((name, k) => ({ name, afterLeagueRound: CUP_AFTER_ROUNDS[k]!, ties: [] })),
-    currentPhase: 0,
-  };
+  const cup = emptyCup(NATIONAL_CUP_ID, seeding);
   drawPhase(cup, 0, rngState);
   return cup;
+}
+
+/** Copa-continental AC 1, AC 6: four phases on the calendar and the Oitavas already drawn. */
+export function newContinentalCup(seeding: string[], countryOf: (clubId: string) => Country | undefined, rngState: number): Cup {
+  const cup = emptyCup(CONTINENTAL_CUP_ID, seeding);
+  drawSeparated(cup, countryOf, rngState);
+  return cup;
+}
+
+/** Each club's country, from the league it plays in. */
+export function countryLookup(leagues: readonly League[]): (clubId: string) => Country | undefined {
+  const map = new Map(leagues.flatMap((l) => l.clubs.map((c) => [c.id, l.country] as const)));
+  return (clubId) => map.get(clubId);
+}
+
+/** Copa-continental AC 5: 1º BR, 1º AR, 1º PT, 2º BR, … - each list best first. */
+function interleave(byCountry: Readonly<Record<Country, readonly string[]>>): string[] {
+  const rows = Math.max(...CONTINENTAL_COUNTRIES.map((c) => CONTINENTAL_PLACES[c]));
+  const out: string[] = [];
+  for (let i = 0; i < rows; i++) {
+    for (const c of CONTINENTAL_COUNTRIES) {
+      const id = i < CONTINENTAL_PLACES[c] ? byCountry[c][i] : undefined;
+      if (id) out.push(id);
+    }
+  }
+  return out;
+}
+
+const firstDivision = <T extends Pick<League, "country" | "tier">>(leagues: readonly T[], country: Country): T | undefined =>
+  leagues.find((l) => l.country === country && l.tier === 0);
+
+/** Copa-continental AC 2, AC 24: each country's first division by strength. */
+export function continentalByStrength(leagues: readonly League[]): string[] {
+  const top = (country: Country) => {
+    const league = firstDivision(leagues, country);
+    return league ? strengthRanking(league.clubs) : [];
+  };
+  return interleave({ BR: top("BR"), AR: top("AR"), PT: top("PT") });
+}
+
+/**
+ * Copa-continental AC 3, AC 4: at the turn of the season, each country's first division by its
+ * final table (`tables` by league id, best first), with the national cup's champion first of Brazil.
+ */
+export function continentalFromTables(
+  leagues: readonly Pick<League, "id" | "country" | "tier">[],
+  tables: ReadonlyMap<string, readonly string[]>,
+  nationalChampion: string | null,
+): string[] {
+  const table = (country: Country) => {
+    const league = firstDivision(leagues, country);
+    return league ? (tables.get(league.id) ?? []) : [];
+  };
+  const brazil = nationalChampion ? [nationalChampion, ...table("BR").filter((id) => id !== nationalChampion)] : table("BR");
+  return interleave({ BR: brazil, AR: table("AR"), PT: table("PT") });
 }
 
 export function cupCompetition(cup: Cup): Competition {
@@ -101,7 +233,7 @@ export function cupLive(state: GameState, cupIndex: number, rngState: number, us
     return sideFor(club, userClubId, players, competition);
   };
   const matches = phase.ties.map((tie, i): LiveMatch => ({
-    ...makeMatch(tie.id, side(tie.homeId), side(tie.awayId), cupMatchSeed(rngState, cup.currentPhase, i), cup.id),
+    ...makeMatch(tie.id, side(tie.homeId), side(tie.awayId), cupMatchSeed(rngState, cup.currentPhase, i, cup.id), cup.id),
     knockout: true,
     penalties: null,
   }));
@@ -173,7 +305,7 @@ export function finishCupDate(input: GameState, liveInput: LiveRound): RoundOutc
         interest: 0,
         transfersIn: f.pendingIn,
         transfersOut: f.pendingOut,
-        cupPrize: clubId === tie.winnerId ? CUP_PRIZES[k]! : 0,
+        cupPrize: clubId === tie.winnerId ? formatOf(cup.id).prizes[k]! : 0,
       };
       f.cash += ledger.tickets + ledger.cupPrize!;
       f.pendingIn = 0;
@@ -207,9 +339,12 @@ export function cupRunnerUp(cup: Cup): string | null {
   return final.winnerId === final.homeId ? final.awayId : final.homeId;
 }
 
-/** AC 36: the last phase the club played (0 = Preliminar), 6 for the champion; null when it never played. */
+/**
+ * AC 36: the last phase the club played (0 = the first phase), one past the final for the champion
+ * (6 in the national cup, 4 in the continental); null when it never played.
+ */
 export function cupReached(cup: Cup, clubId: string): number | null {
-  if (cupChampion(cup) === clubId) return CHAMPION_REACHED;
+  if (cupChampion(cup) === clubId) return cup.phases.length;
   let reached: number | null = null;
   cup.phases.forEach((phase, k) => {
     if (phase.ties.some((t) => t.homeId === clubId || t.awayId === clubId)) reached = k;

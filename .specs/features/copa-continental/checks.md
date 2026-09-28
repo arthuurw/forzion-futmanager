@@ -11,33 +11,33 @@ Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`) e, para o layout, `npm r
 
 ### S1 - A Copa Continental existe com os classificados certos · 9 files · 129 KB · ~32k
 
-**C1** - Num jogo novo, `cups[1]` tem id `"cup-cont"`, nome «Copa Continental», fases `["Oitavas", "Quartas", "Semifinal", "Final"]` nessa ordem, `afterLeagueRound` `[7, 13, 25, 31]` e `currentPhase` 0; `cups[0]` continua com id `"cup-nat"` (AC 1, AC 9, door 1, AD-013)
+**C1** - ✓ Num jogo novo, `cups[1]` tem id `"cup-cont"`, nome «Copa Continental», fases `["Oitavas", "Quartas", "Semifinal", "Final"]` nessa ordem, `afterLeagueRound` `[7, 13, 25, 31]` e `currentPhase` 0; `cups[0]` continua com id `"cup-nat"` (AC 1, AC 9, door 1, AD-013)
 Proof: `npx vitest run src/engine/continental.test.ts -t "continental no jogo novo"`
 
-**C2** - Num jogo novo, o conjunto dos 16 classificados é: os 6 primeiros de `strengthRanking` da Série A, os 5 primeiros da Liga Argentina e os 5 primeiros da Liga Portuguesa; o 7º da Série A e o 6º de cada liga de fora não estão nele, e nenhum clube da Série B está (AC 2, L-007)
+**C2** - ✓ Num jogo novo, o conjunto dos 16 classificados é: os 6 primeiros de `strengthRanking` da Série A, os 5 primeiros da Liga Argentina e os 5 primeiros da Liga Portuguesa; o 7º da Série A e o 6º de cada liga de fora não estão nele, e nenhum clube da Série B está (AC 2, L-007)
 Proof: `npx vitest run src/engine/continental.test.ts -t "classificados do jogo novo pelo ranking de força"`
 
-**C3** - O `seeding` da continental de um jogo novo é exatamente `[BR1, AR1, PT1, BR2, AR2, PT2, BR3, AR3, PT3, BR4, AR4, PT4, BR5, AR5, PT5, BR6]`, com BRn, ARn e PTn montados no teste pela colocação de cada país (AC 5)
+**C3** - ✓ O `seeding` da continental de um jogo novo é exatamente `[BR1, AR1, PT1, BR2, AR2, PT2, BR3, AR3, PT3, BR4, AR4, PT4, BR5, AR5, PT5, BR6]`, com BRn, ARn e PTn montados no teste pela colocação de cada país (AC 5)
 Proof: `npx vitest run src/engine/continental.test.ts -t "seeding intercalado por país"`
 
-**C4** - Tabela pela virada (`nextSeason`), com o campeão da Copa Nacional em três situações: (a) um clube da Série B → os brasileiros são ele e os 5 primeiros da tabela final da Série A, e o 6º da Série A fica de fora; (b) o 3º da Série A → os brasileiros são os 6 primeiros da tabela final da Série A, e o 7º fica de fora; (c) o 9º da Série A → os brasileiros são ele e os 5 primeiros, e o 6º fica de fora. Em todos, o campeão é BR1 no `seeding` (AC 3, AC 5, L-007)
+**C4** - ✓ Tabela pela virada (`nextSeason`), com o campeão da Copa Nacional em três situações: (a) um clube da Série B → os brasileiros são ele e os 5 primeiros da tabela final da Série A, e o 6º da Série A fica de fora; (b) o 3º da Série A → os brasileiros são os 6 primeiros da tabela final da Série A, e o 7º fica de fora; (c) o 9º da Série A → os brasileiros são ele e os 5 primeiros, e o 6º fica de fora. Em todos, o campeão é BR1 no `seeding` (AC 3, AC 5, L-007)
 Proof: `npx vitest run src/engine/continental.test.ts -t "vagas brasileiras na virada"`
 
-**C5** - Pela virada, os argentinos são os 5 primeiros da tabela final da Liga Argentina e os portugueses os 5 primeiros da tabela final da Liga Portuguesa, lidos no teste da tabela final da revisão; o 6º de cada uma fica de fora, mesmo quando é mais forte pelo ranking de força que o 5º (AC 4, L-007)
+**C5** - ✓ Pela virada, os argentinos são os 5 primeiros da tabela final da Liga Argentina e os portugueses os 5 primeiros da tabela final da Liga Portuguesa, lidos no teste da tabela final da revisão; o 6º de cada uma fica de fora, mesmo quando é mais forte pelo ranking de força que o 5º (AC 4, L-007)
 Proof: `npx vitest run src/engine/continental.test.ts -t "vagas de fora pela tabela final"`
 
-**C6** - Para 50 seeds, num jogo novo e depois de uma virada: as Oitavas já têm 8 confrontos sem resultado, os 16 clubes dos confrontos são exatamente o `seeding`, cada um aparece uma vez, e nenhum confronto tem dois clubes do mesmo país; Quartas, Semifinal e Final estão vazias (AC 6)
+**C6** - ✓ Para 50 seeds, num jogo novo e depois de uma virada: as Oitavas já têm 8 confrontos sem resultado, os 16 clubes dos confrontos são exatamente o `seeding`, cada um aparece uma vez, e nenhum confronto tem dois clubes do mesmo país; Quartas, Semifinal e Final estão vazias (AC 6)
 Proof: `npx vitest run src/engine/continental.test.ts -t "oitavas sem confronto do mesmo país"`
 
-**C7** - Fechada uma fase da continental: a próxima tem metade dos confrontos, seus clubes são exatamente os vencedores da fase fechada, e em cada confronto o mandante é o clube mais abaixo no `seeding`; em 50 seeds, ao menos um confronto das Quartas junta dois clubes do mesmo país (AC 7)
+**C7** - ✓ Fechada uma fase da continental: a próxima tem metade dos confrontos, seus clubes são exatamente os vencedores da fase fechada, e em cada confronto o mandante é o clube mais abaixo no `seeding`; em 50 seeds, ao menos um confronto das Quartas junta dois clubes do mesmo país (AC 7)
 Proof: `npx vitest run src/engine/continental.test.ts -t "fases seguintes sorteadas entre os vencedores"`
 
-**C8** - Door 2: a semente de sorteio da continental é `mix32(mix32(rngState, 0xd1), fase)` e a de partida é `mix32(mix32(rngState, 0xc1), fase * 32 + confronto)`, calculadas no teste com `mix32` para 3 valores de `rngState`; as da nacional continuam `0xd0` e `0xc0`; dois jogos novos com a mesma seed têm `cups[1]` igual, e seeds diferentes dão Oitavas diferentes em ao menos uma de 10 (AC 8, door 2)
+**C8** - ✓ Door 2: a semente de sorteio da continental é `mix32(mix32(rngState, 0xd1), fase)` e a de partida é `mix32(mix32(rngState, 0xc1), fase * 32 + confronto)`, calculadas no teste com `mix32` para 3 valores de `rngState`; as da nacional continuam `0xd0` e `0xc0`; dois jogos novos com a mesma seed têm `cups[1]` igual, e seeds diferentes dão Oitavas diferentes em ao menos uma de 10 (AC 8, door 2)
 Proof: `npx vitest run src/engine/continental.test.ts -t "sementes da continental"`
 
 ### S2 - A Copa Continental se joga no calendário · 7 files · 72 KB · ~18k
 
-**C9** - Jogando uma temporada inteira sem decisões a partir de um jogo novo, a sequência das datas é exatamente: 4 rodadas, C0, 3 rodadas, K0, 3 rodadas, C1, 3 rodadas, K1, 3 rodadas, C2, 6 rodadas, C3, 3 rodadas, K2, 3 rodadas, C4, 3 rodadas, K3, 3 rodadas, C5, 4 rodadas - 48 datas (C = nacional, K = continental); no fim, `cups[0].currentPhase` é 6 e `cups[1].currentPhase` é 4 (AC 9)
+**C9** - ✓ Jogando uma temporada inteira sem decisões a partir de um jogo novo, a sequência das datas é exatamente: 4 rodadas, C0, 3 rodadas, K0, 3 rodadas, C1, 3 rodadas, K1, 3 rodadas, C2, 6 rodadas, C3, 3 rodadas, K2, 3 rodadas, C4, 3 rodadas, K3, 3 rodadas, C5, 4 rodadas - 48 datas (C = nacional, K = continental); no fim, `cups[0].currentPhase` é 6 e `cups[1].currentPhase` é 4 (AC 9)
 Proof: `npx vitest run src/engine/calendar.test.ts -t "sequência das 48 datas"`
 
 **C10** - Pela tela, com o clube do usuário classificado e o jogo parado depois da rodada 7: apertar «Jogar rodada» abre a tela ao vivo com o título `Ao vivo · Copa Continental · Oitavas` (AC 10, L-003)
@@ -46,16 +46,16 @@ Proof: `npx vitest run src/ui/Live.test.tsx -t "continental ao vivo para o class
 **C11** - Pela tela, com o clube do usuário fora da continental e o jogo parado depois da rodada 7: apertar «Jogar rodada» não abre a tela ao vivo, e a continental passa a `currentPhase` 1 com as 8 Oitavas decididas (AC 11, L-007)
 Proof: `npx vitest run src/ui/Live.test.tsx -t "continental fecha sem tela para quem não joga"`
 
-**C12** - Tabela das 4 fases pelo ponto de entrada da data (`playDate`): para cada confronto, o caixa do vencedor sobe o prêmio da fase (Oitavas 800.000, Quartas 1.500.000, Semifinal 2.500.000, Final 5.000.000) mais a renda se foi mandante; o caixa do perdedor sobe só a renda se foi mandante, e nada se foi visitante; `lastRound.cupPrize` mostra o prêmio (AC 12, L-003, L-005)
+**C12** - ✓ Tabela das 4 fases pelo ponto de entrada da data (`playDate`): para cada confronto, o caixa do vencedor sobe o prêmio da fase (Oitavas 800.000, Quartas 1.500.000, Semifinal 2.500.000, Final 5.000.000) mais a renda se foi mandante; o caixa do perdedor sobe só a renda se foi mandante, e nada se foi visitante; `lastRound.cupPrize` mostra o prêmio (AC 12, L-003, L-005)
 Proof: `npx vitest run src/engine/continental.test.ts -t "prêmio de cada fase da continental"`
 
-**C13** - Depois de uma data da continental em que um jogador recebe um cartão amarelo, `cupDiscipline["cup-cont"].yellowCards` dele sobe 1, e `yellowCards` da liga e `cupDiscipline["cup-nat"]` ficam iguais aos de antes (AC 13)
+**C13** - ✓ Depois de uma data da continental em que um jogador recebe um cartão amarelo, `cupDiscipline["cup-cont"].yellowCards` dele sobe 1, e `yellowCards` da liga e `cupDiscipline["cup-nat"]` ficam iguais aos de antes (AC 13)
 Proof: `npx vitest run src/engine/continental.test.ts -t "cartão da continental conta só nela"`
 
-**C14** - Com um jogador do usuário suspenso na Copa Nacional (`cupDiscipline["cup-nat"].suspendedRounds` 1) e outro suspenso na continental, o lado do usuário numa partida da continental escala o primeiro e não o segundo (AC 14, L-007)
+**C14** - ✓ Com um jogador do usuário suspenso na Copa Nacional (`cupDiscipline["cup-nat"].suspendedRounds` 1) e outro suspenso na continental, o lado do usuário numa partida da continental escala o primeiro e não o segundo (AC 14, L-007)
 Proof: `npx vitest run src/engine/continental.test.ts -t "suspensão da nacional não vale na continental"`
 
-**C15** - Com a mesma temporada da liga e da Copa Nacional, a revisão dá o mesmo `verdict` ao usuário campeão da continental e ao usuário eliminado nas Oitavas dela, para uma meta de liga cumprida e para uma não cumprida (AC 15)
+**C15** - ✓ Com a mesma temporada da liga e da Copa Nacional, a revisão dá o mesmo `verdict` ao usuário campeão da continental e ao usuário eliminado nas Oitavas dela, para uma meta de liga cumprida e para uma não cumprida (AC 15)
 Proof: `npx vitest run src/engine/continental.test.ts -t "veredito não lê a continental"`
 
 ### S3 - As telas mostram as duas copas · 12 files · 125 KB · ~31k
@@ -86,16 +86,16 @@ Proof: `npm run check:layout`
 
 ### S4 - Um save antigo ganha a continental · 3 files · 42 KB · ~11k
 
-**C24** - Um save v7 carregado por `migrateSave` sai com `schemaVersion` 8 e `cups[1]` com id `"cup-cont"` e o mesmo conjunto de classificados do C2, calculado no teste pelo `strengthRanking` das ligas do save; um documento v8 passa sem mudança (AC 24, door 3)
+**C24** - ✓ Um save v7 carregado por `migrateSave` sai com `schemaVersion` 8 e `cups[1]` com id `"cup-cont"` e o mesmo conjunto de classificados do C2, calculado no teste pelo `strengthRanking` das ligas do save; um documento v8 passa sem mudança (AC 24, door 3)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v7 para v8 cria a continental"`
 
-**C25** - Um save v7 parado depois da rodada 14 migra com as Oitavas e as Quartas da continental jogadas (todos os confrontos com `winnerId`), as Semifinais sorteadas e `currentPhase` 2; o `cash` de todo clube e o `fitness`, o `injuryRounds` e o `cupDiscipline` de todo jogador são iguais aos do save v7 (AC 25, door 3)
+**C25** - ✓ Um save v7 parado depois da rodada 14 migra com as Oitavas e as Quartas da continental jogadas (todos os confrontos com `winnerId`), as Semifinais sorteadas e `currentPhase` 2; o `cash` de todo clube e o `fitness`, o `injuryRounds` e o `cupDiscipline` de todo jogador são iguais aos do save v7 (AC 25, door 3)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v7 no meio da temporada joga as fases passadas só com placar"`
 
-**C26** - Depois da migração v7 → v8, `history` e `cups[0]` são iguais (deep equal) aos do save v7 (AC 26, door 3)
+**C26** - ✓ Depois da migração v7 → v8, `history` e `cups[0]` são iguais (deep equal) aos do save v7 (AC 26, door 3)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v7 para v8 não mexe no histórico nem na nacional"`
 
-**C27** - Um jogo novo gravado e lido pela persistência volta com `schemaVersion` 8 e `cups` de tamanho 2, ids `["cup-nat", "cup-cont"]` (door 1)
+**C27** - ✓ Um jogo novo gravado e lido pela persistência volta com `schemaVersion` 8 e `cups` de tamanho 2, ids `["cup-nat", "cup-cont"]` (door 1)
 Proof: `npx vitest run src/persistence/save.test.ts -t "save v8 com as duas copas"`
 
 ## Coverage
@@ -132,6 +132,12 @@ Proof: `npx vitest run src/persistence/save.test.ts -t "save v8 com as duas copa
 | `save.test.ts:38` `cups` com tamanho 1 | tamanho 2 | C27 |
 | audit de migrações que comparam o documento final inteiro a um v7 (se houver em `migrate.test.ts`) | ganham `cups[1]` | C24 |
 
+| _achado na build_ - limite de versão incompatível (`migrate.test.ts` «versão acima de 7 incompatível» e «v5 passa direto», `save.test.ts` «sem save e save incompatível», `Home.test.tsx` «save de versão 6 incompatível») | a primeira versão desconhecida passa de 8 a 9, e um v8 passa direto | C24, C27 |
+| _achado na build_ - documentos antigos comparados de volta (`migrate.test.ts` `backToV6` e «v5 vira v6»; `test-fixtures.ts` `onlyBrazil`) | o documento migrado perde também a `cups[1]` antes da comparação; um documento anterior ao v8 não tem continental | C24, C26 |
+| _achado na build_ - `rollover.test.ts` «histórico da temporada» e «copa no histórico» | `SeasonRecord.cups` ganha o registro da continental depois do da nacional (Flow hop 6) | C4, C21 |
+| _achado na build_ - asserções que acham o campeão de liga por texto na tela Fim (`End.test.tsx` «fim com usuário em Portugal», `app.test.tsx` «recarregar no fim mostra o mesmo resumo») | o campeão da continental pode ser o de uma liga; a busca fica dentro do quadro da liga, sem mudar o valor esperado | C20 |
+| _achado na build_ - fixtures que dependiam do calendário de 44 datas (`cup.test.ts` `season`, `Live.test.tsx` «disputa de pênaltis soa pela tela ao vivo») | `season` só junta as datas da nacional; a disputa passa à seed 3, 10º confronto, porque a data da continental muda os elencos antes; nenhum valor esperado muda | C9 |
+
 Regra para os outros testes existentes: mudar um valor esperado fora das linhas acima é parada e pergunta.
 
 ## Swept
@@ -150,3 +156,4 @@ Regra para os outros testes existentes: mudar um valor esperado fora das linhas 
 
 - Tamanho por fatia (wc -c dos arquivos que cada uma toca ÷ 4): S1 ≈ 32k; S2 entra em 50k; S3 em 81k; S4 em 92k. Código e testes novos (`continental.test.ts`, formato das copas, abas) ≈ 60 KB → ~15k, total ~107k, abaixo do budget de 150k: one builder
 - Mechanism: one builder (cabe no budget, sem pergunta)
+- **Settled mid-build:** as linhas _achado na build_ da tabela Superseded são asserções antigas do mesmo tipo das linhas aprovadas (versão atual, `cups` e histórico com a continental); nenhuma mudou um valor esperado fora da consequência direta do plano. O autor pediu para seguir sem rodada de perguntas (26/09/2026)

@@ -4,7 +4,7 @@
  * Everything is drawn from the rollover's own Rng (door 3).
  */
 import { userBoardGoal, userCupGoal } from "./board";
-import { newCup } from "./cup";
+import { NATIONAL_CUP_ID, continentalFromTables, countryLookup, newContinentalCup, newCup } from "./cup";
 import { salaryFor } from "./finance";
 import { generateJuniors, generateSchedule, makePlayer, takenNames } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
@@ -280,7 +280,13 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   // Copa-nacional AC 6, AC 11: the new cup, its preliminary drawn from the new season's state (door 3).
   // Paises AC 10: the national cup is only for the clubs of Brazil.
   const brazil = review.divisions.filter((_, i) => input.leagues[i]!.country === "BR");
-  state.cups = [newCup(seedingFromTables({ divisions: brazil }), state.rngState)];
+  // Copa-continental AC 3-6: the continental cup from the final tables and the national cup's champion.
+  const tables = new Map(review.divisions.map((d) => [d.leagueId, d.table.map((r) => r.clubId)]));
+  const nationalChampion = review.cups.find((c) => c.cupId === NATIONAL_CUP_ID)?.championId ?? null;
+  state.cups = [
+    newCup(seedingFromTables({ divisions: brazil }), state.rngState),
+    newContinentalCup(continentalFromTables(input.leagues, tables, nationalChampion), countryLookup(state.leagues), state.rngState),
+  ];
   state.cupGoal = userCupGoal(state);
 
   const divisionIndex = userId ? state.leagues.findIndex((l) => l.clubs.some((c) => c.id === userId)) : -1;

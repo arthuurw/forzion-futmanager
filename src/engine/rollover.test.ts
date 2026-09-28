@@ -40,16 +40,18 @@ function ended(seed = 30, division = 0, clubIndex = 0): GameState {
  * The closed cup as the history keeps it, read off the ties here (L-004): the final's winner and
  * loser, and the last phase the user played (6 when champion).
  */
-function expectedCupRecord(s: GameState) {
-  const cup = s.cups[0]!;
-  const final = cup.phases[5]!.ties[0]!;
+/** Copa-continental (Superseded checks): `index` 1 is the continental cup, whose final is phase 3. */
+function expectedCupRecord(s: GameState, index = 0) {
+  const [cupId, finalPhase] = index === 0 ? ["cup-nat", 5] : ["cup-cont", 3];
+  const cup = s.cups[index]!;
+  const final = cup.phases[finalPhase]!.ties[0]!;
   const runnerUpId = final.winnerId === final.homeId ? final.awayId : final.homeId;
   let userReached: number | null = null;
   cup.phases.forEach((phase, k) => {
     if (phase.ties.some((t) => t.homeId === s.userClubId || t.awayId === s.userClubId)) userReached = k;
   });
-  if (final.winnerId === s.userClubId) userReached = 6;
-  return { cupId: "cup-nat", championId: final.winnerId, runnerUpId, userReached };
+  if (final.winnerId === s.userClubId) userReached = finalPhase + 1;
+  return { cupId, championId: final.winnerId, runnerUpId, userReached };
 }
 
 let pad = 0;
@@ -395,7 +397,7 @@ describe("diretoria e histórico na virada", () => {
         userPosition: position,
         verdict: "met",
         prize: (21 - position) * 250_000,
-        cups: [expectedCupRecord(before)],
+        cups: [expectedCupRecord(before), expectedCupRecord(before, 1)],
         divisions: [
           { leagueId: "l1", championId: tA[0], promotedIds: [], relegatedIds: tA.slice(16), topScorer: topScorer(0) },
           { leagueId: "l2", championId: tB[0], promotedIds: tB.slice(0, 4), relegatedIds: [], topScorer: topScorer(1) },
@@ -458,7 +460,7 @@ describe("copa na virada (copa-nacional)", () => {
     expect(players.some((p) => p.id === suspended.id)).toBe(true);
     for (const p of players) expect(p.cupDiscipline, p.id).toEqual({});
     const cup = state.cups[0]!;
-    expect(state.cups).toHaveLength(1);
+    expect(state.cups).toHaveLength(2);
     expect(cup.currentPhase).toBe(0);
     expect(cup.phases[0]!.ties).toHaveLength(8);
     for (const t of cup.phases[0]!.ties) expect([t.result, t.winnerId]).toEqual([null, null]);
@@ -508,7 +510,7 @@ describe("copa na virada (copa-nacional)", () => {
     const record = expectedCupRecord(before);
     expect(record.championId).not.toBeNull();
     const { state } = nextSeason(before);
-    expect(state.history[0]!.cups).toEqual([record]);
+    expect(state.history[0]!.cups).toEqual([record, expectedCupRecord(before, 1)]);
   });
 });
 

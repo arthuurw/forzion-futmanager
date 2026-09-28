@@ -143,17 +143,19 @@
       "text": "When a check quotes a user-facing message, assert the exact text where it is rendered or mapped, not only the engine reason code.",
       "signal": "ac_gap",
       "scope": "ui",
-      "status": "candidate",
+      "status": "confirmed",
       "features": [
-        "elenco-mercado-financas"
+        "elenco-mercado-financas",
+        "lancamento"
       ],
-      "recurrence": 1,
+      "recurrence": 2,
       "harmful": 0,
       "evidence": [
-        "C23 / src/store.ts:49 (ui)"
+        "C23 / src/store.ts:49 (ui)",
+        "verification.md Coverage: not_a_save -> AC 11 screen message, src/store.ts:473, no UI/store test (ui)"
       ],
       "created": "2026-09-26T22:12:06Z",
-      "last_seen": "2026-09-26T22:12:06Z"
+      "last_seen": "2026-09-28T22:24:44Z"
     },
     {
       "id": "L-009",

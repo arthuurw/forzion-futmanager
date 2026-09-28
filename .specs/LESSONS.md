@@ -26,6 +26,12 @@ Corroborated across multiple features. Safe to apply as guidance.
 - evidence: checks.md C14 (tests) (+1 more)
 - last seen: 2026-09-26T22:12:05Z
 
+### L-008 - When a check quotes a user-facing message, assert the exact text where it is rendered or mapped, not only the engine reason code.
+- signal: `ac_gap` · recurrence: 2 feature(s) · scope: `ui` · harmful: 0
+- features: elenco-mercado-financas, lancamento
+- evidence: C23 / src/store.ts:49 (ui) (+1 more)
+- last seen: 2026-09-28T22:24:44Z
+
 ### L-009 - A one-way door added during the build needs its own check before the build closes.
 - signal: `ac_gap` · recurrence: 2 feature(s) · scope: `checks` · harmful: 0
 - features: elenco-mercado-financas, multiplas-temporadas
@@ -59,12 +65,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: partida-ao-vivo
 - evidence: checks.md C48 (checks)
 - last seen: 2026-09-26T20:54:53Z
-
-### L-008 - When a check quotes a user-facing message, assert the exact text where it is rendered or mapped, not only the engine reason code.
-- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `ui` · harmful: 0
-- features: elenco-mercado-financas
-- evidence: C23 / src/store.ts:49 (ui)
-- last seen: 2026-09-26T22:12:06Z
 
 ### L-010 - Give every displayed value a non-zero fixture so a miswired field cannot pass by showing zero.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0

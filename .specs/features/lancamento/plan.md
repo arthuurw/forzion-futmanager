@@ -37,7 +37,7 @@ Reutiliza `engine/migrate.migrateSave` para ler qualquer save de v1 a v8, `persi
 | domain | existing term: menu da tela inicial - era «Continuar» + «Novo jogo»; passa a «Continuar», «Exportar jogo», «Importar jogo», «Novo jogo», «Sobre». O teste de ordem dos botões em `Home.test.tsx` muda (Superseded em `checks.md`) |
 | domain | existing term: `package.json` `version` - 0.1.0 passa a 1.0.0, e a tela Sobre lê esse valor |
 | build | `vite.config.ts` ganha `base: "./"`; as URLs `/fonts/...` do CSS passam a sair relativas no `dist/` |
-| repo | ganha remoto `origin` no GitHub (repositório privado `forzion-futmanager`) e `.github/workflows/`; `bash.exe.stackdump` sai do repositório e entra no `.gitignore` |
+| repo | ganha `.github/workflows/`; `bash.exe.stackdump` sai do repositório e entra no `.gitignore`. O remoto `origin` (repositório privado `forzion-futmanager`) não foi criado: a criação do repositório foi negada pela permissão da sessão em 28/09/2026 e fica com o autor (pergunta aberta 2) |
 | stored data | nothing to migrate - o save no IndexedDB não muda de forma; o arquivo exportado carrega o mesmo documento |
 
 ## Relations
@@ -188,6 +188,7 @@ O jogo abre num endereço público, e só código verde é publicado.
 | # | Kind | Question | Until answered |
 | --- | --- | --- | --- |
 | 1 | blocks go-live | a conta aceita GitHub Pages em repositório privado? | AC 32 fica sem URL pública; o resto do lançamento está pronto |
+| 2 | blocks go-live | criar o repositório no GitHub e fazer o primeiro push: negado pela permissão da sessão (classificador do modo automático) em 28/09/2026 | AC 32 (C35) fica sem prova até o autor criar o repositório, ativar o Pages e fazer push |
 
 ## Observable
 

@@ -66,7 +66,7 @@ Reutiliza `persist`/`init` da store, `saveGame`/`loadGame`, `decodeSaveFile`, `r
 | domain | existing criteria: multiplas-temporadas AC 33 e paises AC 13/14 (meta e demissão) são substituídos pelos AC 32–34 deste plano. O copa-nacional C49 («Eliminado na Oitavas») e o núcleo AC 17 («Faltam N titulares») mudam de texto (AC 36) |
 | domain | existing decision: a door 4 de partida-ao-vivo («recarregar recomeça do minuto 0 com as mesmas seeds») é substituída pela door 1 deste plano, com nova entrada AD-019 no `STATE.md` |
 | domain | existing term: força do setor em `sideStrength` era a média do setor. Passa a depender também da contagem. `balance.test` (gols por jogo, vantagem do mandante) é remedido |
-| domain | existing criterion: gastos-da-ia C19 (mediana do caixa entre 2× e 4× em 5 temporadas) passa a mediana entre 2× e 6,5×, com o máximo de 15× mantido. Com a força estável (AC 30), a folha deixa de inflar e o caixa da IA cresce mais; o AC 68 limita o crescimento em carreira longa. Decisão do usuário em 29/09/2026, depois da medição do lote A |
+| domain | existing criterion: gastos-da-ia C19 (mediana do caixa entre 2× e 4× em 5 temporadas) passa a mediana entre 2× e 6,5×, com o máximo de 15× mantido. Com a força estável (AC 30), a folha deixa de inflar e o caixa da IA cresce mais; o AC 68 limita o crescimento em carreira longa. Pela mesma razão, paises C24 (mediana de AR e PT entre 1,2× e 4×) passa a mediana entre 1,2× e 6,5×. Decisões do usuário em 29/09/2026, depois da medição do lote A |
 | stored data | nothing to migrate: os dois campos novos são opcionais, e a ausência tem significado definido (door 1, door 3). `schemaVersion` continua 8 |
 
 ## Relations

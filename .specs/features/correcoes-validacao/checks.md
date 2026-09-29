@@ -223,9 +223,10 @@ Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 20 temporadas"`
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "revenda de livres não dá lucro"`
 
-**C34** - As faixas de gastos-da-ia continuam verdes: C19 com a mediana revisada para entre 2× e 6,5× (máximo 15× mantido; decisão do usuário, Impact do plano), e C20, C21 e C34 de lá e a vantagem do mandante sem mudar limite (Impact)
+**C34** - As faixas de gastos-da-ia continuam verdes: C19 com a mediana revisada para entre 2× e 6,5× (máximo 15× mantido) e paises C24 com a mediana de AR e PT revisada para entre 1,2× e 6,5× (decisões do usuário, Impact do plano), e C20, C21 e C34 de lá e a vantagem do mandante sem mudar limite (Impact)
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
+Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas dos países novos"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "compras da IA em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa equilibrado em uma temporada"`

@@ -28,10 +28,10 @@ Lições aplicadas:
 
 ### S1 - Motor · 2 files · 55 KB · ~14k
 
-**C1** - `userStops(live)` devolve os eventos `injury` e `red` do time do usuário no minuto `live.minute`, na ordem da narração. Não devolve eventos de outros clubes, eventos de minutos anteriores nem `yellow`. Com `userClubId` nulo, devolve `[]`.
+**C1** - ✓ `userStops(live)` devolve os eventos `injury` e `red` do time do usuário no minuto `live.minute`, na ordem da narração. Não devolve eventos de outros clubes, eventos de minutos anteriores nem `yellow`. Com `userClubId` nulo, devolve `[]`.
 Proof: `npx vitest run src/engine/live.test.ts -t "parada só do usuário no minuto"`
 
-**C2** - `forcedVacancy(live)` devolve a vaga que obriga a troca, ou `null`. Tabela com todos os casos:
+**C2** - ✓ `forcedVacancy(live)` devolve a vaga que obriga a troca, ou `null`. Tabela com todos os casos:
 - lesão, com substituição e banco não vazio → `{ slot, why: "injury" }`;
 - lesão, com `subsUsed = 5` → `null`;
 - lesão, com banco vazio → `null`;
@@ -42,7 +42,7 @@ Proof: `npx vitest run src/engine/live.test.ts -t "parada só do usuário no min
 - sem vaga → `null`.
 Proof: `npx vitest run src/engine/live.test.ts -t "troca obrigatória: tabela"`
 
-**C3** - Com a vaga do GK vazia por expulsão, `substitute(live, clubId, slotDeLinha, goleiroReserva)` faz o seguinte:
+**C3** - ✓ Com a vaga do GK vazia por expulsão, `substitute(live, clubId, slotDeLinha, goleiroReserva)` faz o seguinte:
 - põe o goleiro reserva na vaga do GK;
 - o jogador de linha de `slotDeLinha` sai (entra em `subbedOff`);
 - a vaga passa a ser `slotDeLinha`, com `{ why: "red", playerId: <goleiro expulso> }`;
@@ -51,7 +51,7 @@ Proof: `npx vitest run src/engine/live.test.ts -t "troca obrigatória: tabela"`
 Um reserva que não é goleiro na mesma situação faz a troca comum, no próprio `slotDeLinha`, e a vaga do GK continua vazia.
 Proof: `npx vitest run src/engine/live.test.ts -t "goleiro expulso: reserva entra no gol"`
 
-**C4** - `runToEnd(live, { fillUserVacancies: true })` preenche as vagas do usuário pela regra da IA:
+**C4** - ✓ `runToEnd(live, { fillUserVacancies: true })` preenche as vagas do usuário pela regra da IA:
 - lesão: o melhor reserva da mesma posição, ou qualquer reserva se não houver;
 - goleiro expulso: goleiro reserva no gol e o pior jogador de linha sai.
 No fim, o lado do usuário não tem vaga por lesão enquanto `subsUsed < 5` e houver reserva. `runToEnd(live)` sem a opção continua igual a `step` até o 90.

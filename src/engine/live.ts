@@ -257,8 +257,12 @@ function bringOn(m: LiveMatch, side: LiveSide, slot: number, inId: string, minut
   m.events.push({ minute, type: "substitution", clubId: side.clubId, playerId: leaving ?? undefined, playerInId: inId });
 }
 
-function aiSubstitutions(m: LiveMatch, side: LiveSide, minute: number, players: Record<string, LivePlayer>): void {
-  if (side.isUser) return;
+/**
+ * The AI's substitutions. The user's side gets none, except the two vacancy rules (keeper sent
+ * off, injury) when `fillUser` is set: nobody decides for it any more (AD-022).
+ */
+function aiSubstitutions(m: LiveMatch, side: LiveSide, minute: number, players: Record<string, LivePlayer>, fillUser = false): void {
+  if (side.isUser && !fillUser) return;
   const bestFor = (pos: Position, samePositionOnly: boolean): string | null => {
     const candidates = side.bench
       .map((id) => players[id])
@@ -288,6 +292,7 @@ function aiSubstitutions(m: LiveMatch, side: LiveSide, minute: number, players: 
     const inId = bestFor(pos, true) ?? bestFor(pos, false);
     if (inId) bringOn(m, side, slot, inId, minute, players);
   });
+  if (side.isUser) return;
   // From the 60th minute, one tired player per minute is swapped for a fresh one of the same position.
   if (minute < AI_TIRED_FROM_MINUTE || side.subsUsed >= MAX_SUBS) return;
   const tired = onPitch(side)
@@ -353,8 +358,8 @@ function pickShooter(rng: Rng, side: LiveSide, players: Record<string, LivePlaye
   return who ? { id: who.id, pos: who.pos } : null;
 }
 
-/** Plays `minute` of match `m` in place. */
-export function stepMatch(m: LiveMatch, minute: number, players: Record<string, LivePlayer>, rng: Rng): void {
+/** Plays `minute` of match `m` in place. `fillUser`: the user's holes are filled by the AI's rule (AD-022). */
+export function stepMatch(m: LiveMatch, minute: number, players: Record<string, LivePlayer>, rng: Rng, fillUser = false): void {
   if (minute === 1) m.events.push({ minute: 1, type: "kickoff", clubId: m.home.clubId });
 
   const h = sideStrength(m.home, players);
@@ -394,7 +399,7 @@ export function stepMatch(m: LiveMatch, minute: number, players: Record<string, 
     injuries(m, side, minute, rng);
     drain(side, players);
   }
-  for (const side of [m.home, m.away]) aiSubstitutions(m, side, minute, players);
+  for (const side of [m.home, m.away]) aiSubstitutions(m, side, minute, players, fillUser);
 
   if (minute === HALFTIME) m.events.push({ minute: HALFTIME, type: "halftime", clubId: m.home.clubId });
   if (minute === MATCH_MINUTES) {
@@ -564,11 +569,11 @@ export function startRound(state: GameState): LiveRound {
   return { roundIndex, roundNumber, minute: 0, userClubId: state.userClubId, matches, players };
 }
 
-function stepInPlace(live: LiveRound): void {
+function stepInPlace(live: LiveRound, fillUser = false): void {
   live.minute++;
   for (const m of live.matches) {
     const rng = createRng(m.rngState);
-    stepMatch(m, live.minute, live.players, rng);
+    stepMatch(m, live.minute, live.players, rng, fillUser);
     m.rngState = rng.getState();
   }
 }
@@ -589,17 +594,43 @@ export function step(input: LiveRound): LiveRound {
   return live;
 }
 
-/** Plays every minute left. Same result as calling step() until 90, with one copy instead of ninety. */
-export function runToEnd(input: LiveRound): LiveRound {
+/**
+ * Plays every minute left. Same result as calling step() until 90, with one copy instead of ninety.
+ * `fillUserVacancies` (AD-022): nobody decides for the user any more, so the user's injured and a
+ * keeper sent off are replaced by the AI's rule.
+ */
+export function runToEnd(input: LiveRound, opts: { fillUserVacancies?: boolean } = {}): LiveRound {
   if (input.minute >= MATCH_MINUTES) return input;
   const live = forNextMinutes(input);
-  while (live.minute < MATCH_MINUTES) stepInPlace(live);
+  while (live.minute < MATCH_MINUTES) stepInPlace(live, opts.fillUserVacancies ?? false);
   return live;
 }
 
 export function userMatch(live: LiveRound): LiveMatch | null {
   if (!live.userClubId) return null;
   return live.matches.find((m) => m.home.clubId === live.userClubId || m.away.clubId === live.userClubId) ?? null;
+}
+
+/** The user's injuries and sendings-off of the last minute played: they stop the clock (parada-obrigatoria). */
+export function userStops(live: LiveRound): MatchEvent[] {
+  const m = userMatch(live);
+  if (!m) return [];
+  return m.events.filter((e) => e.minute === live.minute && e.clubId === live.userClubId && (e.type === "injury" || e.type === "red"));
+}
+
+/**
+ * The user's empty slot that must be filled before the clock goes on: a keeper sent off with a
+ * keeper on the bench, or an injury with anyone on the bench, while a substitution is left.
+ */
+export function forcedVacancy(live: LiveRound): { slot: number; why: Vacancy } | null {
+  const m = userMatch(live);
+  const side = m && live.userClubId ? sideOf(m, live.userClubId) : null;
+  if (!side || side.subsUsed >= MAX_SUBS || side.bench.length === 0) return null;
+  const empty = side.slots.flatMap((id, slot) => (id ? [] : [slot]));
+  const keeperSlot = empty.find((slot) => side.slotPos[slot] === "GK" && side.vacancy[slot]?.why === "red");
+  if (keeperSlot !== undefined && side.bench.some((id) => live.players[id]?.position === "GK")) return { slot: keeperSlot, why: "red" };
+  const injured = empty.find((slot) => side.vacancy[slot]?.why === "injury");
+  return injured === undefined ? null : { slot: injured, why: "injury" };
 }
 
 // ---------- the user's decisions ----------
@@ -617,6 +648,18 @@ export function substitute(input: LiveRound, clubId: string, slot: number, inId:
   if (side.vacancy[slot]?.why === "red") return { ok: false, reason: "sent_off" };
   if (side.subbedOff.includes(inId)) return { ok: false, reason: "returning" };
   if (!side.bench.includes(inId)) return { ok: false, reason: "not_on_bench" };
+  // Parada-obrigatoria C3: with the goal empty after a red card, a keeper brought on for an
+  // outfield player goes in goal, and the outfield slot is the one left empty.
+  const goal = side.slots.findIndex((id, i) => !id && side.slotPos[i] === "GK" && side.vacancy[i]?.why === "red");
+  const outId = side.slots[slot];
+  if (goal >= 0 && outId && side.slotPos[slot] !== "GK" && live.players[inId]?.position === "GK") {
+    side.vacancy[slot] = side.vacancy[goal]!;
+    delete side.vacancy[goal];
+    side.slots[slot] = null;
+    side.slots[goal] = outId;
+    bringOn(m, side, goal, inId, live.minute, live.players);
+    return { ok: true, live };
+  }
   bringOn(m, side, slot, inId, live.minute, live.players);
   return { ok: true, live };
 }

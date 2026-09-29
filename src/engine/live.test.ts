@@ -4,6 +4,7 @@ import { AI_FORMATION, aiLineup, autoLineup, formationSlots, validateLineup } fr
 import {
   MAX_SUBS,
   changeFormation,
+  forcedVacancy,
   keeperStrength,
   makeMatch,
   makeSide,
@@ -14,6 +15,7 @@ import {
   stepMatch,
   substitute,
   userMatch,
+  userStops,
   type LivePlayer,
   type LiveRound,
   type LiveSide,
@@ -581,5 +583,125 @@ describe("partida coerente (correcoes-validacao)", () => {
       expect(after.slotPos[empty[0]!], `${from} -> ${to}`).toBe(lost);
       expect(after.vacancy[empty[0]!], `${from} -> ${to}`).toEqual({ why: "red", playerId: id });
     }
+  });
+});
+
+describe("parada obrigatória (parada-obrigatoria)", () => {
+  /** The user's side at minute 10 of round 1, everyone available. */
+  function at10(seed = 2): { state: GameState; live: LiveRound; side: LiveSide } {
+    const state = game(seed);
+    for (const p of state.leagues[0]!.clubs[0]!.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+    const live = stepTo(startRound(state), 10);
+    return { state, live, side: userSide(live) };
+  }
+
+  function vacate(side: LiveSide, slot: number, why: "injury" | "red"): string {
+    const id = side.slots[slot]!;
+    side.slots[slot] = null;
+    side.vacancy[slot] = { why, playerId: id };
+    if (why === "red") side.sentOff.push(id);
+    return id;
+  }
+
+  const gkSlot = (side: LiveSide) => side.slotPos.indexOf("GK");
+  const benchKeepers = (live: LiveRound, side: LiveSide) => side.bench.filter((id) => live.players[id]!.position === "GK");
+
+  test("parada só do usuário no minuto", () => {
+    // C1.
+    const { state, live } = at10();
+    const m = userMatch(live)!;
+    const me = state.userClubId!;
+    const rival = m.home.clubId === me ? m.away.clubId : m.home.clubId;
+    const other = live.matches.find((x) => x !== m)!;
+    m.events.push(
+      { minute: 9, type: "injury", clubId: me, playerId: "old" },
+      { minute: 10, type: "yellow", clubId: me, playerId: "y" },
+      { minute: 10, type: "injury", clubId: me, playerId: "a" },
+      { minute: 10, type: "injury", clubId: rival, playerId: "b" },
+      { minute: 10, type: "red", clubId: me, playerId: "c" },
+    );
+    other.events.push({ minute: 10, type: "red", clubId: other.home.clubId, playerId: "d" });
+    expect(userStops(live)).toEqual([
+      { minute: 10, type: "injury", clubId: me, playerId: "a" },
+      { minute: 10, type: "red", clubId: me, playerId: "c" },
+    ]);
+    expect(userStops({ ...live, userClubId: null })).toEqual([]);
+  });
+
+  test("troca obrigatória: tabela", () => {
+    // C2 (L-005, L-007): the 8 cases.
+    const cases: [string, (live: LiveRound, side: LiveSide) => void, (side: LiveSide) => ReturnType<typeof forcedVacancy>][] = [
+      ["lesão com troca", (_l, s) => void vacate(s, 10, "injury"), () => ({ slot: 10, why: "injury" })],
+      ["lesão sem substituição", (_l, s) => (vacate(s, 10, "injury"), (s.subsUsed = MAX_SUBS)), () => null],
+      ["lesão com banco vazio", (_l, s) => (vacate(s, 10, "injury"), (s.bench = [])), () => null],
+      ["goleiro expulso com reserva", (_l, s) => void vacate(s, gkSlot(s), "red"), (s) => ({ slot: gkSlot(s), why: "red" })],
+      [
+        "goleiro expulso sem goleiro no banco",
+        (l, s) => (vacate(s, gkSlot(s), "red"), (s.bench = s.bench.filter((id) => l.players[id]!.position !== "GK"))),
+        () => null,
+      ],
+      ["goleiro expulso sem substituição", (_l, s) => (vacate(s, gkSlot(s), "red"), (s.subsUsed = MAX_SUBS)), () => null],
+      ["jogador de linha expulso", (_l, s) => void vacate(s, 4, "red"), () => null],
+      ["sem vaga", () => undefined, () => null],
+    ];
+    expect(cases).toHaveLength(8);
+    for (const [name, arrange, expected] of cases) {
+      const { live, side } = at10();
+      expect(benchKeepers(live, side).length, name).toBeGreaterThan(0);
+      expect(side.slotPos[4], name).not.toBe("GK");
+      arrange(live, side);
+      expect(forcedVacancy(live), name).toEqual(expected(side));
+    }
+  });
+
+  test("goleiro expulso: reserva entra no gol", () => {
+    // C3: a keeper for an outfield player goes in goal; any other reserve is a plain substitution.
+    const { state, live, side } = at10();
+    const gk = gkSlot(side);
+    const expelled = vacate(side, gk, "red");
+    const keeper = benchKeepers(live, side)[0]!;
+    const outSlot = side.slotPos.indexOf("DF");
+    const outId = side.slots[outSlot]!;
+    const after = ok(substitute(live, state.userClubId!, outSlot, keeper));
+    const s = userSide(after);
+    expect(s.slots[gk]).toBe(keeper);
+    expect(s.slots[outSlot]).toBeNull();
+    expect(s.vacancy[outSlot]).toEqual({ why: "red", playerId: expelled });
+    expect(s.vacancy[gk]).toBeUndefined();
+    expect(s.subbedOff).toContain(outId);
+    expect(s.subsUsed).toBe(1);
+    expect(userMatch(after)!.events.at(-1)).toEqual({ minute: 10, type: "substitution", clubId: state.userClubId, playerId: outId, playerInId: keeper });
+
+    const other = side.bench.find((id) => live.players[id]!.position !== "GK")!;
+    const plain = userSide(ok(substitute(live, state.userClubId!, outSlot, other)));
+    expect(plain.slots[outSlot]).toBe(other);
+    expect(plain.slots[gk]).toBeNull();
+    expect(plain.vacancy[gk]).toEqual({ why: "red", playerId: expelled });
+  });
+
+  test("pular preenche as vagas do usuário", () => {
+    // C4: the AI's rule for the user's holes when nobody decides any more.
+    const { live, side } = at10();
+    const pos = side.slotPos[10]!;
+    const sameBench = side.bench.filter((id) => live.players[id]!.position === pos);
+    expect(sameBench.length).toBeGreaterThan(0);
+    vacate(side, 10, "injury");
+    const filled = runToEnd(live, { fillUserVacancies: true });
+    const sub = userMatch(filled)!.events.find((e) => e.type === "substitution" && e.clubId === live.userClubId)!;
+    expect(sub.minute).toBe(11);
+    expect(sameBench).toContain(sub.playerInId);
+    const end = userSide(filled);
+    for (const v of Object.values(end.vacancy)) if (v.why === "injury") expect(end.subsUsed === MAX_SUBS || end.bench.length === 0).toBe(true);
+
+    const left = userSide(runToEnd(live));
+    expect(left.slots[10]).toBeNull();
+    expect(left.vacancy[10]?.why).toBe("injury");
+
+    const k = at10();
+    const gk = gkSlot(k.side);
+    vacate(k.side, gk, "red");
+    const keepers = benchKeepers(k.live, k.side);
+    const withKeeper = userSide(runToEnd(k.live, { fillUserVacancies: true }));
+    expect(keepers).toContain(withKeeper.slots[gk]);
   });
 });

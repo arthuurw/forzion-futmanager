@@ -680,28 +680,64 @@ describe("parada obrigatória (parada-obrigatoria)", () => {
   });
 
   test("pular preenche as vagas do usuário", () => {
-    // C4: the AI's rule for the user's holes when nobody decides any more.
-    const { live, side } = at10();
+    // C4: the AI's rule for the user's holes when nobody decides any more. Everyone at full fitness
+    // and neutral morale, so the best reserve is the highest rating (ties by id) and the weakest
+    // outfield player the lowest.
+    const fresh = (seed = 2) => {
+      const f = at10(seed);
+      for (const p of Object.values(f.live.players)) Object.assign(p, { fitness: 100, morale: 0 });
+      for (const id of Object.keys(f.side.fitness)) f.side.fitness[id] = 100;
+      return f;
+    };
+    const best = (live: LiveRound, ids: string[]) =>
+      [...ids].sort((a, b) => live.players[b]!.rating - live.players[a]!.rating || a.localeCompare(b))[0];
+    const firstSub = (live: LiveRound) => userMatch(live)!.events.find((e) => e.type === "substitution" && e.clubId === live.userClubId)!;
+
+    // Injury, with a reserve of the same position: the best of them comes on at 11'.
+    const { live, side } = fresh();
     const pos = side.slotPos[10]!;
     const sameBench = side.bench.filter((id) => live.players[id]!.position === pos);
-    expect(sameBench.length).toBeGreaterThan(0);
-    vacate(side, 10, "injury");
+    expect(sameBench.length).toBeGreaterThan(1);
+    const injured = vacate(side, 10, "injury");
     const filled = runToEnd(live, { fillUserVacancies: true });
-    const sub = userMatch(filled)!.events.find((e) => e.type === "substitution" && e.clubId === live.userClubId)!;
+    const sub = firstSub(filled);
     expect(sub.minute).toBe(11);
-    expect(sameBench).toContain(sub.playerInId);
+    expect(sub.playerId).toBe(injured);
+    expect(sub.playerInId).toBe(best(live, sameBench));
     const end = userSide(filled);
     for (const v of Object.values(end.vacancy)) if (v.why === "injury") expect(end.subsUsed === MAX_SUBS || end.bench.length === 0).toBe(true);
 
+    // Without the option the hole stays, as with step() until 90.
     const left = userSide(runToEnd(live));
     expect(left.slots[10]).toBeNull();
     expect(left.vacancy[10]?.why).toBe("injury");
 
-    const k = at10();
+    // Injury, no reserve of that position (L-007): the best of any position comes on.
+    const n = fresh();
+    const nPos = n.side.slotPos[10]!;
+    n.side.bench = n.side.bench.filter((id) => n.live.players[id]!.position !== nPos);
+    const others = [...n.side.bench];
+    vacate(n.side, 10, "injury");
+    const anySub = firstSub(runToEnd(n.live, { fillUserVacancies: true }));
+    expect(anySub.minute).toBe(11);
+    expect(n.live.players[anySub.playerInId!]!.position).not.toBe(nPos);
+    expect(anySub.playerInId).toBe(best(n.live, others));
+
+    // Keeper sent off: the bench keeper goes in goal and the lowest-rated outfield player goes off.
+    const k = fresh();
     const gk = gkSlot(k.side);
     vacate(k.side, gk, "red");
     const keepers = benchKeepers(k.live, k.side);
-    const withKeeper = userSide(runToEnd(k.live, { fillUserVacancies: true }));
-    expect(keepers).toContain(withKeeper.slots[gk]);
+    const outfield = k.side.slots.filter((id, i): id is string => !!id && k.side.slotPos[i] !== "GK");
+    for (const [i, id] of k.side.slots.entries()) if (id) expect(k.live.players[id]!.position).toBe(k.side.slotPos[i]);
+    const lowest = Math.min(...outfield.map((id) => k.live.players[id]!.rating));
+    const done = runToEnd(k.live, { fillUserVacancies: true });
+    const keeperSub = firstSub(done);
+    expect(keeperSub.minute).toBe(11);
+    expect(keepers).toContain(keeperSub.playerInId);
+    expect(outfield).toContain(keeperSub.playerId);
+    expect(k.live.players[keeperSub.playerId!]!.rating).toBe(lowest);
+    expect(userSide(done).subbedOff).toContain(keeperSub.playerId);
+    expect(keepers).toContain(userSide(done).slots[gk]);
   });
 });

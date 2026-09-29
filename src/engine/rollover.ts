@@ -12,7 +12,7 @@ import { CONTRACT_JUNIOR } from "./market";
 import { generatePlayerName, uniqueName } from "./names";
 import { createRng, mix32, randInt, shuffle, type Rng } from "./rng";
 import { allClubs, seasonReview, type SeasonReview } from "./season";
-import { POSITIONS, RATING_MAX, RATING_MIN, type Club, type GameState, type Player, type Position, type SeasonRecord } from "./types";
+import { POSITIONS, RATING_MAX, RATING_MIN, type Club, type Country, type GameState, type Player, type Position, type SeasonRecord } from "./types";
 
 /** Door 3. */
 const ROLLOVER_SALT = 0x5e45;
@@ -106,13 +106,16 @@ function thinnestPosition(players: readonly Player[]): Position {
   return [...POSITIONS].sort((a, b) => count(a) - count(b))[0]!;
 }
 
-/** AC 19: an AI club under 22 gets juniors from its own academy, thinnest position first. */
-function refillFromAcademy(rng: Rng, club: Club, season: number, taken: Set<string>): void {
+/**
+ * AC 19: an AI club under 22 gets juniors from its own academy, thinnest position first.
+ * Correcoes-validacao AC 37: named like the players of the league's country.
+ */
+function refillFromAcademy(rng: Rng, club: Club, season: number, taken: Set<string>, country: Country): void {
   const mean = club.players.reduce((sum, p) => sum + p.rating, 0) / Math.max(1, club.players.length);
   let n = 0;
   while (club.players.length < AI_SQUAD_TARGET) {
     const position = thinnestPosition(club.players);
-    const name = uniqueName(rng, taken, generatePlayerName);
+    const name = uniqueName(rng, taken, (r) => generatePlayerName(r, country));
     const age = randInt(rng, AI_JUNIOR_AGE.min, AI_JUNIOR_AGE.max);
     const rating = clamp(Math.round(mean) - AI_JUNIOR_BELOW_MEAN + randInt(rng, -AI_JUNIOR_SPREAD, AI_JUNIOR_SPREAD), RATING_MIN, RATING_MAX);
     club.players.push(makePlayer(`${club.id}-y${season}-${++n}`, name, position, age, rating, CONTRACT_JUNIOR));
@@ -246,8 +249,8 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   });
 
   const taken = takenNames(state);
-  for (const club of allClubs(state)) {
-    if (club.id !== managed) refillFromAcademy(rng, club, season, taken);
+  for (const league of state.leagues) {
+    for (const club of league.clubs) if (club.id !== managed) refillFromAcademy(rng, club, season, taken, league.country);
   }
   topUpFreeAgents(rng, state, season, taken);
   state.userClubId = userId;

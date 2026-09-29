@@ -27,7 +27,7 @@ export function History() {
   if (!game) return null;
   const club = userClub(game);
   if (!club) return null;
-  const scorers = topScorers(userLeague(game), 10);
+  const scorers = topScorers(game, userLeague(game), 10);
   const records = [...game.history].reverse();
   const clubName = (id: string) => findAnyClub(game, id).name;
   const division = (leagueId: string | null) => {
@@ -74,7 +74,7 @@ export function History() {
                   </thead>
                   <tbody>
                     {scorers.map((s, i) => (
-                      <tr key={s.playerId} className={s.clubId === club.id ? "me" : undefined}>
+                      <tr key={`${s.playerId}-${s.clubId}`} className={s.clubId === club.id ? "me" : undefined}>
                         <td className="num">{i + 1}</td>
                         <td>{s.name}</td>
                         <td>{s.clubName}</td>

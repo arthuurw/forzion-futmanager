@@ -55,7 +55,7 @@ describe("tela Elenco", () => {
     const slot2 = screen.getByLabelText("Titular 2 (ZAG)") as HTMLSelectElement;
     const slot3 = screen.getByLabelText("Titular 3 (ZAG)") as HTMLSelectElement;
     await user.selectOptions(slot3, slot2.value);
-    expect(screen.getByText("Faltam 1 titulares")).toBeInTheDocument();
+    expect(screen.getByText("Falta 1 titular")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
 
     // Selecting a bench DF (not starting anywhere) for the empty slot makes it valid again.
@@ -103,7 +103,7 @@ describe("tela Elenco", () => {
     starter.injuryRounds = 2;
     useGame.setState({ phase: "squad", game });
     render(<Squad />);
-    expect(screen.getByText("Faltam 1 titulares")).toBeInTheDocument();
+    expect(screen.getByText("Falta 1 titular")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
   });
 
@@ -378,8 +378,30 @@ describe("elenco em data de copa sem o usuário (ajustes-4a)", () => {
     useGame.setState({ phase: "squad", game: on.game });
     render(<Squad />);
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
-    expect(screen.getByText("Faltam 1 titulares")).toBeInTheDocument();
+    expect(screen.getByText("Falta 1 titular")).toBeInTheDocument();
     expect(within(rowOf(on.suspended.name)).getByText("Suspenso (copa)")).toBeInTheDocument();
     expect(rowOf(on.suspended.name)).toHaveClass("out");
+  });
+});
+
+describe("textos do elenco (correcoes-validacao)", () => {
+  test("concordância de titulares", () => {
+    // C40 (AC 36, L-008): 1 and 3 empty slots, with the whole squad available.
+    const rows: [number, string][] = [
+      [1, "Falta 1 titular"],
+      [3, "Faltam 3 titulares"],
+    ];
+    for (const [empty, text] of rows) {
+      const game = seededGame(5);
+      const club = userClub(game)!;
+      for (const p of club.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+      club.lineup = { ...club.lineup!, starters: club.lineup!.starters.map((id, i) => (i >= 1 && i <= empty ? null : id)) };
+      useGame.setState({ phase: "squad", game });
+      const view = render(<Squad />);
+      expect(screen.getByRole("status"), text).toHaveTextContent(text);
+      expect(screen.getByText(text)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
+      view.unmount();
+    }
   });
 });

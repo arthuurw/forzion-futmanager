@@ -107,10 +107,10 @@ describe("nova temporada com países (paises)", () => {
     const after = await turnSeason(game);
     const pt = after.leagues[3]!;
     expect(pt.clubs.some((c) => c.id === after.userClubId)).toBe(true);
-    // Written out (L-004): rank by the best eleven in the league, ties by id; min(20, rank + 3).
+    // Written out (L-004): rank by the best eleven in the league, ties by id; min(17, rank + 3) (correcoes-validacao C36, was 20).
     const best11 = (ratings: number[]) => [...ratings].sort((a, b) => b - a).slice(0, 11).reduce((a, b) => a + b, 0) / 11;
     const ranking = [...pt.clubs].sort((a, b) => best11(b.players.map((p) => p.rating)) - best11(a.players.map((p) => p.rating)) || a.id.localeCompare(b.id));
-    const goal = Math.min(20, ranking.findIndex((c) => c.id === after.userClubId) + 1 + 3);
+    const goal = Math.min(17, ranking.findIndex((c) => c.id === after.userClubId) + 1 + 3);
     expect(after.boardGoal).toBe(goal);
     expect(screen.getByText(new RegExp(`Temporada 2 · Liga Portuguesa · Meta: até o ${goal}º`))).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Evolução" }).closest(".fill")).not.toBeNull();

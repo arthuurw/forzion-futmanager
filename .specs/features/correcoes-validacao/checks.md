@@ -232,36 +232,36 @@ Proof: `npx vitest run src/engine/balance.test.ts -t "caixa equilibrado em uma t
 
 ### S5 - Regras de temporada e diretoria coerentes · 6 files · 43 KB · ~11k
 
-**C35** - Tabela de `verdictFor` na Série A sobre as metas 13, 14, 15 e 16, cada uma com as posições 17 e 20: todas dão «fired» (AC 32, L-005).
+**C35** ✓ - Tabela de `verdictFor` na Série A sobre as metas 13, 14, 15 e 16, cada uma com as posições 17 e 20: todas dão «fired» (AC 32, L-005).
 
 Proof: `npx vitest run src/engine/board.test.ts -t "rebaixado é sempre demitido"`
 
-**C36** - Tabela de `boardGoalFor` numa divisão sem rebaixamento (Série B e Argentina), sobre os postos 1–20: nenhuma meta passa de 17. O posto 14 dá 17 (AC 33, L-005).
+**C36** ✓ - Tabela de `boardGoalFor` numa divisão sem rebaixamento (Série B e Argentina), sobre os postos 1–20: nenhuma meta passa de 17. O posto 14 dá 17 (AC 33, L-005).
 
 Proof: `npx vitest run src/engine/board.test.ts -t "meta máxima sem rebaixamento"`
 
-**C37** - Em divisão sem rebaixamento, sobre as metas 4, 12 e 17, terminar em 20º dá «fired» (AC 34).
+**C37** ✓ - Em divisão sem rebaixamento, sobre as metas 4, 12 e 17, terminar em 20º dá «fired» (AC 34).
 
 Proof: `npx vitest run src/engine/board.test.ts -t "último lugar é demitido"`
 
-**C38** - Com um jogador que marcou 2 gols pela Série A e depois foi para a Série B e marcou 3:
+**C38** ✓ - Com um jogador que marcou 2 gols pela Série A e depois foi para a Série B e marcou 3:
 - a artilharia da Série B conta 3;
 - a da Série A conta 2, com o clube em que ele marcou (AC 35).
 
 Proof: `npx vitest run src/engine/season.test.ts -t "artilharia por liga"`
 
-**C39** - Tabela de texto de eliminação da copa sobre as 6 fases da nacional e as 4 da continental: «Eliminado na Preliminar», «nos 16 avos», «nas Oitavas», «nas Quartas», «na Semifinal» e «na Final» (AC 36, L-005, L-008).
+**C39** ✓ - Tabela de texto de eliminação da copa sobre as 6 fases da nacional e as 4 da continental: «Eliminado na Preliminar», «nos 16 avos», «nas Oitavas», «nas Quartas», «na Semifinal» e «na Final» (AC 36, L-005, L-008).
 
 Proof: `npx vitest run src/ui/Cup.test.tsx -t "concordância da eliminação"`
 
-**C40** - Tabela de número sobre N = 1 e N = 3:
+**C40** ✓ - Tabela de número sobre N = 1 e N = 3:
 - Elenco: «Falta 1 titular» / «Faltam 3 titulares»;
 - Finanças: «Obras: 1 rodada» / «Obras: 3 rodadas» (AC 36, L-008).
 
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "concordância de titulares"`
 Proof: `npx vitest run src/ui/Finance.test.tsx -t "concordância das obras"`
 
-**C41** - Na virada, os juniores da base de um clube AR e de um clube PT têm nome da lista do país: prenome e sobrenome em `names` AR/PT, verificados no teste contra as listas (AC 37).
+**C41** ✓ - Na virada, os juniores da base de um clube AR e de um clube PT têm nome da lista do país: prenome e sobrenome em `names` AR/PT, verificados no teste contra as listas (AC 37).
 
 Proof: `npx vitest run src/engine/rollover.test.ts -t "base estrangeira com nome do país"`
 

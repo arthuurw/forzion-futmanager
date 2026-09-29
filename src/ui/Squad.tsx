@@ -9,6 +9,7 @@ import { useGame, userClub } from "../store";
 import { FitnessBar, MoraleArrow, StatusBadge } from "./Condition";
 import { nextDateLabel } from "./Cup";
 import { formatMoney } from "./money";
+import { missingStartersText } from "./lineupText";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
 import { ScreenTabs } from "./ScreenTabs";
@@ -306,7 +307,7 @@ export function Squad() {
         )}
         {!validation.ok && (
           <p role="status" className="missing">
-            Faltam {validation.missing} titulares
+            {missingStartersText(validation.missing)}
           </p>
         )}
         <button className="primary" disabled={!validation.ok} onClick={() => void playRound()}>

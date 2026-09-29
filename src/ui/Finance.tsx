@@ -119,7 +119,7 @@ export function Finance() {
             {f.expansionRoundsLeft > 0 && (
               <>
                 <dt>Estádio</dt>
-                <dd>Obras: {f.expansionRoundsLeft} rodadas</dd>
+                <dd>{f.expansionRoundsLeft === 1 ? "Obras: 1 rodada" : `Obras: ${f.expansionRoundsLeft} rodadas`}</dd>
               </>
             )}
           </dl>

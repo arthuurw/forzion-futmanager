@@ -180,3 +180,20 @@ describe("finanças da copa (copa-nacional)", () => {
     expect(rowsOf().find((c) => c[0] === "Prêmio da copa")).toBeUndefined();
   });
 });
+
+describe("textos das finanças (correcoes-validacao)", () => {
+  test("concordância das obras", () => {
+    // C40 (AC 36, L-008).
+    const rows: [number, string][] = [
+      [1, "Obras: 1 rodada"],
+      [3, "Obras: 3 rodadas"],
+    ];
+    for (const [rounds, text] of rows) {
+      const game = seededGame(9);
+      userClub(game)!.finance.expansionRoundsLeft = rounds;
+      show(game);
+      expect(screen.getByText(text)).toBeInTheDocument();
+      cleanup();
+    }
+  });
+});

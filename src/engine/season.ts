@@ -118,13 +118,26 @@ export interface TopScorer {
   goals: number;
 }
 
-/** AC 39: the division's scorers this season, most goals first, then name. */
-export function topScorers(league: League, limit = 10): TopScorer[] {
-  return league.clubs
-    .flatMap((c) => c.players.map((p) => ({ playerId: p.id, name: p.name, clubId: c.id, clubName: c.name, goals: p.seasonGoals })))
-    .filter((s) => s.goals > 0)
-    .sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "pt-BR"))
-    .slice(0, limit);
+/**
+ * AC 39: the division's scorers this season, most goals first, then name. Correcoes-validacao AC
+ * 35: counted from the goals of this league's matches, each with the club it was scored for, so a
+ * player who moved counts here only what he scored here.
+ */
+export function topScorers(state: Pick<GameState, "leagues" | "market">, league: League, limit = 10): TopScorer[] {
+  const names = new Map<string, string>();
+  for (const p of [...allClubs(state).flatMap((c) => c.players), ...state.market.freeAgents, ...state.market.juniors]) names.set(p.id, p.name);
+  const clubNames = new Map(league.clubs.map((c) => [c.id, c.name]));
+  const rows = new Map<string, TopScorer>();
+  for (const goal of league.rounds.flatMap((r) => r.matches).flatMap((m) => m.result?.goals ?? [])) {
+    const name = names.get(goal.playerId);
+    const clubName = clubNames.get(goal.clubId);
+    if (name === undefined || clubName === undefined) continue;
+    const key = `${goal.playerId} ${goal.clubId}`;
+    const row = rows.get(key) ?? { playerId: goal.playerId, name, clubId: goal.clubId, clubName, goals: 0 };
+    row.goals++;
+    rows.set(key, row);
+  }
+  return [...rows.values()].sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, "pt-BR")).slice(0, limit);
 }
 
 export interface DivisionReview {
@@ -180,7 +193,7 @@ export function seasonReview(state: GameState): SeasonReview {
       championId: table[0]!.clubId,
       promotedIds: role.promotes ? table.slice(0, PROMOTED_PER_SEASON).map((r) => r.clubId) : [],
       relegatedIds: role.relegates ? table.slice(-PROMOTED_PER_SEASON).map((r) => r.clubId) : [],
-      topScorer: topScorers(league, 1)[0] ?? null,
+      topScorer: topScorers(state, league, 1)[0] ?? null,
     };
   });
   const userId = state.userClubId;

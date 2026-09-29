@@ -42,12 +42,23 @@ export function reachedText(reached: number | null, cupId: string): string {
   return reached >= names.length ? "Campeão" : (names[reached] ?? "-");
 }
 
+/** Correcoes-validacao AC 36: the preposition each phase name takes. */
+const ELIMINATED_IN: Readonly<Record<string, string>> = {
+  Preliminar: "na",
+  "16 avos": "nos",
+  Oitavas: "nas",
+  Quartas: "nas",
+  Semifinal: "na",
+  Final: "na",
+};
+
 /** Copa-nacional AC 43, copa-continental AC 19. */
 function situation(cup: CupState, clubId: string): string {
   if (!cup.seeding.includes(clubId)) return "Fora da competição";
   if (cupChampion(cup) === clubId) return "Campeão";
   if (isAlive(cup, clubId)) return "Na disputa";
-  return `Eliminado na ${reachedText(cupReached(cup, clubId), cup.id)}`;
+  const phase = reachedText(cupReached(cup, clubId), cup.id);
+  return `Eliminado ${ELIMINATED_IN[phase] ?? "na"} ${phase}`;
 }
 
 /**

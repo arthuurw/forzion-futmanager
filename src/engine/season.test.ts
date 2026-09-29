@@ -2,7 +2,7 @@ import { divisionAt, jobOffers, userBoardGoal, verdictFor } from "./board";
 import { newGame } from "./generate";
 import { AI_FORMATION, aiLineup, autoLineup } from "./lineup";
 import { createRng, mix32 } from "./rng";
-import { playRound } from "./season";
+import { playRound, topScorers } from "./season";
 import type { Club, GameState } from "./types";
 
 const setRating = (club: Club, rating: number) => club.players.forEach((p) => (p.rating = rating));
@@ -21,10 +21,10 @@ function ranked(seed = 20): { state: GameState; all: Club[] } {
 describe("diretoria (engine)", () => {
   test("meta pela força", () => {
     const { state } = ranked();
-    // Written out (L-004): A min(16, r + 3); B 4 up to r = 4, then min(20, r + 3).
+    // Written out (L-004): A min(16, r + 3); B 4 up to r = 4, then min(17, r + 3) (correcoes-validacao C36, was 20).
     const expected = {
       0: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 16, 16, 16, 16, 16, 16, 16],
-      1: [4, 4, 4, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 20, 20, 20],
+      1: [4, 4, 4, 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 17, 17, 17, 17, 17, 17],
     } as const;
     for (const division of [0, 1] as const) {
       const clubs = state.leagues[division]!.clubs;
@@ -126,5 +126,26 @@ describe("países na rodada (paises)", () => {
       for (const m of league.rounds[0]!.matches) expect(m.result, `${league.id} ${m.id}`).not.toBeNull();
       for (const m of league.rounds[1]!.matches) expect(m.result, `${league.id} ${m.id}`).toBeNull();
     }
+  });
+});
+
+describe("artilharia (correcoes-validacao)", () => {
+  test("artilharia por liga", () => {
+    // C38 (AC 35): 2 goals for a Série A club, then a move to the Série B and 3 goals there.
+    const s = newGame(78);
+    const [a, b] = [s.leagues[0]!, s.leagues[1]!];
+    const from = a.clubs[0]!;
+    const to = b.clubs[0]!;
+    const scorer = from.players.find((p) => p.position === "FW")!;
+    const matchOf = (clubId: string, league: typeof a) => league.rounds[0]!.matches.find((m) => m.homeId === clubId || m.awayId === clubId)!;
+    const inA = matchOf(from.id, a);
+    inA.result = { homeGoals: inA.homeId === from.id ? 2 : 0, awayGoals: inA.homeId === from.id ? 0 : 2, goals: [1, 2].map((minute) => ({ minute, clubId: from.id, playerId: scorer.id })) };
+    from.players = from.players.filter((p) => p !== scorer);
+    to.players.push({ ...scorer, seasonGoals: 5 });
+    const inB = matchOf(to.id, b);
+    inB.result = { homeGoals: inB.homeId === to.id ? 3 : 0, awayGoals: inB.homeId === to.id ? 0 : 3, goals: [1, 2, 3].map((minute) => ({ minute, clubId: to.id, playerId: scorer.id })) };
+
+    expect(topScorers(s, b)).toEqual([{ playerId: scorer.id, name: scorer.name, clubId: to.id, clubName: to.name, goals: 3 }]);
+    expect(topScorers(s, a)).toEqual([{ playerId: scorer.id, name: scorer.name, clubId: from.id, clubName: from.name, goals: 2 }]);
   });
 });

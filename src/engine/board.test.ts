@@ -101,12 +101,13 @@ describe("diretoria nos países (paises)", () => {
   const setRating = (club: Club, rating: number) => club.players.forEach((p) => (p.rating = rating));
 
   test("meta em liga sem rebaixamento", () => {
-    // C13 (AC 13): min(20, rank + 3), label «até o Nº», by the rank in the league's strength ranking.
+    // C13 (AC 13): rank + 3, label «até o Nº», by the rank in the league's strength ranking.
+    // Correcoes-validacao C36 (Impact): the goal stops at 17, was 20.
     const rows: [number, number, string][] = [
       [1, 4, "até o 4º"],
       [10, 13, "até o 13º"],
-      [17, 20, "até o 20º"],
-      [20, 20, "até o 20º"],
+      [17, 17, "até o 17º"],
+      [20, 17, "até o 17º"],
     ];
     for (const k of [2, 3]) {
       const s = newGame(71);
@@ -122,14 +123,15 @@ describe("diretoria nos países (paises)", () => {
 
   test("veredito em liga sem rebaixamento", () => {
     // C14 (AC 14, L-007): only 5 or more places below the goal fires; the Série A contrasts.
+    // Correcoes-validacao C37 (Impact): the 20th place is fired, was «missed».
     const leagues = newGame(72).leagues;
     const rows: [number, number, number, Verdict][] = [
       [2, 16, 16, "met"],
       [2, 16, 17, "missed"],
-      [2, 16, 20, "missed"],
+      [2, 16, 20, "fired"],
       [3, 16, 16, "met"],
       [3, 16, 17, "missed"],
-      [3, 16, 20, "missed"],
+      [3, 16, 20, "fired"],
       [0, 16, 17, "fired"],
       [2, 8, 13, "fired"],
       [2, 8, 12, "missed"],
@@ -180,5 +182,45 @@ describe("diretoria nos países (paises)", () => {
     expect(among80).not.toBe(among40);
     expect(userCupGoal({ ...s, userClubId: user.id })).toBe(among40);
     for (const l of s.leagues.slice(2)) for (const c of l.clubs) expect(userCupGoal({ ...s, userClubId: c.id }), c.id).toBe(-1);
+  });
+});
+
+describe("diretoria coerente (correcoes-validacao)", () => {
+  test("rebaixado é sempre demitido", () => {
+    // C35 (AC 32, L-005): in the Série A, the 17th to 20th places go down, whatever the goal.
+    const serieA = divisionAt(newGame(75).leagues, 0);
+    expect(serieA.relegates).toBe(true);
+    const rows: [number, number][] = [];
+    for (const goal of [13, 14, 15, 16]) for (const position of [17, 20]) rows.push([goal, position]);
+    expect(rows).toHaveLength(8);
+    for (const [goal, position] of rows) expect(verdictFor(serieA, goal, position), `meta ${goal} posição ${position}`).toBe("fired");
+  });
+
+  test("meta máxima sem rebaixamento", () => {
+    // C36 (AC 33, L-005): the Série B and the Liga Argentina, ranks 1 to 20.
+    const s = newGame(76);
+    const setRating = (club: Club, rating: number) => club.players.forEach((p) => (p.rating = rating));
+    for (const k of [1, 2]) {
+      expect(divisionAt(s.leagues, k).relegates, s.leagues[k]!.id).toBe(false);
+      const clubs = s.leagues[k]!.clubs;
+      clubs.forEach((c, i) => setRating(c, 90 - i));
+      const goals: number[] = [];
+      for (let rank = 1; rank <= 20; rank++) {
+        s.userClubId = clubs[rank - 1]!.id;
+        goals.push(userBoardGoal(s));
+      }
+      expect(goals, s.leagues[k]!.id).toHaveLength(20);
+      for (const [i, goal] of goals.entries()) expect(goal, `${s.leagues[k]!.id} posto ${i + 1}`).toBeLessThanOrEqual(17);
+      expect(goals[13], s.leagues[k]!.id).toBe(17);
+    }
+  });
+
+  test("último lugar é demitido", () => {
+    // C37 (AC 34): the Série B, the Liga Argentina and the Liga Portuguesa.
+    const leagues = newGame(77).leagues;
+    for (const k of [1, 2, 3]) {
+      expect(divisionAt(leagues, k).relegates).toBe(false);
+      for (const goal of [4, 12, 17]) expect(verdictFor(divisionAt(leagues, k), goal, 20), `liga ${k} meta ${goal}`).toBe("fired");
+    }
   });
 });

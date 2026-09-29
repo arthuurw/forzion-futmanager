@@ -9,6 +9,10 @@ export const STAY_UP_GOAL = 16;
 export const PROMOTION_GOAL = 4;
 /** AC 33: this many places below the goal, or relegated with a stay-up goal, and the user is fired. */
 const FIRED_MARGIN = 5;
+/** Correcoes-validacao AC 33: the worst goal of a division that relegates nobody. */
+const NO_RELEGATION_GOAL_MAX = 17;
+/** Correcoes-validacao AC 34: the last place of a 20-club league. */
+const LAST_PLACE = 20;
 const JOB_OFFERS = 3;
 
 /** Club ids, strongest first: mean of the best eleven, ties by id (AC 30, AC 34). */
@@ -38,11 +42,14 @@ export function divisionAt(leagues: readonly Pick<League, "country" | "tier">[],
   };
 }
 
-/** AC 30, paises AC 13: the worst acceptable position for rank `rank` (1-based) in `division`. */
+/**
+ * AC 30, paises AC 13: the worst acceptable position for rank `rank` (1-based) in `division`.
+ * Correcoes-validacao AC 33: a division without relegation asks for the 17th place at worst.
+ */
 export function boardGoalFor(division: Division, rank: number): number {
   if (division.relegates) return Math.min(STAY_UP_GOAL, rank + 3);
   if (division.promotes && rank <= PROMOTION_GOAL) return PROMOTION_GOAL;
-  return Math.min(20, rank + 3);
+  return Math.min(NO_RELEGATION_GOAL_MAX, rank + 3);
 }
 
 /** The division the club plays in, 0 = Série A; -1 when it plays nowhere. */
@@ -66,11 +73,15 @@ export function goalLabel(division: Division, goal: number): string {
   return `até o ${goal}º`;
 }
 
-/** AC 32, AC 33, paises AC 14: with no relegation, only 5 or more places below the goal fires. */
+/**
+ * AC 32, AC 33: 5 or more places below the goal fires. Correcoes-validacao AC 32, AC 34: so does
+ * the relegation zone, whatever the goal, and the last place of a division without relegation.
+ */
 export function verdictFor(division: Division, goal: number, position: number): Verdict {
   if (position <= goal) return "met";
-  const relegatedWhileStayingUp = division.relegates && goal === STAY_UP_GOAL && position > STAY_UP_GOAL;
-  if (relegatedWhileStayingUp || position >= goal + FIRED_MARGIN) return "fired";
+  const relegated = division.relegates && position > STAY_UP_GOAL;
+  const last = !division.relegates && position >= LAST_PLACE;
+  if (relegated || last || position >= goal + FIRED_MARGIN) return "fired";
   return "missed";
 }
 

@@ -75,7 +75,8 @@ describe("tela Copa", () => {
     const oitavas = cup.phases[2]!.ties[0]!;
     const out = oitavas.winnerId === oitavas.homeId ? oitavas.awayId : oitavas.homeId;
     const second = show({ ...s, userClubId: out });
-    expect(screen.getByText(/Eliminado na Oitavas/)).toBeInTheDocument();
+    // Correcoes-validacao C39 (Impact): «nas Oitavas», was «na Oitavas».
+    expect(screen.getByText(/Eliminado nas Oitavas/)).toBeInTheDocument();
     second.unmount();
 
     show({ ...s, userClubId: cup.phases[5]!.ties[0]!.winnerId });
@@ -173,4 +174,33 @@ describe("tela Copa com a continental (copa-continental)", () => {
     expect(screen.getByText(/Na disputa/)).toBeInTheDocument();
     expect(screen.queryByText(/Fora da competição/)).not.toBeInTheDocument();
   });
+});
+
+describe("textos da copa (correcoes-validacao)", () => {
+  test("concordância da eliminação", () => {
+    // C39 (AC 36, L-005, L-008): the 6 phases of the national cup and the 4 of the continental.
+    const s = wholeSeason();
+    const rows: [number, number, string][] = [
+      [0, 0, "Eliminado na Preliminar"],
+      [0, 1, "Eliminado nos 16 avos"],
+      [0, 2, "Eliminado nas Oitavas"],
+      [0, 3, "Eliminado nas Quartas"],
+      [0, 4, "Eliminado na Semifinal"],
+      [0, 5, "Eliminado na Final"],
+      [1, 0, "Eliminado nas Oitavas"],
+      [1, 1, "Eliminado nas Quartas"],
+      [1, 2, "Eliminado na Semifinal"],
+      [1, 3, "Eliminado na Final"],
+    ];
+    expect(rows).toHaveLength(s.cups[0]!.phases.length + s.cups[1]!.phases.length);
+    for (const [c, k, text] of rows) {
+      const tie = s.cups[c]!.phases[k]!.ties[0]!;
+      const loser = tie.winnerId === tie.homeId ? tie.awayId : tie.homeId;
+      const view = show({ ...clone(s), userClubId: loser });
+      fireEvent.click(screen.getByRole("tab", { name: s.cups[c]!.name }));
+      expect(screen.getByRole("heading", { level: 1 }), text).toHaveTextContent(s.cups[c]!.name);
+      expect(screen.getByText(text), `${s.cups[c]!.name} ${k}`).toBeInTheDocument();
+      view.unmount();
+    }
+  }, 60_000);
 });

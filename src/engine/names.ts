@@ -66,6 +66,13 @@ const PT_NUCLEI = ["a", "e", "i", "o", "u", "ei", "ou", "oi"];
 const PT_CODAS = ["", "", "", "n", "r", "s", "l"];
 const PT_SURNAME_ENDINGS = ["", "", "es", "eira", "ão", "ares", "elo", "ota", "ais", "ém"];
 
+/** The syllables each country's surnames are built from (BR: `generateSurname`). */
+export const SURNAME_PARTS_BY_COUNTRY: Readonly<Record<Country, { onsets: readonly string[]; nuclei: readonly string[]; codas: readonly string[]; endings: readonly string[] }>> = {
+  BR: { onsets: ONSETS, nuclei: NUCLEI, codas: CODAS, endings: SURNAME_ENDINGS },
+  AR: { onsets: AR_ONSETS, nuclei: AR_NUCLEI, codas: AR_CODAS, endings: AR_SURNAME_ENDINGS },
+  PT: { onsets: PT_ONSETS, nuclei: PT_NUCLEI, codas: PT_CODAS, endings: PT_SURNAME_ENDINGS },
+};
+
 function syllableSurname(rng: Rng, onsets: readonly string[], nuclei: readonly string[], codas: readonly string[], endings: readonly string[]): string {
   const syllables = 1 + Math.floor(rng.next() * 2);
   let s = "";

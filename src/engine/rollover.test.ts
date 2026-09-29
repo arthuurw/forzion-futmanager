@@ -2,6 +2,7 @@ import { newGame, makePlayer } from "./generate";
 import { AI_FORMATION, autoLineup, isAvailable } from "./lineup";
 import { isMarketOpen } from "./market";
 import { migrateSave } from "./migrate";
+import { FIRST_NAMES_BY_COUNTRY, SURNAME_PARTS_BY_COUNTRY } from "./names";
 import { createRng, mix32, randInt } from "./rng";
 import { nextSeason } from "./rollover";
 import { playRound, seasonReview } from "./season";
@@ -356,7 +357,8 @@ describe("diretoria e histórico na virada", () => {
     const division = state.leagues.findIndex((l) => l.clubs.some((c) => c.id === pick));
     const best11 = (c: Club) => [...c.players].map((p) => p.rating).sort((a, b) => b - a).slice(0, 11).reduce((a, b) => a + b, 0) / 11;
     const rank = [...state.leagues[division]!.clubs].sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id)).findIndex((c) => c.id === pick) + 1;
-    const goal = division === 0 ? Math.min(16, rank + 3) : rank <= 4 ? 4 : Math.min(20, rank + 3);
+    // Correcoes-validacao C36: at most the 17th without relegation, was 20.
+    const goal = division === 0 ? Math.min(16, rank + 3) : rank <= 4 ? 4 : Math.min(17, rank + 3);
     expect(state.boardGoal).toBe(goal);
   });
 
@@ -592,5 +594,29 @@ describe("virada por país (paises)", () => {
     }
     const abroad = ended().leagues.slice(2);
     record.divisions.slice(2).forEach((d, i) => expect(abroad[i]!.clubs.map((c) => c.id), d.leagueId).toContain(d.championId));
+  });
+});
+
+describe("base na virada (correcoes-validacao)", () => {
+  test("base estrangeira com nome do país", () => {
+    // C41 (AC 37): an Argentine and a Portuguese club under 22 get juniors named after their country.
+    const before = ended();
+    const clubs = [before.leagues[2]!.clubs[0]!, before.leagues[3]!.clubs[0]!];
+    for (const c of clubs) c.players = c.players.slice(0, 15).map((p) => ({ ...p, age: 24, contractSeasons: 3 }));
+    const { state } = nextSeason(before);
+    const alternatives = (list: readonly string[]) => list.filter((x) => x).join("|");
+    for (const [c, country] of [[clubs[0]!, "AR"], [clubs[1]!, "PT"]] as const) {
+      const parts = SURNAME_PARTS_BY_COUNTRY[country];
+      const syllable = `(?:${alternatives(parts.onsets)})(?:${alternatives(parts.nuclei)})`;
+      const surname = new RegExp(`^${syllable}(?:(?:${alternatives(parts.codas)})?${syllable})?(?:${alternatives(parts.endings)})?$`);
+      const juniors = clubOf(state, c.id).players.filter((p) => p.id.startsWith(`${c.id}-y2-`));
+      expect(juniors, country).toHaveLength(7);
+      for (const j of juniors) {
+        const [first, ...rest] = j.name.split(" ");
+        expect(FIRST_NAMES_BY_COUNTRY[country], j.name).toContain(first);
+        expect(FIRST_NAMES_BY_COUNTRY.BR, j.name).not.toContain(first);
+        expect(rest.join(" ").toLowerCase(), j.name).toMatch(surname);
+      }
+    }
   });
 });

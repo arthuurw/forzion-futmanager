@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>audio-check</title>
+  </head>
+  <body>
+    <pre id="out">running</pre>
+    <script type="module">
+      // Renders every effect and the crowd through the real Web Audio backend, offline, and reports
+      // peak, RMS and where the energy sits. Driven by scripts/audio-check.mjs.
+      import { webAudioBackend } from "/src/audio/webaudio.ts";
+      import { SFX_VOLUME, MUSIC_VOLUME } from "/src/audio/audio.ts";
+
+      const RATE = 48000;
+      const N = 1 << 18;
+
+      function fft(re, im) {
+        const n = re.length;
+        for (let i = 1, j = 0; i < n; i++) {
+          let bit = n >> 1;
+          for (; j & bit; bit >>= 1) j ^= bit;
+          j ^= bit;
+          if (i < j) {
+            [re[i], re[j]] = [re[j], re[i]];
+            [im[i], im[j]] = [im[j], im[i]];
+          }
+        }
+        for (let len = 2; len <= n; len <<= 1) {
+          const ang = (-2 * Math.PI) / len;
+          for (let i = 0; i < n; i += len) {
+            for (let k = 0; k < len / 2; k++) {
+              const wr = Math.cos(ang * k);
+              const wi = Math.sin(ang * k);
+              const a = i + k;
+              const b = a + len / 2;
+              const vr = re[b] * wr - im[b] * wi;
+              const vi = re[b] * wi + im[b] * wr;
+              re[b] = re[a] - vr;
+              im[b] = im[a] - vi;
+              re[a] += vr;
+              im[a] += vi;
+            }
+          }
+        }
+      }
+
+      function measure(d) {
+        let peak = 0;
+        let sumSq = 0;
+        for (const x of d) {
+          peak = Math.max(peak, Math.abs(x));
+          sumSq += x * x;
+        }
+        const re = new Float64Array(N);
+        const im = new Float64Array(N);
+        for (let i = 0; i < Math.min(N, d.length); i++) re[i] = d[i];
+        fft(re, im);
+        let total = 0;
+        let above2k = 0;
+        let above4k = 0;
+        for (let k = 1; k < N / 2; k++) {
+          const f = (k * RATE) / N;
+          const p = re[k] * re[k] + im[k] * im[k];
+          total += p;
+          if (f >= 2000) above2k += p;
+          if (f >= 4000) above4k += p;
+        }
+        return { peak, rms: Math.sqrt(sumSq / d.length), above2k: above2k / total, above4k: above4k / total };
+      }
+
+      async function render(name, seconds, act) {
+        let ctx;
+        globalThis.AudioContext = function () {
+          ctx = new OfflineAudioContext(1, RATE * seconds, RATE);
+          return ctx;
+        };
+        const b = webAudioBackend();
+        b.start();
+        b.setMasterGain("sfx", SFX_VOLUME);
+        b.setMasterGain("music", MUSIC_VOLUME);
+        act(b);
+        const buf = await ctx.startRendering();
+        return { name, ...measure(buf.getChannelData(0)) };
+      }
+
+      try {
+        const results = [];
+        const effects = [
+          ["whistle-short", 0], ["whistle-double", 0], ["whistle-long", 0],
+          ["crowd-roar", 0], ["crowd-roar", 1], ["goal-jingle", 0],
+          ["crowd-groan", 0], ["crowd-groan", 1],
+          ["crowd-ooh", 0], ["crowd-ooh", 1], ["crowd-ooh", 2], ["crowd-boo", 0],
+        ];
+        for (const [id, v] of effects) results.push(await render(`${id}#${v}`, 4, (b) => b.playEffect(id, v, 1.06)));
+        const crowd = (b) => {
+          b.startAmbience();
+          b.rampAmbience(1, 0.3);
+        };
+        results.push(await render("ambience", 4, crowd));
+        results.push(await render("ambience+roar+jingle", 5, (b) => {
+          crowd(b);
+          b.playEffect("crowd-roar", 0, 1.06);
+          b.playEffect("goal-jingle", 0, 1.06);
+        }));
+        results.push(await render("ambience+whistle+boo", 5, (b) => {
+          crowd(b);
+          b.playEffect("whistle-short", 0, 1.06);
+          b.playEffect("crowd-boo", 0, 1.06);
+        }));
+        document.getElementById("out").textContent = "DONE" + JSON.stringify(results);
+      } catch (e) {
+        document.getElementById("out").textContent = "ERR " + (e?.stack ?? e);
+      }
+    </script>
+  </body>
+</html>

@@ -2,15 +2,15 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { startCupDate } from "../engine/cup";
-import { runToEnd, userMatch, type LiveSide } from "../engine/live";
-import type { GameState } from "../engine/types";
+import { runToEnd, startRound, step, userMatch, type LiveSide } from "../engine/live";
+import type { GameState, MatchEvent } from "../engine/types";
 import { narrate, narrationContext } from "../engine/narration";
 import { App } from "../App";
 import { installAudio } from "../audio";
 import { effects, fakeBackend, type FakeBackend } from "../audio/test-backend";
 import { useGame } from "../store";
 import { Live } from "./Live";
-import { cupGame, resetAll, seededGame, seededGameIn } from "./test-utils";
+import { cupGame, resetAll, seededGame, seededGameIn, userSideOf } from "./test-utils";
 
 const scrollIntoView = vi.fn();
 
@@ -607,5 +607,93 @@ describe("torcida ao desmontar (correcoes-validacao)", () => {
     const after = backend.calls.slice(before);
     expect(after).toContainEqual({ kind: "ambience-ramp", gain: 0, seconds: 2 });
     expect(after.filter((c) => c.kind === "ambience-stop")).toHaveLength(1);
+  });
+});
+
+describe("parada obrigatória (parada-obrigatoria)", () => {
+  /**
+   * The live screen stopped at minute 10 of round 1, after the user lost the player of `slot`
+   * (`"GK"`: the keeper's slot) for `why`; `tweak` runs on the user's side before the render.
+   */
+  function stoppedBy(stops: [number | "GK", "injury" | "red"][], tweak: (side: LiveSide) => void = () => undefined): string[] {
+    const game = seededGame(4);
+    for (const p of game.leagues[0]!.clubs[0]!.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+    let live = startRound(game);
+    while (live.minute < 10) live = step(live);
+    const side = userSideOf(live);
+    const names: string[] = [];
+    const events: MatchEvent[] = [];
+    for (const [at, why] of stops) {
+      const slot = at === "GK" ? side.slotPos.indexOf("GK") : at;
+      const id = side.slots[slot]!;
+      side.slots[slot] = null;
+      side.vacancy[slot] = { why, playerId: id };
+      if (why === "red") side.sentOff.push(id);
+      names.push(live.players[id]!.name);
+      events.push({ minute: 10, type: why, clubId: game.userClubId!, playerId: id });
+    }
+    tweak(side);
+    useGame.setState({ phase: "live", game, hasSave: true, live, clock: "paused", liveStop: events });
+    render(<Live />);
+    return names;
+  }
+
+  const notice = () => screen.getByRole("status", { name: "Parada" });
+
+  test("aviso da parada", () => {
+    // C8 (L-008): the exact text of each of the 4 notices.
+    const cases: [string, [number | "GK", "injury" | "red"], (side: LiveSide) => void, (name: string) => string][] = [
+      ["lesão obrigatória", [10, "injury"], () => undefined, (n) => `Lesão: ${n} saiu. Faça a substituição.`],
+      ["lesão sem troca", [10, "injury"], (s) => (s.subsUsed = 5), (n) => `Lesão: ${n} saiu.`],
+      ["goleiro obrigatório", ["GK", "red"], () => undefined, (n) => `Goleiro expulso: ${n}. Coloque o goleiro reserva.`],
+      ["linha expulso", [4, "red"], () => undefined, (n) => `${n} expulso.`],
+    ];
+    for (const [name, stop, tweak, text] of cases) {
+      cleanup();
+      resetAll();
+      const [who] = stoppedBy([stop], tweak);
+      expect(notice().textContent, name).toBe(text(who!));
+    }
+  });
+
+  test("continuar desabilitado até substituir", () => {
+    // C9.
+    stoppedBy([[10, "injury"]]);
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
+    expect((screen.getByLabelText("Sai") as HTMLSelectElement).value).toBe("10");
+    fireEvent.click(screen.getByRole("button", { name: "Substituir" }));
+    expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(useGame.getState().clock).toBe("running");
+    expect(screen.queryByRole("status", { name: "Parada" })).toBeNull();
+  });
+
+  test("seguir com 10", () => {
+    // C10: 10 on the pitch after one red card, 9 after two; the button starts the clock.
+    stoppedBy([[4, "red"]]);
+    expect(screen.queryByRole("button", { name: "Continuar" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Seguir com 10" }));
+    expect(useGame.getState().clock).toBe("running");
+
+    cleanup();
+    resetAll();
+    stoppedBy([
+      [4, "red"],
+      [5, "red"],
+    ]);
+    expect(screen.getByRole("button", { name: "Seguir com 9" })).toBeEnabled();
+  });
+
+  test("parada abre seu time", () => {
+    // C11: the stop arrives while the screen is on «Partida».
+    stoppedBy([[10, "injury"]]);
+    const stop = useGame.getState().liveStop;
+    cleanup();
+    act(() => useGame.setState({ liveStop: null }));
+    render(<Live />);
+    fireEvent.click(screen.getByRole("tab", { name: "Partida" }));
+    expect(screen.getByRole("tab", { name: "Seu time" })).toHaveAttribute("aria-selected", "false");
+    act(() => useGame.setState({ liveStop: stop }));
+    expect(screen.getByRole("tab", { name: "Seu time" })).toHaveAttribute("aria-selected", "true");
   });
 });

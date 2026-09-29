@@ -73,20 +73,20 @@ Proof: `npx vitest run src/store.test.ts -t "reabrir com lesão preenche a vaga"
 
 ### S3 - Tela · 2 files · 43 KB · ~11k
 
-**C8** - Na parada, a tela mostra o aviso (`role="status"`, nome «Parada»), uma linha por evento, com o texto exato:
+**C8** - ✓ Na parada, a tela mostra o aviso (`role="status"`, nome «Parada»), uma linha por evento, com o texto exato:
 - lesão com troca obrigatória: «Lesão: {nome} saiu. Faça a substituição.»;
 - lesão sem troca possível: «Lesão: {nome} saiu.»;
 - goleiro expulso com troca obrigatória: «Goleiro expulso: {nome}. Coloque o goleiro reserva.»;
 - jogador de linha expulso: «{nome} expulso.».
 Proof: `npx vitest run src/ui/Live.test.tsx -t "aviso da parada"`
 
-**C9** - Com a troca obrigatória, o botão «Continuar» fica desabilitado, e o seletor «Sai» vem com a vaga da lesão selecionada. Depois de «Substituir», «Continuar» fica habilitado e o aviso some ao retomar.
+**C9** - ✓ Com a troca obrigatória, o botão «Continuar» fica desabilitado, e o seletor «Sai» vem com a vaga da lesão selecionada. Depois de «Substituir», «Continuar» fica habilitado e o aviso some ao retomar.
 Proof: `npx vitest run src/ui/Live.test.tsx -t "continuar desabilitado até substituir"`
 
-**C10** - Parado por expulsão de jogador de linha, sem troca obrigatória, o botão lê «Seguir com 10» (os jogadores em campo; «Seguir com 9» com dois expulsos), e tocá-lo retoma o relógio.
+**C10** - ✓ Parado por expulsão de jogador de linha, sem troca obrigatória, o botão lê «Seguir com 10» (os jogadores em campo; «Seguir com 9» com dois expulsos), e tocá-lo retoma o relógio.
 Proof: `npx vitest run src/ui/Live.test.tsx -t "seguir com 10"`
 
-**C11** - Na parada, a aba «Seu time» fica selecionada (`aria-selected="true"`), então as decisões aparecem no celular sem tocar na aba.
+**C11** - ✓ Na parada, a aba «Seu time» fica selecionada (`aria-selected="true"`), então as decisões aparecem no celular sem tocar na aba.
 Proof: `npx vitest run src/ui/Live.test.tsx -t "parada abre seu time"`
 
 ## Coverage
@@ -123,3 +123,7 @@ Proof: `npx vitest run src/ui/Live.test.tsx -t "parada abre seu time"`
 ## Handoff
 
 - S1 = 14k, S2 entra na store com 29k, S3 entra na tela com 40k no total, abaixo do budget de 150k - one builder
+
+- **Boundary:** C1-C11 closed at the S3 commit (engine `0cb7d08`, store `ea80df7`)
+- **Settled mid-build:** o autor relatou em 29/09 o goleiro expulso sem troca possível (o reserva entrou como zagueiro improvisado) - é o C3, sem check novo. «reload no ao vivo fecha a rodada» (correcoes-validacao C14) passou para a seed 16 porque a seed 13 tem lesão do usuário no minuto 7, e o relógio agora para ali; a asserção do minuto 10 ficou igual
+- **Abandoned:** nada

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { audio, type Crowd } from "../audio";
-import { MATCH_MINUTES, MAX_SUBS, userMatch, type LiveMatch, type LiveSide } from "../engine/live";
+import { MATCH_MINUTES, MAX_SUBS, forcedVacancy, userMatch, type LiveMatch, type LiveRound, type LiveSide } from "../engine/live";
 import { gameNarrationContext, narrate } from "../engine/narration";
 import { findAnyClub } from "../engine/season";
-import { FORMATION_NAMES, POSTURES, type FormationName, type Posture } from "../engine/types";
+import { FORMATION_NAMES, POSTURES, type FormationName, type MatchEvent, type Posture } from "../engine/types";
 import { BASE_TICK_MS, useGame, type GameStore, type Speed } from "../store";
 import { FitnessBar, MoraleArrow } from "./Condition";
 import { cupPhaseTitle, scoreText } from "./Cup";
@@ -16,6 +16,19 @@ const SPEEDS: Speed[] = [1, 2, 4];
 export const FLASH_MS = 2000;
 export const POSTURE_LABEL: Record<Posture, string> = { defensive: "Defensiva", balanced: "Equilibrada", attacking: "Ofensiva" };
 
+/** Parada-obrigatoria C8: one line per injury or red card that stopped the clock. */
+function stopLine(e: MatchEvent, live: LiveRound, side: LiveSide, forced: ReturnType<typeof forcedVacancy>): string {
+  const name = live.players[e.playerId!]!.name;
+  if (e.type === "injury") {
+    const open = Object.values(side.vacancy).some((v) => v.why === "injury" && v.playerId === e.playerId);
+    return open && forced?.why === "injury" ? `Lesão: ${name} saiu. Faça a substituição.` : `Lesão: ${name} saiu.`;
+  }
+  if (live.players[e.playerId!]!.position === "GK") {
+    return forced?.why === "red" ? `Goleiro expulso: ${name}. Coloque o goleiro reserva.` : `Goleiro expulso: ${name}.`;
+  }
+  return `${name} expulso.`;
+}
+
 function mySide(m: LiveMatch, clubId: string): LiveSide {
   return m.home.clubId === clubId ? m.home : m.away;
 }
@@ -27,6 +40,7 @@ export function Live() {
   const clock = useGame((s) => s.clock);
   const speed = useGame((s) => s.speed);
   const message = useGame((s) => s.liveMessage);
+  const liveStop = useGame((s) => s.liveStop);
   const finishing = useGame((s) => s.finishing);
   const { tick, pause, resume, setSpeed, skipToEnd, substitute, changeLiveFormation, changeLivePosture } = useGame.getState();
   const [tab, setTab] = useState<LiveTab>("match");
@@ -80,6 +94,18 @@ export function Live() {
       sound.crowd("over");
     };
   }, []);
+
+  // Parada-obrigatoria C9, C11: a stop opens «Seu time» with the empty slot or the bench keeper chosen.
+  useEffect(() => {
+    const s = useGame.getState();
+    if (!liveStop || !s.live) return;
+    setTab("team");
+    const forced = forcedVacancy(s.live);
+    const m = userMatch(s.live);
+    if (!forced || !m || !s.live.userClubId) return;
+    if (forced.why === "injury") setOutSlot(forced.slot);
+    else setInId(mySide(m, s.live.userClubId).bench.find((id) => s.live!.players[id]?.position === "GK") ?? "");
+  }, [liveStop]);
 
   // A score that changed flashes for 2 s (AC 4).
   const minute = live?.minute ?? 0;
@@ -135,6 +161,9 @@ export function Live() {
   const player = (id: string) => live.players[id]!;
   const benchOptions = side.bench.map((id) => player(id));
   const chosenIn = side.bench.includes(inId) ? inId : (side.bench[0] ?? "");
+  const forced = forcedVacancy(live);
+  // Parada-obrigatoria C10: after a red card nothing forces, and going on is a decision too.
+  const goOn = liveStop?.some((e) => e.type === "red") && !forced ? `Seguir com ${side.slots.filter(Boolean).length}` : "Continuar";
 
   return (
     <div className="screen live-screen">
@@ -271,6 +300,15 @@ export function Live() {
 
           <div className="decisions">
             {!stopped && !finishing && <p className="hint">Pause para mexer no time</p>}
+            {liveStop && (
+              <div role="status" aria-label="Parada" className="stop-notice">
+                {liveStop.map((e, i) => (
+                  <p key={i} className="missing">
+                    {stopLine(e, live, side, forced)}
+                  </p>
+                ))}
+              </div>
+            )}
             <div className="decision-row">
               <select aria-label="Sai" disabled={!stopped} value={outSlot} onChange={(e) => setOutSlot(Number(e.target.value))}>
                 {side.slots.map((id, slot) => {
@@ -335,8 +373,8 @@ export function Live() {
             Pausar
           </button>
         ) : (
-          <button onClick={resume} disabled={finishing}>
-            Continuar
+          <button onClick={resume} disabled={finishing || !!forced}>
+            {goOn}
           </button>
         )}
         <button className="primary" disabled={finishing} onClick={() => void skipToEnd()}>

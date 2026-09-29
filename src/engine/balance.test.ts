@@ -1,10 +1,11 @@
-import { nextDate } from "./calendar";
+import { userBoardGoal, userCupGoal } from "./board";
+import { nextCompetition, nextDate } from "./calendar";
 import { newGame } from "./generate";
-import { formationSlots } from "./lineup";
+import { AI_FORMATION, autoLineup, formationSlots, validateLineup } from "./lineup";
 import { simulateMatch, type TeamSheet } from "./match";
 import { createRng } from "./rng";
 import { nextSeason } from "./rollover";
-import { playDate, playRound } from "./season";
+import { allClubs, playDate, playRound, seasonReview } from "./season";
 import type { Country, FormationName, GameState, PlayerCore, Posture, TransferRecord } from "./types";
 
 function flatSheet(clubId: string, rating: number, posture: Posture = "balanced", formation: FormationName = "4-4-2"): TeamSheet {
@@ -377,4 +378,45 @@ describe("partida coerente (correcoes-validacao)", () => {
     console.log(`C46 gols do mandante: 4-3-3 ${attacking.toFixed(3)}, 4-5-1 ${holding.toFixed(3)}`);
     expect(attacking).toBeGreaterThanOrEqual(1.05 * holding);
   });
+});
+
+describe("nenhum save sem saída (correcoes-validacao)", () => {
+  test("carreira sem renovação não trava", () => {
+    // C19 (AC 15, AC 16): seed 11, club 10 of the Série A, no renewals, an automatic eleven for
+    // every date, a job offer taken when fired; through season 3, round 24, to the end of season 4.
+    let s = newGame(11);
+    s.userClubId = s.leagues[0]!.clubs[10]!.id;
+    s.boardGoal = userBoardGoal(s);
+    s.cupGoal = userCupGoal(s);
+    const stuck: string[] = [];
+    const smallest: number[] = [];
+    let passed = false;
+    for (;;) {
+      let fewest = Infinity;
+      while (nextDate(s).kind !== "over") {
+        const me = allClubs(s).find((c) => c.id === s.userClubId)!;
+        const competition = nextCompetition(s);
+        me.lineup = autoLineup(me, me.lineup?.formation ?? AI_FORMATION, me.lineup?.posture ?? "balanced", 0, competition);
+        fewest = Math.min(fewest, me.players.length);
+        if (!validateLineup(me, me.lineup, competition).ok) {
+          stuck.push(`temporada ${s.season} rodada ${s.leagues[0]!.currentRound}`);
+          break;
+        }
+        if (s.season === 3 && s.leagues[0]!.currentRound >= 24) passed = true;
+        s = playDate(s).state;
+      }
+      smallest.push(fewest);
+      if (stuck.length || s.season === 4) break;
+      const review = seasonReview(s);
+      s = nextSeason(s, review.user?.verdict === "fired" ? review.jobOffers[0] : undefined).state;
+    }
+    console.log(`C19 menor elenco por temporada: ${smallest.join(", ")}`);
+    expect(stuck).toEqual([]);
+    // The academy keeps the squad at 18 or more (AC 15): nobody leaves it during a season here.
+    expect(smallest).toHaveLength(4);
+    for (const n of smallest) expect(n).toBeGreaterThanOrEqual(18);
+    expect(passed).toBe(true);
+    expect(s.season).toBe(4);
+    expect(nextDate(s).kind).toBe("over");
+  }, 180_000);
 });

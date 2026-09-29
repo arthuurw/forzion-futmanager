@@ -121,3 +121,27 @@ describe("disponibilidade por competição (copa-nacional)", () => {
     }
   });
 });
+
+describe("escalação com menos de 11 aptos (correcoes-validacao)", () => {
+  test("mínimo é o menor entre 11 e os aptos", () => {
+    // C17 (AC 16, L-005, L-007): 12, 11, 10 and 7 available; the others injured.
+    for (const available of [12, 11, 10, 7]) {
+      const c = club();
+      c.players.forEach((p, i) => Object.assign(p, { injuryRounds: i < available ? 0 : 2, suspendedRounds: 0 }));
+      const full = autoLineup(c, "4-4-2");
+      const fielded = full.starters.filter(Boolean);
+      expect(fielded, `${available} aptos`).toHaveLength(Math.min(11, available));
+      expect(validateLineup(c, full), `${available} aptos`).toEqual({ ok: true, missing: 0 });
+      // One slot less: an empty slot, then an injured player in it; neither counts.
+      const slot = full.starters.indexOf(fielded[fielded.length - 1]!);
+      const short = { ...full, starters: full.starters.map((id, i) => (i === slot ? null : id)) };
+      const injured = { ...full, starters: full.starters.map((id, i) => (i === slot ? c.players[21]!.id : id)) };
+      expect(c.players[21]!.injuryRounds).toBe(2);
+      // 12 and 11 need 11 valid; 10 needs the 10 (9 miss one); 7 only its full eleven, checked above.
+      if (available >= 10) {
+        expect(validateLineup(c, short), `${available} aptos`).toEqual({ ok: false, missing: 1 });
+        expect(validateLineup(c, injured), `${available} aptos`).toEqual({ ok: false, missing: 1 });
+      }
+    }
+  });
+});

@@ -250,7 +250,8 @@ describe("evolução e aposentadoria", () => {
     const { state } = nextSeason(before);
     const now = clubOf(state, ai.id);
     expect(now.players).toHaveLength(22);
-    expect(userOf(state).players).toHaveLength(15);
+    // Correcoes-validacao C16 (Impact): the user's academy fills the squad up to 18, was none.
+    expect(userOf(state).players).toHaveLength(18);
     const mean = now.players.filter((p) => kept.has(p.id)).reduce((s, p) => s + p.rating, 0) / 15;
     const juniors = now.players.filter((p) => !kept.has(p.id));
     expect(juniors).toHaveLength(7);
@@ -598,6 +599,36 @@ describe("virada por país (paises)", () => {
 });
 
 describe("base na virada (correcoes-validacao)", () => {
+  test("base repõe o elenco do usuário até 18", () => {
+    // C16 (AC 15, L-007): 9 players rated 95 at 19 stay 95 after the summer (the cap), so the
+    // squad's mean is a whole number; the academy's rule is the mean − 8 ± 4.
+    const before = ended();
+    const me = userOf(before);
+    me.players = me.players.slice(0, 9).map((p) => ({ ...p, age: 19, rating: 95, contractSeasons: 3 }));
+    const { state } = nextSeason(before);
+    const after = userOf(state);
+    expect(after.players).toHaveLength(18);
+    const veterans = after.players.filter((p) => me.players.some((q) => q.id === p.id));
+    expect(veterans).toHaveLength(9);
+    const mean = veterans.reduce((sum, p) => sum + p.rating, 0) / veterans.length;
+    const juniors = after.players.filter((p) => !veterans.includes(p));
+    expect(juniors).toHaveLength(9);
+    for (const j of juniors) {
+      expect(j.id, j.id).toContain(`-y${state.season}-`);
+      expect(j.id.startsWith(`${me.id}-y2-`), j.id).toBe(true);
+      expect(j.rating, j.id).toBeGreaterThanOrEqual(mean - 12);
+      expect(j.rating, j.id).toBeLessThanOrEqual(mean - 4);
+    }
+
+    // With 20 players, nobody comes up.
+    const full = ended();
+    const mine = userOf(full);
+    mine.players = mine.players.slice(0, 20).map((p) => ({ ...p, age: 24, contractSeasons: 3 }));
+    const twenty = userOf(nextSeason(full).state);
+    expect(twenty.players).toHaveLength(20);
+    expect(twenty.players.filter((p) => p.id.includes("-y2-"))).toEqual([]);
+  });
+
   test("base estrangeira com nome do país", () => {
     // C41 (AC 37): an Argentine and a Portuguese club under 22 get juniors named after their country.
     const before = ended();

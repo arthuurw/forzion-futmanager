@@ -8,7 +8,7 @@ import { NATIONAL_CUP_ID, continentalFromTables, countryLookup, newContinentalCu
 import { salaryFor } from "./finance";
 import { generateJuniors, generateSchedule, makePlayer, takenNames } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
-import { CONTRACT_JUNIOR } from "./market";
+import { CONTRACT_JUNIOR, SQUAD_MIN } from "./market";
 import { generatePlayerName, uniqueName } from "./names";
 import { createRng, mix32, randInt, shuffle, type Rng } from "./rng";
 import { allClubs, seasonReview, type SeasonReview } from "./season";
@@ -108,12 +108,13 @@ function thinnestPosition(players: readonly Player[]): Position {
 
 /**
  * AC 19: an AI club under 22 gets juniors from its own academy, thinnest position first.
- * Correcoes-validacao AC 37: named like the players of the league's country.
+ * Correcoes-validacao AC 15: the user's club too, up to 18. AC 37: named like the players of the
+ * league's country.
  */
-function refillFromAcademy(rng: Rng, club: Club, season: number, taken: Set<string>, country: Country): void {
+function refillFromAcademy(rng: Rng, club: Club, season: number, taken: Set<string>, country: Country, target: number): void {
   const mean = club.players.reduce((sum, p) => sum + p.rating, 0) / Math.max(1, club.players.length);
   let n = 0;
-  while (club.players.length < AI_SQUAD_TARGET) {
+  while (club.players.length < target) {
     const position = thinnestPosition(club.players);
     const name = uniqueName(rng, taken, (r) => generatePlayerName(r, country));
     const age = randInt(rng, AI_JUNIOR_AGE.min, AI_JUNIOR_AGE.max);
@@ -250,7 +251,7 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
 
   const taken = takenNames(state);
   for (const league of state.leagues) {
-    for (const club of league.clubs) if (club.id !== managed) refillFromAcademy(rng, club, season, taken, league.country);
+    for (const club of league.clubs) refillFromAcademy(rng, club, season, taken, league.country, club.id === managed ? SQUAD_MIN : AI_SQUAD_TARGET);
   }
   topUpFreeAgents(rng, state, season, taken);
   state.userClubId = userId;

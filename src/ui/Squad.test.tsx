@@ -6,8 +6,9 @@ import { playDate } from "../engine/season";
 import { POSITIONS, type GameState } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { Squad } from "./Squad";
-import { preliminaryWithCupSuspended, resetAll, seededGame, seededGameIn } from "./test-utils";
+import { preliminaryWithCupSuspended, resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
 import { computeTable } from "../engine/table";
+import { AI_FORMATION, autoLineup } from "../engine/lineup";
 
 beforeEach(resetAll);
 
@@ -404,4 +405,27 @@ describe("textos do elenco (correcoes-validacao)", () => {
       view.unmount();
     }
   });
+});
+
+describe("elenco curto (correcoes-validacao)", () => {
+  test("joga com vaga quando faltam aptos", async () => {
+    // C18 (AC 16, AC 17, L-003): 10 available, all in the eleven; the rest out for 5 rounds.
+    const user = userEvent.setup();
+    const game = seededGame(12);
+    const me = userClub(game)!;
+    me.players.forEach((p, i) => Object.assign(p, { injuryRounds: i < 10 ? 0 : 5, suspendedRounds: 0 }));
+    me.lineup = autoLineup(me, AI_FORMATION);
+    expect(me.lineup.starters.filter((id) => id === null)).toHaveLength(1);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    const play = screen.getByRole("button", { name: "Jogar rodada" });
+    expect(play).toBeEnabled();
+    expect(screen.queryByText(/Falta/)).not.toBeInTheDocument();
+    await user.click(play);
+    await skipLive(user);
+    await screen.findByRole("region", { name: "Sua partida" });
+    expect(useGame.getState().phase).toBe("round");
+    expect(useGame.getState().lastRound!.results.some((r) => r.homeId === me.id || r.awayId === me.id)).toBe(true);
+    expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
+  }, 60_000);
 });

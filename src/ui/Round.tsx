@@ -7,6 +7,7 @@ import { allClubs, findAnyClub, userLeague } from "../engine/season";
 import { useGame, userClub } from "../store";
 import { cupPhaseTitle, nextDateLabel, scoreText } from "./Cup";
 import { Flag } from "./Flag";
+import { missingStartersText } from "./lineupText";
 import { formatMoney, formatNumber } from "./money";
 import { ScreenTabs } from "./ScreenTabs";
 import { DivisionTable } from "./Table";
@@ -32,7 +33,9 @@ export function Round() {
   const ctx = narrationContext(cup ? allClubs(game) : league.clubs);
   const mine = lastRound.results.find((r) => r.homeId === club.id || r.awayId === club.id);
   const others = cup ? lastRound.results : lastRound.results.filter((r) => r !== mine);
-  const canPlay = validateLineup(club, club.lineup, nextCompetition(game)).ok && nextDate(game).kind !== "over";
+  const validation = validateLineup(club, club.lineup, nextCompetition(game));
+  const over = nextDate(game).kind === "over";
+  const canPlay = validation.ok && !over;
   const name = (id: string) => findAnyClub(game, id).name;
   const nextPhase = cup && cupDate ? cup.phases[cupDate.phase + 1] : undefined;
   const champion = cup ? cupChampion(cup) : null;
@@ -131,6 +134,11 @@ export function Round() {
       <div className="action-bar">
         <span className="matchday">{nextDateLabel(game, league.rounds.length, league.currentRound)}</span>
         <button onClick={goToSquad}>Escalação</button>
+        {!validation.ok && !over && (
+          <p role="status" className="missing">
+            {missingStartersText(validation.missing)}
+          </p>
+        )}
         <button className="primary" disabled={!canPlay} onClick={() => void playRound()}>
           Jogar rodada
         </button>

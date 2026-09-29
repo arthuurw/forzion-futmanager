@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { newGame } from "./generate";
-import { AI_FORMATION, aiLineup, autoLineup, formationSlots } from "./lineup";
+import { AI_FORMATION, aiLineup, autoLineup, formationSlots, validateLineup } from "./lineup";
 import {
   MAX_SUBS,
   changeFormation,
@@ -454,6 +454,24 @@ describe("partida coerente (correcoes-validacao)", () => {
     ...Array<Position>(mf).fill("MF"),
     ...Array<Position>(fw).fill("FW"),
   ];
+
+  test("time do usuário com vaga joga", () => {
+    // C18 (AC 16, AC 17): 10 available, all of them in the eleven, one slot empty.
+    const state = game(8);
+    const me = state.leagues[0]!.clubs[0]!;
+    me.players.forEach((p, i) => Object.assign(p, { injuryRounds: i < 10 ? 0 : 5, suspendedRounds: 0 }));
+    me.lineup = autoLineup(me, AI_FORMATION);
+    expect(me.lineup.starters.filter((id) => id === null)).toHaveLength(1);
+    expect(validateLineup(me, me.lineup)).toEqual({ ok: true, missing: 0 });
+    const live = startRound(state);
+    const side = userSide(live);
+    expect(side.slots.filter((id) => id === null)).toHaveLength(1);
+    const out = finishRound(state, live);
+    const mine = out.results.find((r) => r.homeId === me.id || r.awayId === me.id)!;
+    expect(Number.isInteger(mine.result.homeGoals)).toBe(true);
+    expect(Number.isInteger(mine.result.awayGoals)).toBe(true);
+    expect(out.state.leagues[0]!.currentRound).toBe(1);
+  });
 
   test("goleiro efetivo sem goleiro", () => {
     // C42 (AC 38): the best outfield player on the pitch, 80, in goal at 80 × 0,75.

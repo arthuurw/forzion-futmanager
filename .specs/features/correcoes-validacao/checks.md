@@ -117,7 +117,7 @@ Proof: `npx vitest run src/store.test.ts -t "save sem marcador abre normal"`
 
 ### S2 - Nenhum save fica sem saída · 7 files · 89 KB · ~22k
 
-**C16** - Na virada com o elenco do usuário em 9:
+**C16** ✓ - Na virada com o elenco do usuário em 9:
 - o elenco fica com 18;
 - os 9 novos têm id `-y<season>-`;
 - a força de cada um fica em `[média − 12, média − 4]`, com a média calculada no teste.
@@ -126,23 +126,23 @@ Com o elenco em 20, nenhum júnior entra (AC 15, L-007).
 
 Proof: `npx vitest run src/engine/rollover.test.ts -t "base repõe o elenco do usuário até 18"`
 
-**C17** - Tabela de `validateLineup` com aptos = 12, 11, 10 e 7:
+**C17** ✓ - Tabela de `validateLineup` com aptos = 12, 11, 10 e 7:
 - 12 e 11 exigem 11 válidos;
 - com 10 aptos, os 10 escalados dão `ok` e 9 dão `missing: 1`;
 - com 7 aptos, os 7 escalados dão `ok` (AC 16, L-005).
 
 Proof: `npx vitest run src/engine/lineup.test.ts -t "mínimo é o menor entre 11 e os aptos"`
 
-**C18** - Pela tela, com 10 aptos todos escalados, «Jogar rodada» está ligado no Elenco e na Rodada. A partida roda com um slot `null` no time do usuário e termina com placar (AC 16, AC 17, L-003).
+**C18** ✓ - Pela tela, com 10 aptos todos escalados, «Jogar rodada» está ligado no Elenco e na Rodada. A partida roda com um slot `null` no time do usuário e termina com placar (AC 16, AC 17, L-003).
 
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "joga com vaga quando faltam aptos"`
 Proof: `npx vitest run src/engine/live.test.ts -t "time do usuário com vaga joga"`
 
-**C19** - A seed 11, clube índice 10, sem renovar contratos e escalando por `autoLineup` a cada data, passa da temporada 3, rodada 24, e chega ao fim da temporada 4 sem data travada (AC 15, AC 16).
+**C19** ✓ - A seed 11, clube índice 10, sem renovar contratos e escalando por `autoLineup` a cada data, passa da temporada 3, rodada 24, e chega ao fim da temporada 4 sem data travada (AC 15, AC 16).
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "carreira sem renovação não trava"`
 
-**C20** - Tabela sobre a tela Rodada com a escalação inválida:
+**C20** ✓ - Tabela sobre a tela Rodada com a escalação inválida:
 - `missing` 1: mostra «Falta 1 titular» com `role="status"`;
 - `missing` 3: mostra «Faltam 3 titulares» com `role="status"`.
 

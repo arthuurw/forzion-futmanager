@@ -220,3 +220,25 @@ describe("tabela com quatro ligas (paises)", () => {
     }
   });
 });
+
+describe("rodada com escalação inválida (correcoes-validacao)", () => {
+  test("rodada explica o botão desligado", () => {
+    // C20 (AC 18, L-008): 1 and 3 empty slots, with the whole squad available.
+    const rows: [number, string][] = [
+      [1, "Falta 1 titular"],
+      [3, "Faltam 3 titulares"],
+    ];
+    for (const [empty, text] of rows) {
+      const { state, ...lastRound } = playRound(seededGame(8, 5));
+      const me = state.leagues[0]!.clubs[5]!;
+      for (const p of me.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+      me.lineup = { ...me.lineup!, starters: me.lineup!.starters.map((id, i) => (i >= 1 && i <= empty ? null : id)) };
+      useGame.setState({ phase: "round", game: state, lastRound });
+      const view = render(<Round />);
+      expect(screen.getByRole("status"), text).toHaveTextContent(text);
+      expect(screen.getByText(text)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
+      view.unmount();
+    }
+  });
+});

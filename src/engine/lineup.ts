@@ -104,9 +104,13 @@ export interface LineupValidation {
   missing: number;
 }
 
-/** Valid = 11 distinct players of the club available for `competition`, one per slot, in any position. */
+/**
+ * Valid = distinct players of the club available for `competition`, one per slot, in any position:
+ * 11 of them, or every available player when fewer than 11 are (correcoes-validacao AC 16).
+ */
 export function validateLineup(club: Club, lineup: Lineup | null, competition: Competition = LEAGUE): LineupValidation {
-  if (!lineup) return { ok: false, missing: 11 };
+  const required = Math.min(11, club.players.filter((p) => isAvailableFor(p, competition)).length);
+  if (!lineup) return { ok: required === 0, missing: required };
   const slots = formationSlots(lineup.formation);
   const seen = new Set<string>();
   let valid = 0;
@@ -118,7 +122,7 @@ export function validateLineup(club: Club, lineup: Lineup | null, competition: C
     seen.add(id);
     valid++;
   });
-  return { ok: valid === 11, missing: 11 - valid };
+  return { ok: valid >= required, missing: Math.max(0, required - valid) };
 }
 
 /** Mean rating of the club's eleven highest-rated players, regardless of position (AC 3, AC 7). */

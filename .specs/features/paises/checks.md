@@ -126,7 +126,7 @@ Proof: `npx vitest run src/engine/migrate.test.ts -t "v6 no meio da temporada ga
 **C29** ✓ - Uma fixture de cada versão, v1 a v5, carregada vira `schemaVersion: 7` com 4 ligas (AC 28)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "cadeia até v7"`
 
-**C30** ✓ - Um save com `schemaVersion: 8` é recusado como incompatível, e um com 7 carrega (AC 29)
+**C30** ✓ - Um save com `schemaVersion: 8` é recusado como incompatível, e um com 7 carrega (AC 29) - Superseded por copa-continental C24
 Proof: `npx vitest run src/engine/migrate.test.ts -t "versão acima de 7 incompatível"`
 
 **C31** ✓ - Um save v7 de um jogo novo com o usuário na Liga Argentina, gravado e relido pela camada de persistência (fake-indexeddb), volta igual, com `country` e `tier` nas 4 ligas (door 1)

@@ -19,7 +19,7 @@ Textos de tela fixados aqui: «Copa», «Copa Nacional», «Copa Nacional · <fa
 
 ### S1 - Calendário de 44 datas · ~9 files · ~95 KB · ~24k
 
-**C1** - Num jogo novo jogado com `playDate` até o fim, a sequência de datas é exatamente `L×4, C0, L×6, C1, L×6, C2, L×6, C3, L×6, C4, L×6, C5, L×4`: 44 datas, sendo `Ck` a fase `k` da copa e `L` uma rodada da liga (AC 1, door 4)
+**C1** - Num jogo novo jogado com `playDate` até o fim, a sequência de datas é exatamente `L×4, C0, L×6, C1, L×6, C2, L×6, C3, L×6, C4, L×6, C5, L×4`: 44 datas, sendo `Ck` a fase `k` da copa e `L` uma rodada da liga (AC 1, door 4) - Superseded por copa-continental C9
 Proof: `npx vitest run src/engine/calendar.test.ts -t "sequência das 44 datas"`
 
 **C2** - A copa de um jogo novo tem 6 fases com os nomes «Preliminar», «16 avos», «Oitavas», «Quartas», «Semifinal» e «Final», e com `afterLeagueRound` 4, 10, 16, 22, 28 e 34, nessa ordem. O id da copa é `"cup-nat"` (AC 1, door 1, door 4)
@@ -224,7 +224,7 @@ Proof: `npx vitest run src/engine/migrate.test.ts -t "campos novos da v5"`
 **C60** - Saves v1, v2 e v3 migram para v5 com a copa (AC 53)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v1 v2 e v3 viram v5"`
 
-**C61** - `schemaVersion` 6 e `"x"` são incompatíveis, e a tela inicial mostra «Jogo salvo incompatível (versão 6)» (AC 54)
+**C61** - `schemaVersion` 6 e `"x"` são incompatíveis, e a tela inicial mostra «Jogo salvo incompatível (versão 6)» (AC 54) - Superseded por gastos-da-ia C30
 Proof: `npx vitest run src/engine/migrate.test.ts -t "versão acima de 5 incompatível"`
 Proof: `npx vitest run src/ui/Home.test.tsx -t "save de versão 6 incompatível"`
 

@@ -115,10 +115,10 @@ Proof: `npx vitest run src/ui/Market.test.tsx -t "transferências rolam no paine
 **C28** - A fixture v5 migrada vira `schemaVersion: 6` com `market.transfers: []`. Tirando esses dois campos, o documento é igual ao v5 (`toEqual`) (AC 22, door 1)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v5 vira v6"`
 
-**C29** - Uma fixture de cada versão, v1, v2, v3 e v4, carregada vira `schemaVersion: 6` com `market.transfers: []` (AC 23)
+**C29** - Uma fixture de cada versão, v1, v2, v3 e v4, carregada vira `schemaVersion: 6` com `market.transfers: []` (AC 23) - Superseded por paises C29
 Proof: `npx vitest run src/engine/migrate.test.ts -t "cadeia até v6"`
 
-**C30** - Um save com `schemaVersion: 7` é recusado como incompatível, e um com 6 carrega (AC 24)
+**C30** - Um save com `schemaVersion: 7` é recusado como incompatível, e um com 6 carrega (AC 24) - Superseded por paises C30
 Proof: `npx vitest run src/engine/migrate.test.ts -t "versão acima de 6 incompatível"`
 
 **C31** - Um save v6 com 2 linhas no boletim, gravado e relido pela camada de persistência (fake-indexeddb), volta com as 2 linhas iguais (door 1)

@@ -259,10 +259,10 @@ Proof: `npx vitest run src/engine/migrate.test.ts -t "migra v3 para v4"`
 **C49** - Saves v2 e v1 também viram v4, com as mesmas garantias de condição e finanças de antes, e mais a Série B, os contratos e as estatísticas (AC 41)
 Proof: `npx vitest run src/engine/migrate.test.ts -t "migra v2 e v1 para v4"`
 
-**C50** - Com um documento de `schemaVersion` 5, a tela Início mostra «Jogo salvo incompatível (versão 5)» e só «Novo jogo» (AC 42)
+**C50** - Com um documento de `schemaVersion` 5, a tela Início mostra «Jogo salvo incompatível (versão 5)» e só «Novo jogo» (AC 42) - Superseded por copa-nacional C61
 Proof: `npx vitest run src/ui/Home.test.tsx -t "save de versão 5 incompatível"`
 
-**C51** - Um documento v4 passa pela leitura sem mudança (door 1)
+**C51** - Um documento v4 passa pela leitura sem mudança (door 1) - Superseded por copa-nacional C56
 Proof: `npx vitest run src/engine/migrate.test.ts -t "v4 passa direto"`
 Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVersion 4 com finanças e mercado"`
 
@@ -272,7 +272,7 @@ Proof: `npx vitest run src/engine/migrate.test.ts -t "série B migrada vem da se
 Proof: `npx vitest run src/engine/migrate.test.ts -t "partidas migradas da série B usam a semente da porta 5"`
 
 **C56** - Na migração, o contrato de cada jogador da Série A, na ordem dos clubes e dos jogadores, é o sorteio `randInt(1, 4)` de `createRng(mix32(seed, 5))` (door 5)
-Proof: `npx vitest run src/engine/migrate.test.ts -t "contratos migrados da série A vêm de mix32(seed, 5)"`
+Proof: `npx vitest run src/engine/migrate.test.ts -t "contratos migrados da série A vêm de mix32\(seed, 5\)"`
 
 **C53** - Em 3 seeds e 5 temporadas sem usuário, o caixa final de cada clube fica entre −2× e 30× o inicial, e a mediana entre 3× e 10× (AC 43)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`

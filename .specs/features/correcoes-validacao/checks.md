@@ -389,7 +389,7 @@ Proof: `npx vitest run src/deps.test.ts -t "eslint barra as formas indiretas"`
 Proof: `npx vitest run src/engine/narration.test.ts -t "linha de cada tipo de evento"`
 Proof: `npx vitest run src/engine/match.test.ts -t "todos os tipos de evento ocorrem e têm narração"`
 
-**C62** - O script de seletores varre `.specs/features/*/checks.md` e termina com 0 seletores órfãos. Os checks que eram órfãos estão marcados «Superseded por <feature> <check>» (AC 58).
+**C62** - ✓ O script de seletores varre `.specs/features/*/checks.md` e termina com 0 seletores órfãos. Os checks que eram órfãos estão marcados «Superseded por <feature> <check>» (AC 58).
 
 Proof: `npx vitest run src/launch.test.ts -t "provas dos checks existem"`
 

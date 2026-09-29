@@ -69,7 +69,7 @@ Proof: `npx vitest run src/ui/Market.test.tsx -t "mercado fechado"`
 **C18** - A lista do mercado tem as colunas Nome, Pos, Idade, Força, Clube, Valor e Salário e 458 linhas (19 clubes × 22 + 40 livres, «Livre» no clube), por força decrescente; o filtro «ATA» deixa só atacantes; um filtro sem jogadores mostra «Nenhum jogador» (AC 18)
 Proof: `npx vitest run src/ui/Market.test.tsx -t "lista do mercado"`
 
-**C19** - Com força 75, o valor é R$ 3.060.000 aos 20, R$ 2.450.000 aos 25, R$ 2.040.000 aos 29, R$ 1.220.000 aos 32 e R$ 610.000 aos 35; as bordas 21/22, 27/28, 30/31 e 33/34 mudam de faixa (AC 19)
+**C19** - Com força 75, o valor é R$ 3.060.000 aos 20, R$ 2.450.000 aos 25, R$ 2.040.000 aos 29, R$ 1.220.000 aos 32 e R$ 610.000 aos 35; as bordas 21/22, 27/28, 30/31 e 33/34 mudam de faixa (AC 19) - Superseded por multiplas-temporadas C26
 Proof: `npx vitest run src/engine/market.test.ts -t "valor por salário e idade"`
 
 **C20** - O preço pedido por um titular da escalação da IA é 1,5 × valor, e por um reserva é 1,0 × valor (AC 20)
@@ -185,16 +185,16 @@ Proof: `npx vitest run src/store.test.ts -t "mensagens de recusa exatas"`
 
 ### S7 - Save compatível · ~4 files · ~20 KB · ~5k
 
-**C51** - Um save v2 e um save v1 viram v3 na leitura, com salário pela fórmula, caixa e torcida pelas fórmulas, ingresso R$ 40, sem empréstimo e sem obra, 40 livres, nenhuma proposta e nenhum júnior, e com elencos e tabela intactos (AC 51)
+**C51** - Um save v2 e um save v1 viram v3 na leitura, com salário pela fórmula, caixa e torcida pelas fórmulas, ingresso R$ 40, sem empréstimo e sem obra, 40 livres, nenhuma proposta e nenhum júnior, e com elencos e tabela intactos (AC 51) - Superseded por multiplas-temporadas C49
 Proof: `npx vitest run src/engine/migrate.test.ts -t "migra v2 e v1 para v3"`
 
-**C52** - Um save gravado com `schemaVersion: 4` mostra «Jogo salvo incompatível (versão 4)» e só «Novo jogo» (AC 52)
+**C52** - Um save gravado com `schemaVersion: 4` mostra «Jogo salvo incompatível (versão 4)» e só «Novo jogo» (AC 52) - Superseded por multiplas-temporadas C50
 Proof: `npx vitest run src/ui/Home.test.tsx -t "save de versão 4 incompatível"`
 
 **C53** - Recarregar o mesmo save antes da rodada e jogá-la dá os mesmos resultados, as mesmas propostas e as mesmas contratações da IA (AC 53)
 Proof: `npx vitest run src/app.test.tsx -t "reload antes da rodada repete propostas"`
 
-**C54** - O documento gravado tem `schemaVersion: 3`, `finance` em todo clube, `salary` em todo jogador e `market` com `freeAgents`, `juniors` e `offers` (plano Landing, door 1)
+**C54** - O documento gravado tem `schemaVersion: 3`, `finance` em todo clube, `salary` em todo jogador e `market` com `freeAgents`, `juniors` e `offers` (plano Landing, door 1) - Superseded por multiplas-temporadas C51
 Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVersion 3 com finanças e mercado"`
 
 **C55** - Mudar a força de um jogador no save não muda o salário dele, nem depois de uma rodada, nem depois de gravar e ler (plano Landing, door 2)

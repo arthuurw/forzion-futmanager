@@ -56,7 +56,7 @@ Proof: `npx vitest run src/ui/Home.test.tsx -t "com save mostra Continuar e Novo
 Proof: `npx vitest run src/engine/rng.test.ts -t "mesma seed mesma sequência"`
 Proof: `npx vitest run src/engine/rng.test.ts -t "getState restaura sequência"`
 
-**C15** - O documento gravado em `brasfoot`/`saves`/`slot-1` tem `schemaVersion: 1`, `seed`, `rngState`, `season: 1`, `userClubId` e `leagues` como array (door 1)
+**C15** - O documento gravado em `brasfoot`/`saves`/`slot-1` tem `schemaVersion: 1`, `seed`, `rngState`, `season: 1`, `userClubId` e `leagues` como array (door 1) - Superseded por partida-ao-vivo C45
 Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVersion 1 e leagues array"`
 
 **C16** - `src/engine/**` compila sem `lib` DOM e o lint rejeita import de `react`, `react-dom`, `zustand`, `idb` e uso de `Math.random` dentro dele; identificadores são ASCII (door 3, door 6)
@@ -70,7 +70,7 @@ Proof: `npx vitest run src/ui/Squad.test.tsx -t "oferece 4-4-2 4-3-3 3-5-2 4-5-1
 **C18** - Escolher uma formação preenche os 11 slots com o jogador de maior `rating` ainda disponível para a posição de cada slot, para cada uma das 4 formações (AC 15)
 Proof: `npx vitest run src/engine/lineup.test.ts -t "auto preenche melhor por slot"`
 
-**C19** - Um slot aceita apenas jogador cuja `position` é igual à do slot; outro é rejeitado (AC 16)
+**C19** - Um slot aceita apenas jogador cuja `position` é igual à do slot; outro é rejeitado (AC 16) - Superseded por partida-ao-vivo C23
 Proof: `npx vitest run src/engine/lineup.test.ts -t "slot rejeita posição diferente"`
 
 **C20** - Escalação sem exatamente 11 titulares distintos, 1 GK e as contagens da formação deixa «Jogar rodada» desabilitado com «Faltam N titulares», N correto (AC 17)
@@ -112,7 +112,7 @@ Proof: `npx vitest run src/ui/Round.test.tsx -t "mostra Rodada N de 38"`
 **C32** - O `MatchResult` persistido contém `homeGoals`, `awayGoals` e `goals[{minute, clubId, playerId}]`, e nenhum evento de outro tipo (door 7)
 Proof: `npx vitest run src/persistence/save.test.ts -t "resultado persistido tem só placar e gols"`
 
-**C33** - Cada um dos 6 tipos de `MatchEvent` ocorre ao menos uma vez em 100 partidas com seeds 1–100, e cada tipo tem uma linha de narração em PT-BR distinta (AC 18, AC 19)
+**C33** - Cada um dos 6 tipos de `MatchEvent` ocorre ao menos uma vez em 100 partidas com seeds 1–100, e cada tipo tem uma linha de narração em PT-BR distinta (AC 18, AC 19) - Superseded por partida-ao-vivo C46
 Proof: `npx vitest run src/engine/match.test.ts -t "todos os 6 tipos de evento ocorrem e têm narração"`
 
 ### S3 - Temporada completa e retomada · ~4 files · ~12 KB · ~3k

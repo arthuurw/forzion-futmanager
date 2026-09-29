@@ -136,7 +136,7 @@ Proof: `npx vitest run src/engine/live.test.ts -t "condição 50 rende 85%"`
 ### S5 - Moral · ~2 files · ~10 KB · ~3k
 
 **C37** - Vitória dá +1 de moral a quem jogou, com teto +2 (AC 37)
-Proof: `npx vitest run src/engine/condition.test.ts -t "vitória sobe moral até +2"`
+Proof: `npx vitest run src/engine/condition.test.ts -t "vitória sobe moral até \+2"`
 
 **C38** - Derrota tira 1 de moral de quem jogou, com piso −2 (AC 38)
 Proof: `npx vitest run src/engine/condition.test.ts -t "derrota baixa moral até -2"`
@@ -145,25 +145,25 @@ Proof: `npx vitest run src/engine/condition.test.ts -t "derrota baixa moral até
 Proof: `npx vitest run src/engine/condition.test.ts -t "três rodadas sem jogar baixa moral"`
 
 **C40** - Moral +2 dá força efetiva 6% maior que moral 0 (AC 40, door 6)
-Proof: `npx vitest run src/engine/live.test.ts -t "moral +2 rende 6% a mais"`
+Proof: `npx vitest run src/engine/live.test.ts -t "moral \+2 rende 6% a mais"`
 
 **C41** - A tela Elenco mostra a moral como seta de 5 níveis: ↓ (−2), ↘ (−1), → (0), ↗ (+1), ↑ (+2), cada uma com sua classe de cor (AC 41)
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "setas de moral em 5 níveis"`
 
 ### S6 - Save compatível · ~3 files · ~10 KB · ~3k
 
-**C42** - Um save v1 lido vira v2 com condição 100, moral 0, contadores em 0 e postura «balanced» em cada escalação (AC 42)
+**C42** - Um save v1 lido vira v2 com condição 100, moral 0, contadores em 0 e postura «balanced» em cada escalação (AC 42) - Superseded por multiplas-temporadas C49
 Proof: `npx vitest run src/engine/migrate.test.ts -t "migra save v1 para v2"`
 Proof: `npx vitest run src/persistence/save.test.ts -t "carrega save v1 migrado"`
 
-**C43** - Um save com `schemaVersion` 3 mostra «Jogo salvo incompatível (versão 3)» e só «Novo jogo» (AC 43)
+**C43** - Um save com `schemaVersion` 3 mostra «Jogo salvo incompatível (versão 3)» e só «Novo jogo» (AC 43) - Superseded por elenco-mercado-financas C52
 Proof: `npx vitest run src/ui/Home.test.tsx -t "save de versão futura incompatível"`
 
 **C44** - Com condição 100, moral 0 e postura «Equilibrada», as faixas de gols e de vitória do mandante do núcleo continuam valendo (AC 44)
 Proof: `npx vitest run src/engine/balance.test.ts -t "times iguais"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "forte contra fraco"`
 
-**C45** - O documento gravado tem `schemaVersion: 2`, e cada jogador tem `fitness`, `morale`, `injuryRounds`, `suspendedRounds`, `yellowCards` e `idleRounds` (door 1, door 7)
+**C45** - O documento gravado tem `schemaVersion: 2`, e cada jogador tem `fitness`, `morale`, `injuryRounds`, `suspendedRounds`, `yellowCards` e `idleRounds` (door 1, door 7) - Superseded por elenco-mercado-financas C54
 Proof: `npx vitest run src/persistence/save.test.ts -t "documento tem schemaVersion 2 com condição"`
 
 **C46** - Cada um dos 10 tipos de evento ocorre ao menos uma vez em 200 rodadas simuladas e tem uma narração PT-BR distinta (plano Impact, `MatchEvent`)

@@ -1,4 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
@@ -110,5 +114,71 @@ describe("guardas e metadados (correcoes-validacao)", () => {
     };
     expect(size("og-image.png")).toEqual([1200, 630]);
     expect(size("apple-touch-icon.png")).toEqual([180, 180]);
+  });
+
+  test("provas dos checks existem", () => {
+    // C62 (AC 58): the selector script over every checks.md ends with 0 orphans.
+    type Scan = { selectors: number; superseded: number; orphans: { feature: string; check: string; file: string; name: string }[] };
+    const script = fileURLToPath(new URL("../scripts/proof-check.mjs", import.meta.url));
+    const scan = (...args: string[]) => {
+      const r = spawnSync(process.execPath, [script, "--json", ...args], { encoding: "utf8" });
+      return { status: r.status, result: JSON.parse(r.stdout) as Scan };
+    };
+    const all = scan();
+    expect(all.result.orphans).toEqual([]);
+    expect(all.status).toBe(0);
+    expect(all.result.selectors).toBeGreaterThan(500);
+
+    // The checks whose proof pointed at a test that is gone, each marked with what replaced it.
+    const marked: [string, string, string][] = [
+      ["copa-nacional", "C1", "copa-continental C9"],
+      ["copa-nacional", "C61", "gastos-da-ia C30"],
+      ["elenco-mercado-financas", "C19", "multiplas-temporadas C26"],
+      ["elenco-mercado-financas", "C51", "multiplas-temporadas C49"],
+      ["elenco-mercado-financas", "C52", "multiplas-temporadas C50"],
+      ["elenco-mercado-financas", "C54", "multiplas-temporadas C51"],
+      ["gastos-da-ia", "C29", "paises C29"],
+      ["gastos-da-ia", "C30", "paises C30"],
+      ["multiplas-temporadas", "C50", "copa-nacional C61"],
+      ["multiplas-temporadas", "C51", "copa-nacional C56"],
+      ["nucleo-liga-partida", "C15", "partida-ao-vivo C45"],
+      ["nucleo-liga-partida", "C19", "partida-ao-vivo C23"],
+      ["nucleo-liga-partida", "C33", "partida-ao-vivo C46"],
+      ["paises", "C30", "copa-continental C24"],
+      ["partida-ao-vivo", "C12", "correcoes-validacao C14"],
+      ["partida-ao-vivo", "C42", "multiplas-temporadas C49"],
+      ["partida-ao-vivo", "C43", "elenco-mercado-financas C52"],
+      ["partida-ao-vivo", "C45", "elenco-mercado-financas C54"],
+    ];
+    for (const [feature, check, by] of marked) {
+      const head = read(`.specs/features/${feature}/checks.md`)
+        .split("\n")
+        .find((l) => l.startsWith(`**${check}**`));
+      expect(head, `${feature} ${check}`).toContain(`Superseded por ${by}`);
+    }
+
+    // The script finds an orphan, and a superseded check is not one.
+    const dir = mkdtempSync(join(tmpdir(), "proof-check-"));
+    try {
+      mkdirSync(join(dir, "x"));
+      writeFileSync(
+        join(dir, "x", "checks.md"),
+        [
+          "**C1** - existe",
+          'Proof: `npx vitest run src/launch.test.ts -t "provas dos checks existem"`',
+          "**C2** - sumiu",
+          'Proof: `npx vitest run src/launch.test.ts -t "teste que não existe"`',
+          "**C3** - trocado - Superseded por x C1",
+          'Proof: `npx vitest run src/launch.test.ts -t "outro que não existe"`',
+        ].join("\n"),
+      );
+      const fixture = scan(`--features=${dir}`);
+      expect(fixture.status).toBe(1);
+      expect(fixture.result.selectors).toBe(3);
+      expect(fixture.result.superseded).toBe(1);
+      expect(fixture.result.orphans.map((o) => o.check)).toEqual(["C2"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

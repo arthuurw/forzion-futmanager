@@ -586,3 +586,26 @@ describe("ícones do ao vivo (correcoes-validacao)", () => {
     expect(cards[0]!.closest("tr")).toHaveTextContent(live.players[booked]!.name);
   });
 });
+
+describe("torcida ao desmontar (correcoes-validacao)", () => {
+  test("desmontar para a torcida", () => {
+    // C57 (AC 53): the live screen goes away with the clock running (an error screen replaces it).
+    localStorage.clear();
+    const backend = fakeBackend();
+    installAudio(backend);
+    vi.useFakeTimers();
+    useGame.setState({ phase: "squad", game: seededGame(3), hasSave: true });
+    const view = render(<App />);
+    fireEvent.pointerDown(document);
+    fireEvent.click(screen.getByRole("button", { name: "Jogar rodada" }));
+    advance(600);
+    expect(useGame.getState().clock).toBe("running");
+    expect(backend.calls.filter((c) => c.kind === "ambience-start")).toHaveLength(1);
+    expect(backend.calls.filter((c) => c.kind === "ambience-stop")).toHaveLength(0);
+    const before = backend.calls.length;
+    view.unmount();
+    const after = backend.calls.slice(before);
+    expect(after).toContainEqual({ kind: "ambience-ramp", gain: 0, seconds: 2 });
+    expect(after.filter((c) => c.kind === "ambience-stop")).toHaveLength(1);
+  });
+});

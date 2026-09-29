@@ -59,7 +59,7 @@ export function Live() {
     let heard = start.live ? (userMatch(start.live)?.events.length ?? 0) : 0;
     let crowd = crowdOf(start);
     if (crowd) sound.crowd(crowd);
-    return useGame.subscribe((s, prev) => {
+    const unsubscribe = useGame.subscribe((s, prev) => {
       if (s.live && prev.live && s.live !== prev.live && s.live.userClubId) {
         // Only the user's match sounds (AC 8).
         const events = userMatch(s.live)?.events ?? [];
@@ -73,6 +73,12 @@ export function Live() {
       if (next && next !== crowd) sound.crowd(next);
       crowd = next ?? crowd;
     });
+    // Correcoes-validacao AC 53: the screen going away (an error screen, a reload of the state)
+    // stops the crowd; «over» is a no-op when the match already ended.
+    return () => {
+      unsubscribe();
+      sound.crowd("over");
+    };
   }, []);
 
   // A score that changed flashes for 2 s (AC 4).

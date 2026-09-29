@@ -99,7 +99,9 @@ export function createAudio({ backend, rng, doc, storage, now = Date.now }: Audi
       music.setContext(PHASE_CONTEXT[phase]);
     },
     matchEvents(events, userClubId) {
-      if (!started) return;
+      // Correcoes-validacao AC 52: a hidden tab's context is suspended; what it would queue would
+      // all sound at once when the tab returns, so nothing is scheduled while hidden.
+      if (!started || doc.hidden) return;
       const kicks = events.filter((e) => PENALTY_EVENT_TYPES.includes(e.type));
       for (const e of events) if (!kicks.includes(e)) for (const id of effectsFor(e, userClubId)) sfx.play(id);
       // Ajustes-audio AC 7, AC 8: the whole shoot-out arrives in the 90th minute; it sounds one kick
@@ -107,7 +109,11 @@ export function createAudio({ backend, rng, doc, storage, now = Date.now }: Audi
       const goals = (mine: boolean) => kicks.filter((k) => k.type === "penalty_scored" && (k.clubId === userClubId) === mine).length;
       const steps = kicks.map((k) => effectsFor(k, userClubId));
       if (kicks.length && goals(true) > goals(false)) steps.push(["goal-jingle"]);
-      steps.forEach((ids, i) => later(SHOOTOUT_START_MS + i * SHOOTOUT_GAP_MS, () => ids.forEach((id) => sfx.play(id))));
+      steps.forEach((ids, i) =>
+        later(SHOOTOUT_START_MS + i * SHOOTOUT_GAP_MS, () => {
+          if (!doc.hidden) ids.forEach((id) => sfx.play(id));
+        }),
+      );
     },
     crowd(state) {
       if (started) sfx.crowd(state);

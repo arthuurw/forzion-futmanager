@@ -14,7 +14,7 @@ function started(rng: Rng = createRng(1)) {
   doc.dispatchEvent(new Event("pointerdown"));
   const send = (type: MatchEventType, clubId = "u") => audio.matchEvents([{ minute: 10, type, clubId } satisfies MatchEvent], "u");
   const effectCalls = () => backend.calls.filter((c): c is Extract<Call, { kind: "effect" }> => c.kind === "effect");
-  return { audio, backend, send, effectCalls };
+  return { audio, backend, send, effectCalls, doc };
 }
 
 const wait = (ms: number) => vi.advanceTimersByTime(ms);
@@ -199,5 +199,49 @@ describe("efeitos da partida (audio S2)", () => {
     wait(100);
     c.send("kickoff");
     expect(effects(c.backend.calls)).toEqual(["crowd-ooh", "whistle-short"]);
+  });
+});
+
+describe("aba escondida (correcoes-validacao)", () => {
+  test("aba escondida não acumula efeitos", () => {
+    // C56 (AC 52): hidden from minute 5 to 70; nothing is queued for the moment the tab returns.
+    const { audio, backend, doc } = started();
+    doc.hidden = true;
+    doc.dispatchEvent(new Event("visibilitychange"));
+    const hiddenFrom = backend.calls.length;
+    const whileHidden: MatchEvent[] = [
+      { minute: 12, type: "goal", clubId: "u" },
+      { minute: 20, type: "shot_saved", clubId: "o" },
+      { minute: 31, type: "yellow", clubId: "o" },
+      { minute: 45, type: "halftime", clubId: "u" },
+      { minute: 52, type: "goal", clubId: "o" },
+      { minute: 64, type: "red", clubId: "u" },
+    ];
+    for (const e of whileHidden) {
+      audio.matchEvents([e], "u");
+      wait(1000);
+    }
+    expect(effects(backend.calls.slice(hiddenFrom))).toEqual([]);
+
+    doc.hidden = false;
+    doc.dispatchEvent(new Event("visibilitychange"));
+    wait(5000);
+    expect(effects(backend.calls.slice(hiddenFrom))).toEqual([]);
+    audio.matchEvents([{ minute: 71, type: "shot_missed", clubId: "o" }], "u");
+    expect(effects(backend.calls.slice(hiddenFrom))).toEqual(["crowd-ooh"]);
+  });
+
+  test("disputa com a aba escondida não soa ao voltar", () => {
+    // AC 52: the shoot-out's kicks are timed; the ones due while hidden do not sound.
+    const { audio, backend, doc } = started();
+    const before = backend.calls.length;
+    audio.matchEvents([at90("penalty_scored", "u"), at90("penalty_missed", "o")], "u");
+    doc.hidden = true;
+    doc.dispatchEvent(new Event("visibilitychange"));
+    wait(10_000);
+    doc.hidden = false;
+    doc.dispatchEvent(new Event("visibilitychange"));
+    wait(10_000);
+    expect(effects(backend.calls.slice(before))).toEqual([]);
   });
 });

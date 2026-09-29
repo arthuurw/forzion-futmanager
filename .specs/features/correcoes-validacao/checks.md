@@ -355,15 +355,15 @@ Proof: `npx vitest run src/launch.test.ts -t "fonte mínima"`
 
 ### S8 - Som que respeita a aba · 4 files · 29 KB · ~7k
 
-**C56** - Com `doc.hidden = true` e o evento `visibilitychange`, 6 eventos de partida não chegam ao backend como efeito. Depois de `hidden = false`, o próximo evento toca e nenhum dos 6 é tocado (AC 52).
+**C56** - ✓ Com `doc.hidden = true` e o evento `visibilitychange`, 6 eventos de partida não chegam ao backend como efeito. Depois de `hidden = false`, o próximo evento toca e nenhum dos 6 é tocado (AC 52).
 
 Proof: `npx vitest run src/audio/sfx.test.ts -t "aba escondida não acumula efeitos"`
 
-**C57** - Desmontar a tela Ao vivo com a torcida tocando chama `crowd("over")` (AC 53).
+**C57** - ✓ Desmontar a tela Ao vivo com a torcida tocando chama `crowd("over")` (AC 53).
 
 Proof: `npx vitest run src/ui/Live.test.tsx -t "desmontar para a torcida"`
 
-**C58** - Com o download de `abertura.mp3` falhando na primeira vez e a rede de volta, a próxima vez que o contexto «home» toca baixa de novo e começa a faixa (AC 54).
+**C58** - ✓ Com o download de `abertura.mp3` falhando na primeira vez e a rede de volta, a próxima vez que o contexto «home» toca baixa de novo e começa a faixa (AC 54).
 
 Proof: `npx vitest run src/audio/music.test.ts -t "falha de download tenta de novo"`
 

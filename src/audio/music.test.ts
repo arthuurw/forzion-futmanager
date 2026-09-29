@@ -290,3 +290,31 @@ describe("música (audio S1, S3)", () => {
     }
   });
 });
+
+describe("rede que volta (correcoes-validacao)", () => {
+  test("falha de download tenta de novo", async () => {
+    // C58 (AC 54): «home» has one track; its first download fails, then the network is back.
+    const backend = fakeBackend();
+    backend.failDownload.add("audio/music/abertura.mp3");
+    const { audio, gesture } = setup(createRng(1), backend);
+    audio.setPhase("home");
+    gesture();
+    await flush();
+    expect(downloads(backend.calls)).toEqual(["audio/music/abertura.mp3"]);
+    expect(trackStarts(backend.calls)).toEqual([]);
+    backend.failDownload.clear();
+    // The failed track counts as ended: silence, then the context plays again.
+    await advance(90_000);
+    expect(downloads(backend.calls)).toEqual(["audio/music/abertura.mp3", "audio/music/abertura.mp3"]);
+    expect(trackStarts(backend.calls)).toEqual(["audio/music/abertura.mp3"]);
+  });
+
+  test("download bem-sucedido não repete", async () => {
+    // AC 54, and door 3 of audio still: a track that loaded is downloaded once.
+    const { backend } = await playingOn("home");
+    backend.endTrack();
+    await advance(90_000);
+    expect(downloads(backend.calls)).toEqual(["audio/music/abertura.mp3"]);
+    expect(trackStarts(backend.calls)).toEqual(["audio/music/abertura.mp3", "audio/music/abertura.mp3"]);
+  });
+});

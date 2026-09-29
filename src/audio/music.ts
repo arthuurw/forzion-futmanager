@@ -58,7 +58,10 @@ export function createMusic(backend: AudioBackend, rng: Rng): Music {
   /** Bumped whenever what should play changes: a pending load or an old track's end is then ignored. */
   let generation = 0;
   const last: Partial<Record<MusicContext, TrackId>> = {};
-  /** AC 20, AC 21: each file is downloaded once; a failure resolves to null. */
+  /**
+   * AC 20, AC 21: each file is downloaded once; a failure resolves to null. Correcoes-validacao
+   * AC 54: a failure is not kept, so the next time the track is due it is downloaded again.
+   */
   const loaded = new Map<string, Promise<TrackData | null>>();
 
   function load(id: TrackId): Promise<TrackData | null> {
@@ -68,7 +71,10 @@ export function createMusic(backend: AudioBackend, rng: Rng): Music {
       track = backend
         .download(url)
         .then((data) => backend.decode(data))
-        .catch(() => null);
+        .catch(() => {
+          loaded.delete(url);
+          return null;
+        });
       loaded.set(url, track);
     }
     return track;

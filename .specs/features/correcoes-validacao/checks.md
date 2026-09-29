@@ -401,7 +401,7 @@ Trocar o sal faz o teste falhar (AC 59).
 
 Proof: `npx vitest run src/engine/migrate.test.ts -t "sementes da migração v8"`
 
-**C64** - `layout-check.mjs --seed=3` usa a seed 3, e sem a flag usa a seed 1: o script imprime `seed <n>`, verificado pelo selftest (AC 60).
+**C64** - ✓ `layout-check.mjs --seed=3` usa a seed 3, e sem a flag usa a seed 1: o script imprime `seed <n>`, verificado pelo selftest (AC 60).
 
 Proof: `npm run check:layout:selftest`
 
@@ -417,13 +417,13 @@ Proof: `npx vitest run src/ui/download.test.ts -t "revoga a url depois do clique
 
 Proof: `npx vitest run src/launch.test.ts -t "vitest limita workers"`
 
-**C68** - O `layout-check`:
+**C68** - ✓ O `layout-check`:
 - tem timeout de animações de 20000 ms;
 - depois da execução com falha e da normal do selftest, nenhum diretório `layout-check-*` criado por elas fica em `%TEMP%` (AC 64).
 
 Proof: `npm run check:layout:selftest`
 
-**C69** - O selftest termina com código ≠ 0 quando a execução normal sai com 1, comprovado por uma flag de injeção que força a falha normal (AC 65).
+**C69** - ✓ O selftest termina com código ≠ 0 quando a execução normal sai com 1, comprovado por uma flag de injeção que força a falha normal (AC 65).
 
 Proof: `npm run check:layout:selftest`
 

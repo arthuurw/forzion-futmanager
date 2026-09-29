@@ -2,6 +2,15 @@ import { useState } from "react";
 import { useGame } from "../store";
 
 /**
+ * Correcoes-validacao AC 60: `?seed=<n>` in the page's address starts the new game with that seed,
+ * so `check:layout` measures the same game every run. Without it, the seed is drawn as before.
+ */
+function seedParam(): number | undefined {
+  const n = Number(new URLSearchParams(window.location.search).get("seed") ?? NaN);
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+}
+
+/**
  * AC 10: starting over on top of an existing save asks first. Correcoes-validacao AC 2: so does a
  * failed read, which may hide one.
  */
@@ -17,7 +26,7 @@ export function NewGameButton({ primary = false }: { primary?: boolean }) {
     return (
       <div role="alertdialog" aria-label="Confirmar novo jogo" className="panel confirm">
         <p>Isso apaga o jogo salvo. Continuar?</p>
-        <button className="primary" onClick={() => newGame()}>
+        <button className="primary" onClick={() => newGame(seedParam())}>
           Sim, apagar
         </button>
         <button onClick={() => setConfirming(false)}>Cancelar</button>
@@ -25,7 +34,7 @@ export function NewGameButton({ primary = false }: { primary?: boolean }) {
     );
   }
   return (
-    <button className={primary ? "primary" : undefined} onClick={() => (mustConfirm ? setConfirming(true) : newGame())}>
+    <button className={primary ? "primary" : undefined} onClick={() => (mustConfirm ? setConfirming(true) : newGame(seedParam()))}>
       Novo jogo
     </button>
   );

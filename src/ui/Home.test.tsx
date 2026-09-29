@@ -266,3 +266,30 @@ describe("save que não abre (correcoes-validacao)", () => {
     expect(errors).toEqual([]);
   });
 });
+
+describe("semente pelo endereço (correcoes-validacao)", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  test("novo jogo usa a semente do endereço", async () => {
+    // AC 60: what check:layout --seed=<n> opens; an invalid value draws the seed as before.
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/?seed=3");
+    useGame.setState({ phase: "home" });
+    const view = render(<Home />);
+    await user.click(screen.getByRole("button", { name: "Novo jogo" }));
+    expect(useGame.getState().game!.seed).toBe(3);
+    view.unmount();
+
+    for (const bad of ["0", "-4", "2.5", "abc"]) {
+      resetAll();
+      window.history.replaceState(null, "", `/?seed=${bad}`);
+      useGame.setState({ phase: "home" });
+      const again = render(<Home />);
+      await user.click(screen.getByRole("button", { name: "Novo jogo" }));
+      const seed = useGame.getState().game!.seed;
+      expect(Number.isInteger(seed) && seed >= 1, bad).toBe(true);
+      expect(String(seed), bad).not.toBe(bad);
+      again.unmount();
+    }
+  });
+});

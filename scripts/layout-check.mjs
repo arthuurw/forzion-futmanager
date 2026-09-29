@@ -6,7 +6,10 @@
  * sound switch, or (title screen) whose switches overlap the title, the tagline or the menu.
  *
  * Flags: `--no-build` reuses `dist/`; `--inject=<screen>` adds an 800 px tall element to that
- * screen (the selftest's broken screen).
+ * screen (the selftest's broken screen); `--seed=<n>` plays the game of seed n, 1 by default
+ * (correcoes-validacao AC 60): the page opens with `?seed=<n>` and the script prints `seed <n>` as
+ * read back from the saved game. The Chrome profile is a `layout-check-*` folder in the temp
+ * directory, removed on every exit (AC 64).
  */
 import { execSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -19,6 +22,9 @@ export const PREVIEW_PORT = 4179;
 const HOST = "127.0.0.1";
 const WIDTH = 400;
 const HEIGHT = 700;
+/** Correcoes-validacao AC 64: a loaded machine can take long to settle the entrance animations. */
+export const ANIMATION_TIMEOUT_MS = 20000;
+export const PROFILE_PREFIX = "layout-check-";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BROWSERS = [
   process.env.CHROME_PATH,
@@ -155,7 +161,34 @@ function problems(screen, m) {
 
 const fmt = (r) => `${Math.round(r.left)},${Math.round(r.top)}-${Math.round(r.right)},${Math.round(r.bottom)}`;
 
-async function run({ build, inject }) {
+/** The seed of the game in the page's save, read back from IndexedDB. */
+const SAVED_SEED = `new Promise((resolve) => {
+  const open = indexedDB.open("forzion-futmanager");
+  open.onerror = () => resolve(null);
+  open.onsuccess = () => {
+    const db = open.result;
+    try {
+      const get = db.transaction("saves").objectStore("saves").get("slot-1");
+      get.onsuccess = () => { db.close(); resolve(get.result?.seed ?? null); };
+      get.onerror = () => { db.close(); resolve(null); };
+    } catch { db.close(); resolve(null); }
+  };
+})`;
+
+/** Removes the Chrome profile, retrying while the browser still holds its files. */
+async function removeProfile(profile) {
+  const gone = await until("perfil removido", () => {
+    try {
+      rmSync(profile, { recursive: true, force: true });
+      return !existsSync(profile);
+    } catch {
+      return false;
+    }
+  }, 10000).catch(() => false);
+  return gone;
+}
+
+async function run({ build, inject, seed }) {
   const failures = [];
   const measured = new Set();
   let preview = null;
@@ -175,7 +208,15 @@ async function run({ build, inject }) {
 
     const exe = BROWSERS.find((p) => existsSync(p));
     if (!exe) throw new Error("Chrome ou Edge não encontrado (defina CHROME_PATH)");
-    profile = mkdtempSync(join(tmpdir(), "layout-check-"));
+    profile = mkdtempSync(join(tmpdir(), PROFILE_PREFIX));
+    // Whatever way the process ends, the profile does not stay behind (AC 64).
+    process.once("exit", () => {
+      try {
+        rmSync(profile, { recursive: true, force: true });
+      } catch {
+        // the finally below already reported it
+      }
+    });
     browser = spawn(exe, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-extensions", "about:blank"], {
       stdio: "ignore",
     });
@@ -186,7 +227,7 @@ async function run({ build, inject }) {
     );
     page = await connect(target.webSocketDebuggerUrl);
     await page.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
-    await page.send("Page.navigate", { url: base });
+    await page.send("Page.navigate", { url: `${base}?seed=${seed}` });
 
     const js = async (expression) => {
       const r = await page.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
@@ -197,7 +238,7 @@ async function run({ build, inject }) {
     const click = (text) => js(`__lc.click(${JSON.stringify(text)})`);
     const measure = async (screen) => {
       if (inject === screen) await js("__lc.inject()");
-      await wait(`animações de ${screen}`, "__lc.settled()", 5000);
+      await wait(`animações de ${screen}`, "__lc.settled()", ANIMATION_TIMEOUT_MS);
       const m = await js("__lc.measure()");
       const bad = problems(screen, m);
       const toggles = m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ");
@@ -217,6 +258,12 @@ async function run({ build, inject }) {
     await measure("chooseClub");
     await js("document.querySelector('.club-card').click()");
     await wait("elenco", "__lc.enabled('Mercado')");
+    const saved = await wait("jogo gravado", SAVED_SEED);
+    console.log(`seed ${saved}`);
+    if (saved !== seed) {
+      console.log(`FALHA a semente gravada é ${saved}, pedida ${seed}`);
+      failures.push("semente");
+    }
     await measure("squad");
     for (const [button, screen, h1] of [
       ["Mercado", "market", "'Mercado'"],
@@ -311,15 +358,9 @@ async function run({ build, inject }) {
       console.log(`ERRO a porta ${PREVIEW_PORT} continua ocupada`);
       failures.push("porta");
     }
-    if (profile) {
-      await until("perfil removido", () => {
-        try {
-          rmSync(profile, { recursive: true, force: true });
-          return true;
-        } catch {
-          return false;
-        }
-      }, 10000).catch(() => console.log(`aviso: perfil temporário não removido: ${profile}`));
+    if (profile && !(await removeProfile(profile))) {
+      console.log(`ERRO perfil temporário não removido: ${profile}`);
+      failures.push("perfil");
     }
   }
   const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about"];
@@ -329,7 +370,13 @@ async function run({ build, inject }) {
 async function main() {
   const args = process.argv.slice(2);
   const inject = args.find((a) => a.startsWith("--inject="))?.slice("--inject=".length) ?? null;
-  const { failures, missing } = await run({ build: !args.includes("--no-build"), inject });
+  const seedArg = args.find((a) => a.startsWith("--seed="))?.slice("--seed=".length) ?? "1";
+  const seed = Number(seedArg);
+  if (!Number.isSafeInteger(seed) || seed < 1) {
+    console.log(`layout: --seed precisa ser um inteiro positivo (recebeu ${seedArg})`);
+    process.exit(2);
+  }
+  const { failures, missing } = await run({ build: !args.includes("--no-build"), inject, seed });
   if (missing.length) console.log(`FALHA telas não medidas: ${missing.join(", ")}`);
   if (failures.length || missing.length) {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);

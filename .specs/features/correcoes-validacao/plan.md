@@ -53,7 +53,7 @@ Reutiliza `persist`/`init` da store, `saveGame`/`loadGame`, `decodeSaveFile`, `r
 5. fechamento da rodada -> `engine/market` (exists): luvas pelo valor, trava de revenda (door 3), propostas dentro do caixa do comprador, preço de titular pela força
 6. virada -> `engine/rollover` (exists) repõe pela base também o usuário, poda os livres e calibra a evolução; `engine/board` (exists) aplica as regras novas de demissão; `engine/season` (exists) conta a artilharia pelas partidas da liga
 7. telas em `src/ui` (exists) e som em `src/audio` (exists): estados de borda, textos, ARIA e visibilidade da aba
-8. `scripts` (exists), `src/deps.test.ts` (exists), `vite.config.ts` (exists), `deploy.yml` (exists), `index.html` (exists): guardas e metadados
+8. `scripts` (exists), `src/deps.test.ts` (exists), `vite.config.ts` (exists), `deploy.yml` (exists), `index.html` (exists): guardas e metadados. O `check:layout --seed=<n>` abre a página com `?seed=<n>`, que `ui/NewGameButton` (exists) passa ao `store.newGame`
 
 ## Impact
 
@@ -82,6 +82,8 @@ One-way constraints: `pendingLive` ausente = nenhuma rodada em andamento (door 1
 ## Surface
 
 None - nada é consumido fora. É um SPA estático sem API (AD-001). O arquivo exportado (AD-018) muda só por carregar os campos opcionais das doors 1 e 3.
+
+- Parâmetro de endereço `?seed=<n>` (inteiro positivo), achado no build (AC 60): «Novo jogo» começa o jogo com essa semente; sem ele, ou com valor inválido, a semente continua sorteada. Quem usa: o `check:layout`. Reversível - nada é gravado por ele além da semente que o jogo já grava
 
 ## Landing
 

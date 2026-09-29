@@ -3,7 +3,7 @@
 Profile: light
 Plan: `.specs/features/treino-evolucao/plan.md`
 
-17 checks in 3 slices · 3 one-way doors · 0 open
+18 checks in 3 slices · 3 one-way doors · 0 open
 
 Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`). Telas usam `@testing-library/react` em jsdom, e o IndexedDB é `fake-indexeddb`.
 
@@ -24,41 +24,41 @@ Lições aplicadas:
 
 ### S1 - O rating evolui durante a temporada · 6 files · 110 KB · ~28k
 
-**C1** - `evolutionChances(age, training, played, rounds)` com `training` Normal, `played` verdadeiro e `rounds` 38 devolve, por faixa (AC 1, AC 2):
+**C1** - ✓ `evolutionChances(age, training, played, rounds)` com `training` Normal, `played` verdadeiro e `rounds` 38 devolve, por faixa (AC 1, AC 2; quem jogou sobe × 1,3, calibrado no build):
 
 | Idade (amostras) | up | down |
 | --- | --- | --- |
-| 17, 20 | 2,5/38 | 0 |
-| 21, 23 | 1,5/38 | 0 |
-| 24, 27 | (1/3)/38 | (1/3)/38 |
+| 17, 20 | 2,5 × 1,3/38 | 0 |
+| 21, 23 | 1,5 × 1,3/38 | 0 |
+| 24, 27 | (1/3) × 1,3/38 | (1/3)/38 |
 | 28, 30 | 0 | 1/38 |
 | 31, 33 | 0 | 2,5/38 |
 | 34, 36 | 0 | 4/38 |
 
-Com `rounds` 30, a mesma idade 19 dá up 2,5/30.
+Com `rounds` 30, a mesma idade 19 dá up 2,5 × 1,3/30.
 Proof: `npx vitest run src/engine/training.test.ts -t "chances por idade: tabela"`
 
-**C2** - Para idade 19 e 32, `rounds` 38 (AC 3, AC 8):
-- up de 19: Leve 1,25/38, Normal 2,5/38, Forte 3,75/38, `training` ausente 2,5/38; sem ter jogado, cada um pela metade (0,625/38, 1,25/38, 1,875/38, 1,25/38);
+**C2** - ✓ Para idade 19 e 32, `rounds` 38 (AC 3, AC 8):
+- up de 19 para quem jogou (× 1,3): Leve 1,25 × 1,3/38, Normal 2,5 × 1,3/38, Forte 3,75 × 1,3/38, `training` ausente 2,5 × 1,3/38; sem ter jogado, × 0,65 no lugar de × 1,3 (metade);
 - down de 32 é 2,5/38 nas 8 combinações de treino e jogou.
 Proof: `npx vitest run src/engine/training.test.ts -t "treino e minutos: tabela"`
 
-**C3** - `evolveRound` com um `Rng` falso, para um jogador de up 0,1 e down 0,2 (AC 1, AC 4, AC 5):
-- sorteio 0,05 → rating +1 e `ratingLog` termina em `{ round: 7, delta: 1 }`;
-- sorteio 0,25 → rating −1 e `ratingLog` termina em `{ round: 7, delta: -1 }`;
-- sorteio 0,35 → rating igual e `ratingLog` igual;
-- rating 95 com sorteio 0,05 → fica 95 e sem anotação;
-- rating 40 com sorteio 0,25 → fica 40 e sem anotação;
+**C3** - ✓ `evolveRound` com um `Rng` falso, para um jogador de 25 anos que jogou, em Normal, com `rounds` 1 (up 1/3 × 1,3 ≈ 0,433, down 1/3) (AC 1, AC 4, AC 5):
+- sorteio 0,2 → rating +1 e `ratingLog` termina em `{ round: 7, delta: 1 }`;
+- sorteio 0,5 → rating −1 e `ratingLog` termina em `{ round: 7, delta: -1 }`;
+- sorteio 0,8 → rating igual e `ratingLog` igual;
+- rating 95 com sorteio 0,2 → fica 95 e sem anotação;
+- rating 40 com sorteio 0,5 → fica 40 e sem anotação;
 - um sorteio por jogador, na ordem clubes → jogadores.
 Proof: `npx vitest run src/engine/training.test.ts -t "sorteio sobe, desce ou fica"`
 
-**C4** - `finishRound` de uma rodada da liga (L-003): todo jogador cujo rating mudou tem a última anotação `{ round: <número da rodada>, delta: <a diferença> }`; houve mudança em pelo menos 2 ligas; a lista de mudanças é exatamente a de `evolveRound` aplicada com `createRng(mix32(mix32(rngState, 0x7e), n * 16 + d))` escrito no teste, sobre os clubes depois da condição e com os que entraram em campo na rodada (door 3); o `rngState` novo é o de `createRng(rngState)` depois de um `next()` (AC 7).
+**C4** - ✓ `finishRound` de uma rodada da liga (L-003): todo jogador cujo rating mudou tem a última anotação `{ round: <número da rodada>, delta: <a diferença> }`; houve mudança em pelo menos 2 ligas; a lista de mudanças é exatamente a de `evolveRound` aplicada com `createRng(mix32(mix32(rngState, 0x7e), n * 16 + d))` escrito no teste, sobre os clubes depois da condição e com os que entraram em campo na rodada (door 3); o `rngState` novo é o de `createRng(rngState)` depois de um `next()` (AC 7).
 Proof: `npx vitest run src/engine/training.test.ts -t "rodada da liga evolui pelo finishRound"`
 
-**C5** - `finishCupDate` de uma data de copa não muda o rating nem o `ratingLog` de jogador nenhum (AC 6).
+**C5** - ✓ `finishCupDate` de uma data de copa não muda o rating nem o `ratingLog` de jogador nenhum (AC 6).
 Proof: `npx vitest run src/engine/training.test.ts -t "data de copa não evolui"`
 
-**C6** - `nextSeason` (AC 9):
+**C6** - ✓ `nextSeason` (AC 9):
 - todo jogador que continua em clube tem o mesmo rating de antes da virada;
 - o `ratingLog` de todo jogador (clubes, livres, juniores) fica vazio;
 - o `rngState` novo é o de `createRng(rngState)` depois de um `next()`;
@@ -66,22 +66,26 @@ Proof: `npx vitest run src/engine/training.test.ts -t "data de copa não evolui"
 Proof: `npx vitest run src/engine/rollover.test.ts -t "virada sem delta de idade"`
 Proof: `npx vitest run src/engine/rollover.test.ts -t "aposentadoria por idade"`
 
-**C7** - `nextSeason` continua sorteando pelo próprio fluxo `createRng(mix32(rngState, 0x5E45 + season))`: dois estados que só diferem em `rngState` geram viradas diferentes (juniores e livres novos), e os mesmos jogadores se aposentam com o sorteio da idade consumido antes, como antes da feature (AC 9).
+**C7** - ✓ `nextSeason` continua sorteando pelo próprio fluxo `createRng(mix32(rngState, 0x5E45 + season))`: dois estados que só diferem em `rngState` geram viradas diferentes (juniores e livres novos), e os mesmos jogadores se aposentam com o sorteio da idade consumido antes, como antes da feature (AC 9).
 Proof: `npx vitest run src/engine/rollover.test.ts -t "virada usa o próprio Rng"`
 
-**C8** - A força média fica estável com a evolução por rodada (AC 10): a média dos 18 melhores de cada clube das ligas do Brasil a até 5 pontos da temporada 1 em 5 temporadas, e da Série A em 20 temporadas (seed 5).
+**C8** - ✓ A força média fica estável com a evolução por rodada (AC 10): a média dos 18 melhores de cada clube das ligas do Brasil a até 5 pontos da temporada 1 em 5 temporadas, e da Série A em 20 temporadas (seed 5).
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 20 temporadas"`
 
+**C18** - ✓ _achado na build_ - Os guardas de economia continuam valendo com a evolução por rodada (AC 10): «caixa em 5 temporadas» com o maior caixa de clube até 18× o inicial (era 15×, decisão do autor em 29/09/2026) e mediana de 2× a 6,5×; «caixa da IA limitado em 20 temporadas» com a mediana até 20× o inicial.
+Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
+Proof: `npx vitest run src/engine/balance.test.ts -t "caixa da IA limitado em 20 temporadas"`
+
 ### S2 - O treino custa físico e lesão · 4 files · 60 KB · ~15k
 
-**C9** - `applyRound` recupera o físico pelo treino do clube (AC 11), tabela com as 6 combinações a partir de físico 50: descansou Leve 90, Normal 80, Forte 70; jogou (físico ao apito 50) Leve 75, Normal 65, Forte 55. Com físico 95 descansando em Leve fica 100; com físico 0 ao apito, jogando em Forte, fica 5. Clube sem `training` recupera como Normal.
+**C9** - ✓ `applyRound` recupera o físico pelo treino do clube (AC 11), tabela com as 6 combinações a partir de físico 50: descansou Leve 90, Normal 80, Forte 70; jogou (físico ao apito 50) Leve 75, Normal 65, Forte 55. Com físico 95 descansando em Leve fica 100; com físico 0 ao apito, jogando em Forte, fica 5. Clube sem `training` recupera como Normal.
 Proof: `npx vitest run src/engine/condition.test.ts -t "recuperação pelo treino: tabela"`
 
-**C10** - `injuryChance(training)` devolve 0,00125 × 0,8 (Leve), 0,00125 (Normal), 0,00125 × 1,3 (Forte) e 0,00125 com `training` ausente (AC 12).
+**C10** - ✓ `injuryChance(training)` devolve 0,00125 × 0,8 (Leve), 0,00125 (Normal), 0,00125 × 1,3 (Forte) e 0,00125 com `training` ausente (AC 12).
 Proof: `npx vitest run src/engine/live.test.ts -t "chance de lesão pelo treino"`
 
-**C11** - `sideFor` copia `club.training` para o lado da partida (Forte → `"hard"`; ausente → Normal). Uma partida inteira com o lado em Forte ou Leve, numa seed sem lesão em nenhuma das duas, tem os mesmos eventos e o mesmo `rngState` que em Normal (mesmo número de sorteios); numa seed com lesão, Forte lesiona onde o sorteio fica entre 0,00125 e 0,001625, e Normal não (AC 12).
+**C11** - ✓ `sideFor` copia `club.training` para o lado da partida (Forte → `"hard"`; ausente → Normal). Uma partida inteira com o lado em Forte ou Leve, numa seed sem lesão em nenhuma das duas, tem os mesmos eventos e o mesmo `rngState` que em Normal (mesmo número de sorteios); numa seed com lesão, Forte lesiona onde o sorteio fica entre 0,00125 e 0,001625, e Normal não (AC 12).
 Proof: `npx vitest run src/engine/live.test.ts -t "treino na partida"`
 
 ### S3 - O usuário escolhe e vê · 6 files · 95 KB · ~24k
@@ -108,7 +112,7 @@ Proof: `npx vitest run src/engine/rollover.test.ts -t "relatório da temporada p
 **C16** - A tela «Nova temporada» mostra «Antes» e «Depois» do relatório (o teste existente continua verde).
 Proof: `npx vitest run src/ui/NewSeason.test.tsx -t "mostra aposentados contratos evolução e meta"`
 
-**C17** - Um save v8 sem `training` e sem `ratingLog` abre, joga uma rodada e vira a temporada sem erro, com o clube em Normal (AC 8, door 1, door 2).
+**C17** - ✓ Um save v8 sem `training` e sem `ratingLog` abre, joga uma rodada e vira a temporada sem erro, com o clube em Normal (AC 8, door 1, door 2).
 Proof: `npx vitest run src/engine/training.test.ts -t "save antigo sem os campos"`
 
 ## Coverage
@@ -134,6 +138,8 @@ Proof: `npx vitest run src/engine/training.test.ts -t "save antigo sem os campos
 | Check | What changes | Now proven by |
 | --- | --- | --- |
 | multiplas-temporadas C21 (`rollover.test.ts` «evolução por idade», AC 16) | a virada não soma mais delta de idade; a tabela `EVOLUTION` vira a fonte das chances por rodada. O teste passa a afirmar delta 0 na virada para toda faixa | C1, C6 |
+| gastos-da-ia C19 / correcoes-validacao C34 (`balance.test.ts` «caixa em 5 temporadas», máximo 15×) - _achado na build_ | o máximo de um clube passa a 18×: com a evolução por rodada o clube do topo fica entre 15,2× e 17,3× conforme a calibração (antes 14,84×); a mediana 2× a 6,5× não muda. Decisão do autor em 29/09/2026 | C18 |
+| paises C8 (`live.test.ts` «semente das ligas novas», snapshot v6 da rodada 2) - _achado na build_ | só a fixture: a evolução da rodada 1 é desfeita antes da rodada 2, que volta a jogar com os ratings do snapshot; nenhum valor esperado muda | C4 |
 | multiplas-temporadas C19 (`rollover.test.ts` «virada usa o próprio Rng», door 3) | os deltas dos 8 jogadores de 22 anos passam a ser 0; a prova do fluxo próprio passa a ser a virada diferente com outro `rngState` e o `rngState` avançado uma vez | C7 |
 
 Regra para os outros testes existentes: um teste antigo que fecha rodadas e compara força, preço ou escalação pode ter a **fixture** ajustada (ex.: `ratingLog`/rating fixos), sem mudar valor esperado. Mudar um valor esperado fora das linhas acima ganha linha nova nesta tabela, marcada _achado na build_, antes do código que a fecha.
@@ -153,3 +159,5 @@ Regra para os outros testes existentes: um teste antigo que fecha rodadas e comp
 ## Handoff
 
 - S1 = 28k (engine: training novo, season, rollover, types, testes), S2 entra na condição e na partida com 43k, S3 entra na store e nas telas com 67k no total, abaixo do budget de 150k - one builder
+
+- **Settled mid-build:** fator de minutos calibrado de 1 / 0,5 para 1,3 / 0,65 (quem joga continua subindo o dobro): com 1 / 0,5 a força da Série A caía cerca de 2 pontos e a mediana de caixa da IA passava de 20× (34× em 20 temporadas); 1,5 / 0,75 passava da deriva de força (5,28); 1,4 / 0,7 deixava a deriva em 4,69. O máximo de 15× de «caixa em 5 temporadas» subiu a 18× por decisão do autor (C18)

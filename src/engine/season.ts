@@ -7,6 +7,7 @@ import { resultOf, runToEnd, startRound, userMatch, type LiveRound } from "./liv
 import { closeRoundMarket } from "./market";
 import { createRng } from "./rng";
 import { computeTable, type TableRow } from "./table";
+import { evolutionSeed, evolveRound } from "./training";
 import type { Club, GameState, League, MatchEvent, MatchResult, Verdict } from "./types";
 
 /** AC 10: clubs that go up from the Série B and down from the Série A. */
@@ -65,7 +66,7 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
   const results: RoundOutcome["results"] = [];
   let roundNumber = live.roundNumber;
 
-  state.leagues.forEach((league) => {
+  state.leagues.forEach((league, division) => {
     const round = league.rounds[live.roundIndex];
     if (!round) throw new Error("round missing");
     roundNumber = round.number;
@@ -78,6 +79,9 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
       if (league === shown) results.push({ matchId: match.id, homeId: match.homeId, awayId: match.awayId, result: match.result });
     });
     league.clubs = applyRound(league.clubs, played);
+    // Treino-evolucao AC 1, door 3: the league's own stream, from the save's state before the round.
+    const onField = new Set(played.flatMap((m) => [...m.home.played, ...m.away.played]));
+    league.clubs = evolveRound(league.clubs, onField, createRng(evolutionSeed(input.rngState, round.number, division)), round.number, league.rounds.length);
     league.currentRound = live.roundIndex + 1;
     // AC 29: the last round also pays the prize for the final position; paises AC 9: by the league's tier.
     const prizes = isSeasonOver(league)

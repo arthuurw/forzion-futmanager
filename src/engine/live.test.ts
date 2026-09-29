@@ -5,6 +5,7 @@ import {
   MAX_SUBS,
   changeFormation,
   forcedVacancy,
+  injuryChance,
   keeperStrength,
   makeMatch,
   makeSide,
@@ -434,7 +435,14 @@ describe("sementes dos países (paises)", () => {
     }
     const snapshot = JSON.parse(readFileSync(new URL("./__fixtures__/snapshot-v6.json", import.meta.url), "utf8")) as Record<string, { results: unknown }>;
     for (const seed of [1, 2, 3]) {
-      const two = playRound(playRound(newGame(seed)).state).state;
+      // Treino-evolucao (Superseded checks): round 1's evolution is undone before round 2, so round 2
+      // plays the ratings the snapshot was taken with.
+      const one = playRound(newGame(seed)).state;
+      for (const p of one.leagues.flatMap((l) => l.clubs.flatMap((c) => c.players))) {
+        p.rating -= (p.ratingLog ?? []).reduce((sum, step) => sum + step.delta, 0);
+        delete p.ratingLog;
+      }
+      const two = playRound(one).state;
       const results = [0, 1].map((k) => [0, 1].map((r) => two.leagues[k]!.rounds[r]!.matches.map((m) => m.result)));
       expect(results, `seed ${seed}`).toEqual(snapshot[seed]!.results);
     }
@@ -739,5 +747,62 @@ describe("parada obrigatória (parada-obrigatoria)", () => {
     expect(k.live.players[keeperSub.playerId!]!.rating).toBe(lowest);
     expect(userSide(done).subbedOff).toContain(keeperSub.playerId);
     expect(keepers).toContain(userSide(done).slots[gk]);
+  });
+});
+
+describe("treino na partida (treino-evolucao)", () => {
+  test("chance de lesão pelo treino", () => {
+    // C10: 0,00125 per side and minute, × 0,8 / 1 / 1,3; absent is Normal.
+    expect(injuryChance("light")).toBeCloseTo(0.00125 * 0.8, 15);
+    expect(injuryChance("normal")).toBeCloseTo(0.00125, 15);
+    expect(injuryChance("hard")).toBeCloseTo(0.00125 * 1.3, 15);
+    expect(injuryChance(undefined)).toBeCloseTo(0.00125, 15);
+  });
+
+  test("treino na partida", () => {
+    // C11: sideFor carries the club's training; the draws per minute stay the same.
+    const state = game(5);
+    const me = state.leagues[0]!.clubs[0]!;
+    me.training = "hard";
+    const full = startRound(state);
+    expect(userSide(full).training).toBe("hard");
+    const m0 = userMatch(full)!;
+    const rival = m0.home.clubId === state.userClubId ? m0.away : m0.home;
+    expect(injuryChance(rival.training)).toBeCloseTo(0.00125, 15);
+
+    const only = (training: "light" | "normal" | "hard", rngState: number) => {
+      const live: LiveRound = { ...full, matches: [{ ...structuredClone(m0), rngState }] };
+      userSide(live).training = training;
+      return runToEnd(live).matches[0]!;
+    };
+    const injuriesOf = (m: ReturnType<typeof only>) => m.events.filter((e) => e.type === "injury");
+    let quiet = 0;
+    for (let s = 1; s < 200 && !quiet; s++) {
+      const runs = (["light", "normal", "hard"] as const).map((t) => only(t, s));
+      if (runs.every((m) => injuriesOf(m).length === 0)) quiet = s;
+    }
+    expect(quiet).toBeGreaterThan(0);
+    const [light, normal, hard] = (["light", "normal", "hard"] as const).map((t) => only(t, quiet));
+    expect(light!.events).toEqual(normal!.events);
+    expect(hard!.events).toEqual(normal!.events);
+    expect(light!.rngState).toBe(normal!.rngState);
+    expect(hard!.rngState).toBe(normal!.rngState);
+
+    // A stream where the hard side gets an injury the normal side does not: up to that minute both
+    // matches are the same, so the draw fell between 0,00125 and 0,001625.
+    let found = false;
+    for (let s = 1; s < 3000 && !found; s++) {
+      const n = only("normal", s);
+      const h = only("hard", s);
+      const k = h.events.findIndex((e, i) => JSON.stringify(e) !== JSON.stringify(n.events[i]));
+      if (k < 0) continue;
+      const first = h.events[k]!;
+      if (first.type === "injury" && first.clubId === state.userClubId) {
+        expect(n.events.slice(0, k)).toEqual(h.events.slice(0, k));
+        expect(n.events.some((e) => e.minute === first.minute && e.type === "injury" && e.clubId === state.userClubId)).toBe(false);
+        found = true;
+      }
+    }
+    expect(found).toBe(true);
   });
 });

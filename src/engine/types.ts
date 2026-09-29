@@ -63,7 +63,22 @@ export interface Player extends PlayerCore, Condition, PlayerStats {
    * Absent = arrived before this rule, and may be sold.
    */
   arrivedSeason?: number;
+  /**
+   * Door 2 (treino-evolucao): the rating changes of this season, one per league round that moved
+   * it, in order. Absent = none; emptied at the turn of the season.
+   */
+  ratingLog?: RatingStep[];
 }
+
+/** One rating change: the league round (1-based) and ±1. */
+export interface RatingStep {
+  round: number;
+  delta: 1 | -1;
+}
+
+/** Door 1 (treino-evolucao): how hard a club trains. */
+export type Training = "light" | "normal" | "hard";
+export const TRAININGS: readonly Training[] = ["light", "normal", "hard"];
 
 /** Door 6 (copa-nacional): which discipline a date reads and writes. */
 export type Competition = { kind: "league" } | { kind: "cup"; cupId: string };
@@ -134,6 +149,8 @@ export interface Club {
   finance: Finance;
   /** Ids of the players the user put up for sale. */
   forSale: string[];
+  /** Door 1 (treino-evolucao): absent = "normal"; only the user's club ever changes it. */
+  training?: Training;
 }
 
 export interface Goal {

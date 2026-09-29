@@ -5,7 +5,7 @@ import { AI_FORMATION, aiLineup, autoLineup } from "./lineup";
 import { makeMatch, makeSide, runToEnd, startRound, type LivePlayer, type LiveSide } from "./live";
 import { finishRound } from "./season";
 import { atCupDate } from "./test-fixtures";
-import { FRESH_CONDITION, ZERO_STATS, type GameState, type Player } from "./types";
+import { FRESH_CONDITION, ZERO_STATS, type Club, type GameState, type Player } from "./types";
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 
@@ -257,5 +257,30 @@ describe("disciplina e condição na copa", () => {
     const [a2, b2] = [find(after, a.id), find(after, b.id)];
     expect([a2.fitness, a2.idleRounds, a2.morale]).toEqual([90, 2, 1]);
     expect([b2.fitness, b2.idleRounds, b2.morale]).toEqual([100, 2, -1]);
+  });
+});
+
+describe("treino na condição (treino-evolucao)", () => {
+  test("recuperação pelo treino: tabela", () => {
+    // C9 (L-003, L-005): through applyRound, the club's training on rest (30) and after playing (15).
+    const club = (training: Club["training"], fitness: number, played: boolean) => {
+      const c: Club = { id: "c", name: "c", players: [{ ...base, fitness }], lineup: null, finance: {} as Club["finance"], forSale: [], training };
+      if (training === undefined) delete c.training;
+      const mine = side({ played, fitness: played ? fitness : undefined });
+      const other = makeSide("d", ["MF"], [null], [], {});
+      return applyRound([c], [makeMatch("m", mine, other, 0)])[0]!.players[0]!.fitness;
+    };
+    const rows: [Club["training"], boolean, number][] = [
+      ["light", false, 90],
+      ["normal", false, 80],
+      ["hard", false, 70],
+      ["light", true, 75],
+      ["normal", true, 65],
+      ["hard", true, 55],
+      [undefined, false, 80],
+    ];
+    for (const [training, played, expected] of rows) expect(club(training, 50, played), `${training} ${played}`).toBe(expected);
+    expect(club("light", 95, false)).toBe(100);
+    expect(club("hard", 0, true)).toBe(5);
   });
 });

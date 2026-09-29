@@ -5,6 +5,7 @@
 import { aiLineup, formationSlots, isAvailableFor } from "./lineup";
 import { createRng, mix32, randInt, type Rng } from "./rng";
 import { effectiveRating } from "./strength";
+import { TRAINING_INJURY } from "./training";
 import {
   LEAGUE,
   type Club,
@@ -19,6 +20,7 @@ import {
   type PlayerCore,
   type Position,
   type Posture,
+  type Training,
 } from "./types";
 
 export const MAX_SUBS = 5;
@@ -64,6 +66,8 @@ export interface VacantSlot {
 export interface LiveSide {
   clubId: string;
   isUser: boolean;
+  /** Treino-evolucao AC 12: the club's training; absent = Normal. */
+  training?: Training;
   formation: FormationName | null;
   /** Position each slot asks for. */
   slotPos: Position[];
@@ -126,7 +130,7 @@ export function makeSide(
   slots: (string | null)[],
   bench: string[],
   players: Record<string, LivePlayer>,
-  opts: { formation?: FormationName | null; posture?: Posture; isUser?: boolean } = {},
+  opts: { formation?: FormationName | null; posture?: Posture; isUser?: boolean; training?: Training } = {},
 ): LiveSide {
   const fitness: Record<string, number> = {};
   const played: string[] = [];
@@ -138,6 +142,7 @@ export function makeSide(
   return {
     clubId,
     isUser: opts.isUser ?? false,
+    ...(opts.training ? { training: opts.training } : {}),
     formation: opts.formation ?? null,
     slotPos,
     slots: [...slots],
@@ -336,8 +341,13 @@ function sendOff(m: LiveMatch, side: LiveSide, slot: number, id: string, minute:
   m.events.push({ minute, type: "red", clubId: side.clubId, playerId: id });
 }
 
+/** Treino-evolucao AC 12: the chance of an injury per side and minute, by the side's training. */
+export function injuryChance(training: Training | undefined): number {
+  return INJURY_PER_SIDE_MINUTE * TRAINING_INJURY[training ?? "normal"];
+}
+
 function injuries(m: LiveMatch, side: LiveSide, minute: number, rng: Rng): void {
-  if (rng.next() >= INJURY_PER_SIDE_MINUTE) return;
+  if (rng.next() >= injuryChance(side.training)) return;
   const who = weightedPick(rng, onPitch(side), (o) => 1 + (100 - (side.fitness[o.id] ?? 100)) / 50);
   if (!who) return;
   side.injured[who.id] = randInt(rng, 1, 4);
@@ -534,7 +544,7 @@ export function sideFor(
   });
   const onField = new Set(starters.filter((id): id is string => !!id));
   const bench = club.players.filter((p) => isAvailableFor(p, competition) && !onField.has(p.id)).map((p) => p.id);
-  return makeSide(club.id, slotPos, starters, bench, players, { formation: lineup.formation, posture: lineup.posture ?? "balanced", isUser });
+  return makeSide(club.id, slotPos, starters, bench, players, { formation: lineup.formation, posture: lineup.posture ?? "balanced", isUser, training: club.training });
 }
 
 /** Every club of every division by id, and a snapshot of every player. */

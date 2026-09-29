@@ -133,69 +133,75 @@ describe("virada de temporada", () => {
 
   test("virada usa o próprio Rng", () => {
     const before = ended();
-    // The first 8 players of the first Série A club that stays up are 22 with long contracts: each stays, and
-    // the rollover's first 8 draws are exactly their evolutions, randInt(0, 3) in squad order
-    // (correcoes-validacao C31: the table's row up to 23, was randInt(1, 4)).
+    // Treino-evolucao C7 (supersedes multiplas-temporadas C19): the first 8 players of the first
+    // Série A club that stays up are 34 with long contracts, so each draws the dropped age draw,
+    // randInt(-6, -2), then retires at 35 below 0,5 - in squad order, first in the turn's stream.
     const down = computeTable(before.leagues[0]!).slice(16).map((r) => r.clubId);
     const stays = before.leagues[0]!.clubs.find((c) => !down.includes(c.id))!;
     const probe = stays.players.slice(0, 8);
-    probe.forEach((p) => Object.assign(p, { age: 22, contractSeasons: 3, rating: 60 }));
+    probe.forEach((p) => Object.assign(p, { age: 34, contractSeasons: 3, rating: 60 }));
     const a = nextSeason(clone(before)).state;
     expect(nextSeason(clone(before)).state).toEqual(a);
     const advanced = createRng(before.rngState);
     advanced.next();
     expect(a.rngState).toBe(advanced.getState());
     expect(a.leagues[0]!.clubs[0]!.id).toBe(stays.id);
-    const deltas = probe.map((p) => everyone(a).find((x) => x.id === p.id)!.rating - 60);
-    const draws = (rng: ReturnType<typeof createRng>) => probe.map(() => randInt(rng, 0, 3));
-    // Door 3: createRng(mix32(rngState, 0x5E45 + season)), written out.
-    expect(deltas).toEqual(draws(createRng(mix32(before.rngState, 0x5e45 + before.season))));
-    // Neither the rejected alternative (the save's own Rng) nor a neighbouring salt gives these deltas.
-    expect(deltas).not.toEqual(draws(createRng(before.rngState)));
-    expect(deltas).not.toEqual(draws(createRng(mix32(before.rngState, 0x5e45 + before.season + 1))));
+    const gone = probe.map((p) => !everyone(a).some((x) => x.id === p.id));
+    const retirements = (rng: ReturnType<typeof createRng>, dropped: boolean) =>
+      probe.map(() => {
+        if (dropped) randInt(rng, -6, -2);
+        return rng.next() < 0.5;
+      });
+    // Door 3: createRng(mix32(rngState, 0x5E45 + season)), written out, the age's draw still made.
+    expect(gone).toEqual(retirements(createRng(mix32(before.rngState, 0x5e45 + before.season)), true));
+    // Neither skipping the age's draw nor the save's own Rng gives these retirements.
+    expect(gone).not.toEqual(retirements(createRng(mix32(before.rngState, 0x5e45 + before.season)), false));
+    expect(gone).not.toEqual(retirements(createRng(before.rngState), true));
+    for (const p of probe.filter((_, k) => !gone[k])) expect(everyone(a).find((x) => x.id === p.id)!.rating).toBe(60);
     const other = nextSeason({ ...clone(before), rngState: before.rngState + 1 }).state;
-    const ratings = (s: GameState) => all(s).flatMap((c) => c.players.map((p) => p.rating));
+    const ratings = (s: GameState) => [...all(s).flatMap((c) => c.players), ...s.market.freeAgents, ...s.market.juniors].map((p) => `${p.id}:${p.rating}`);
     expect(ratings(other)).not.toEqual(ratings(a));
   });
 });
 
 describe("evolução e aposentadoria", () => {
-  test("evolução por idade", () => {
+  test("virada sem delta de idade", () => {
+    // Treino-evolucao C6 (supersedes multiplas-temporadas C21): the rating moved during the season,
+    // so the turn keeps it for every age band, and every player's season log is emptied.
     const before = ended();
-    // Correcoes-validacao C31 (Impact): the calibrated table, was +2..+6, +1..+4, -1..+2, -2..+1, -4..0.
-    const bands = [
-      { ages: [17, 18, 19, 20], min: 1, max: 4 },
-      { ages: [21, 22, 23], min: 0, max: 3 },
-      { ages: [24, 25, 26, 27], min: -1, max: 1 },
-      { ages: [28, 29, 30], min: -2, max: 0 },
-      { ages: [31, 32, 33], min: -4, max: -1 },
-      { ages: [34], min: -6, max: -2 },
-    ];
-    const fixture = bands.map((b) => Array.from({ length: 1000 }, (_, i) => player(b.ages[i % b.ages.length]!, 60, "MF", 3)));
-    const high = Array.from({ length: 30 }, () => player(18, 94, "MF", 3));
-    const low = Array.from({ length: 60 }, () => player(34, 41, "MF", 3));
-    // Correcoes-validacao C30: the free agents are cut to 80 at the turn, so the probe players sit at
-    // an AI club abroad under contract, where the same summer applies.
+    const ages = [17, 20, 21, 23, 24, 27, 28, 30, 31, 33];
+    const fixture = ages.flatMap((age) => Array.from({ length: 20 }, () => player(age, 60, "MF", 3)));
+    fixture.forEach((p, k) => (p.ratingLog = k % 2 ? [{ round: 5, delta: 1 }] : []));
     const host = before.leagues[2]!.clubs[0]!;
-    host.players.push(...fixture.flat(), ...high, ...low);
+    host.players.push(...fixture);
+    before.market.freeAgents[0]!.ratingLog = [{ round: 3, delta: -1 }];
+    for (const j of before.market.juniors) j.ratingLog = [{ round: 3, delta: 1 }];
+    const stayers = new Map(all(before).flatMap((c) => c.players).map((p) => [p.id, p.rating]));
     const { state } = nextSeason(before);
     const after = new Map(clubOf(state, host.id).players.map((p) => [p.id, p]));
-    bands.forEach((b, k) => {
-      const deltas = fixture[k]!.filter((p) => after.has(p.id)).map((p) => after.get(p.id)!.rating - p.rating);
-      expect(deltas.length, `faixa ${k}`).toBeGreaterThan(400);
-      for (const d of deltas) {
-        expect(d, `faixa ${k}`).toBeGreaterThanOrEqual(b.min);
-        expect(d, `faixa ${k}`).toBeLessThanOrEqual(b.max);
-      }
-      expect(Math.min(...deltas), `faixa ${k}`).toBe(b.min);
-      expect(Math.max(...deltas), `faixa ${k}`).toBe(b.max);
-    });
-    const highAfter = high.map((p) => after.get(p.id)!.rating);
-    for (const r of highAfter) expect(r).toBeLessThanOrEqual(95);
-    expect(highAfter).toContain(95);
-    const lowAfter = low.filter((p) => after.has(p.id)).map((p) => after.get(p.id)!.rating);
-    for (const r of lowAfter) expect(r).toBeGreaterThanOrEqual(40);
-    expect(lowAfter).toContain(40);
+    const kept = fixture.filter((p) => after.has(p.id));
+    expect(kept.length).toBeGreaterThan(150);
+    for (const age of ages) expect(kept.some((p) => p.age === age), `idade ${age}`).toBe(true);
+    for (const p of kept) expect(after.get(p.id)!.rating, `idade ${p.age}`).toBe(60);
+    for (const c of all(state)) for (const p of c.players) if (stayers.has(p.id)) expect(p.rating, p.id).toBe(stayers.get(p.id));
+    for (const p of [...all(state).flatMap((c) => c.players), ...state.market.freeAgents, ...state.market.juniors]) {
+      expect(p.ratingLog ?? [], p.id).toEqual([]);
+    }
+    const advanced = createRng(before.rngState);
+    advanced.next();
+    expect(state.rngState).toBe(advanced.getState());
+  });
+
+  test("relatório da temporada pelo ratingLog", () => {
+    // Treino-evolucao C15: «Antes» = rating − the season's log, «Depois» = rating.
+    const before = ended();
+    const me = userOf(before);
+    const [moved, still] = me.players.filter((p) => p.age < 30).slice(0, 2);
+    Object.assign(moved!, { rating: 70, contractSeasons: 3, ratingLog: [{ round: 3, delta: 1 }, { round: 9, delta: 1 }, { round: 20, delta: -1 }] });
+    Object.assign(still!, { rating: 70, contractSeasons: 3, ratingLog: [] });
+    const { report } = nextSeason(before);
+    expect(report.changes.find((c) => c.playerId === moved!.id)).toMatchObject({ before: 69, after: 70 });
+    expect(report.changes.find((c) => c.playerId === still!.id)).toMatchObject({ before: 70, after: 70 });
   });
 
   test("todos envelhecem um ano", () => {

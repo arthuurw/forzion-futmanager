@@ -3,7 +3,8 @@
  * Door 5 (discipline) and door 7 (idle rounds) live here.
  */
 import type { LiveMatch, LiveSide } from "./live";
-import { LEAGUE, type Club, type Competition, type CupDiscipline, type Player } from "./types";
+import { TRAINING_RECOVERY } from "./training";
+import { LEAGUE, type Club, type Competition, type CupDiscipline, type Player, type Training } from "./types";
 
 export const RECOVERY_RESTED = 30;
 export const RECOVERY_PLAYED = 15;
@@ -29,8 +30,11 @@ export function playerAfterRound(
   outcome: Outcome | null,
   goals = 0,
   competition: Competition = LEAGUE,
+  training?: Training,
 ): Player {
   const next: Player = { ...p };
+  // Treino-evolucao AC 11: the club's training adds to every recovery.
+  const bonus = TRAINING_RECOVERY[training ?? "normal"];
   const cupId = competition.kind === "cup" ? competition.cupId : null;
   const discipline: CupDiscipline =
     cupId === null
@@ -43,7 +47,7 @@ export function playerAfterRound(
   if (next.injuryRounds > 0) next.injuryRounds--;
   if (cupId !== null && !side) {
     // AC 28: a club without a cup match rests; idle rounds and morale stay.
-    next.fitness = clamp(p.fitness + RECOVERY_RESTED, 0, 100);
+    next.fitness = clamp(p.fitness + RECOVERY_RESTED + bonus, 0, 100);
     return next;
   }
   if (discipline.suspendedRounds > 0) discipline.suspendedRounds--;
@@ -51,12 +55,12 @@ export function playerAfterRound(
   const played = !!side && side.played.includes(p.id);
   if (played && side) {
     if (cupId === null) next.seasonGames = (p.seasonGames ?? 0) + 1;
-    next.fitness = clamp(Math.round(side.fitness[p.id] ?? p.fitness) + RECOVERY_PLAYED, 0, 100);
+    next.fitness = clamp(Math.round(side.fitness[p.id] ?? p.fitness) + RECOVERY_PLAYED + bonus, 0, 100);
     next.idleRounds = 0;
     if (outcome === "win") next.morale = clamp(next.morale + 1, MORALE_MIN, MORALE_MAX);
     if (outcome === "loss") next.morale = clamp(next.morale - 1, MORALE_MIN, MORALE_MAX);
   } else {
-    next.fitness = clamp(p.fitness + RECOVERY_RESTED, 0, 100);
+    next.fitness = clamp(p.fitness + RECOVERY_RESTED + bonus, 0, 100);
     if (!wasOut) {
       next.idleRounds++;
       if (next.idleRounds >= IDLE_ROUNDS_FOR_MORALE_DROP) {
@@ -117,6 +121,6 @@ export function applyRound(clubs: Club[], matches: LiveMatch[], competition: Com
     const entry = sides.get(club.id);
     const side = entry?.side ?? null;
     const outcome = entry ? outcomeFor(entry.m, entry.side) : null;
-    return { ...club, players: club.players.map((p) => playerAfterRound(p, side, outcome, goals.get(p.id) ?? 0, competition)) };
+    return { ...club, players: club.players.map((p) => playerAfterRound(p, side, outcome, goals.get(p.id) ?? 0, competition, club.training)) };
   });
 }

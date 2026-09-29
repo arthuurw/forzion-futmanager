@@ -61,7 +61,7 @@ Depois de cada rodada da liga, os jogadores sobem ou descem pela idade, pelo tre
 
 1. WHEN uma rodada da liga fecha THEN the system SHALL sortear, para cada jogador de cada clube de cada liga, subir 1 com chance `up` e descer 1 com chance `down`, nunca os dois, com `up = u(idade) × T(treino) × M(jogou) / R` e `down = d(idade) / R`, onde `R` é o número de rodadas da liga
 2. The system SHALL usar `u` e `d` por faixa de idade iguais às partes positiva e negativa da média da faixa de `EVOLUTION`: até 20 → u 2,5 d 0; até 23 → u 1,5 d 0; até 27 → u 1/3 d 1/3; até 30 → u 0 d 1; até 33 → u 0 d 2,5; acima → u 0 d 4
-3. The system SHALL usar `T` = 0,5 (Leve), 1 (Normal), 1,5 (Forte) e `M` = 1 para quem entrou em campo na rodada, 0,5 para quem não entrou
+3. The system SHALL usar `T` = 0,5 (Leve), 1 (Normal), 1,5 (Forte) e `M` = 1,3 para quem entrou em campo na rodada, 0,65 para quem não entrou (calibrado no build pelo balanço; era 1 / 0,5)
 4. IF o rating já está em 95 (sobe) ou 40 (desce) THEN the system SHALL manter o rating e não anotar a mudança
 5. WHEN o rating muda THEN the system SHALL anotar `{ round: <número da rodada>, delta }` no fim do `ratingLog` do jogador
 6. WHEN uma data de copa fecha THEN the system SHALL não mudar rating nenhum
@@ -111,7 +111,7 @@ O Elenco tem o seletor de treino e mostra as mudanças; a «Nova temporada» res
 | Assumption | Chosen default | Rationale | Confirmed? |
 | --- | --- | --- | --- |
 | números do treino | T 0,5/1/1,5; recuperação ±10; lesão ×0,8/×1,3 | valores do design aprovado; custo e ganho da mesma ordem | y |
-| fator de minutos | M 0,5 para quem não entrou em campo | jovem sem jogar evolui pela metade; o balanço de 5 e 20 temporadas é o guarda | y |
+| fator de minutos | M 1,3 para quem entrou em campo, 0,65 para quem não entrou | quem joga evolui o dobro; 1 / 0,5 tirava 2 pontos da força média em 12 temporadas, e o balanço de 5 e 20 temporadas escolheu 1,3 / 0,65 | y |
 | sorteio da virada | `randInt` de idade continua sendo consumido e descartado | aposentadorias e o resto da virada sorteiam como antes | y |
 | quem conta como «jogou» | entrou em campo na rodada (`LiveSide.played`) | já existe e inclui quem entrou por substituição | y |
 

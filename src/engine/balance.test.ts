@@ -242,6 +242,8 @@ describe("equilíbrio em várias temporadas", () => {
   test("caixa em 5 temporadas", () => {
     // Gastos-da-ia C19 (Superseded checks): −2× to 15×, median 2× to 4×; was −2× to 30×, median 3× to 10×.
     // Correcoes-validacao C34: median 2× to 6,5×, was 4× (user's decision; the rest unchanged).
+    // Treino-evolucao (Superseded checks): at most 18×, was 15× (user's decision; the evolution per
+    // round moves the one club at the top between 15,2× and 17,3×).
     // Paises C26 (Superseded checks): the clubs that started in the leagues of Brazil only.
     const ratios = multiSeason().flatMap((r) => r.cash.filter((c) => c.country === "BR").map((c) => c.ratio));
     expect(ratios).toHaveLength(120);
@@ -250,7 +252,7 @@ describe("equilíbrio em várias temporadas", () => {
     const median = (sorted[59]! + sorted[60]!) / 2;
     for (const r of ratios) {
       expect(r).toBeGreaterThanOrEqual(-2);
-      expect(r).toBeLessThanOrEqual(15);
+      expect(r).toBeLessThanOrEqual(18);
     }
     expect(median).toBeGreaterThanOrEqual(2);
     expect(median).toBeLessThanOrEqual(6.5);

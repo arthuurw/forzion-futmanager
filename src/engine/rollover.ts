@@ -12,24 +12,11 @@ import { CONTRACT_JUNIOR, SQUAD_MIN } from "./market";
 import { generatePlayerName, uniqueName } from "./names";
 import { createRng, mix32, randInt, shuffle, type Rng } from "./rng";
 import { allClubs, seasonReview, type SeasonReview } from "./season";
+import { evolutionRange } from "./training";
 import { POSITIONS, RATING_MAX, RATING_MIN, type Club, type Country, type GameState, type Player, type Position, type SeasonRecord } from "./types";
 
 /** Door 3. */
 const ROLLOVER_SALT = 0x5e45;
-
-/**
- * AC 16: rating change by age before the birthday; the first row whose `maxAge` fits.
- * Correcoes-validacao AC 30, AC 31: calibrated so 20 seasons stay within 5 points of the first
- * (was +2..+6, +1..+4, -1..+2, -2..+1, -4..0 up to 33).
- */
-export const EVOLUTION: readonly { maxAge: number; min: number; max: number }[] = [
-  { maxAge: 20, min: 1, max: 4 },
-  { maxAge: 23, min: 0, max: 3 },
-  { maxAge: 27, min: -1, max: 1 },
-  { maxAge: 30, min: -2, max: 0 },
-  { maxAge: 33, min: -4, max: -1 },
-  { maxAge: Infinity, min: -6, max: -2 },
-];
 
 /** AC 18: chance of retiring by age after the birthday; everyone from 36. */
 const RETIREMENT: Readonly<Record<number, number>> = { 34: 0.2, 35: 0.5 };
@@ -73,9 +60,6 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-export function evolutionRange(age: number): { min: number; max: number } {
-  return EVOLUTION.find((row) => age <= row.maxAge)!;
-}
 
 function retires(rng: Rng, age: number): boolean {
   if (age >= RETIRE_ALWAYS_FROM) return true;
@@ -84,17 +68,18 @@ function retires(rng: Rng, age: number): boolean {
 }
 
 /**
- * AC 12, 16, 17, 18, 37: one player through the summer. Returns null when they retire.
- * Stats go to the career; condition is fresh except injury and morale.
+ * AC 12, 17, 18, 37: one player through the summer. Returns null when they retire.
+ * Stats go to the career; condition is fresh except injury and morale. Treino-evolucao AC 9: the
+ * rating moved during the season, so the age's draw is made and dropped, and the rest of the turn
+ * draws as before.
  */
 function ageOneSeason(rng: Rng, p: Player): Player | null {
   const { min, max } = evolutionRange(p.age);
-  const rating = clamp(p.rating + randInt(rng, min, max), RATING_MIN, RATING_MAX);
+  randInt(rng, min, max);
   const age = p.age + 1;
   if (retires(rng, age)) return null;
   return {
     ...p,
-    rating,
     age,
     fitness: 100,
     yellowCards: 0,
@@ -220,7 +205,9 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   // academy); the manager takes the new club only after it.
   const userId = fired && jobClubId ? jobClubId : state.userClubId;
   const managed = fired ? null : userId;
-  const userBefore = new Map((allClubs(state).find((c) => c.id === userId)?.players ?? []).map((p) => [p.id, p.rating]));
+  // Treino-evolucao AC 17: «Antes» is the rating at the start of the season, before its log.
+  const seasonStart = (p: Player) => p.rating - (p.ratingLog ?? []).reduce((sum, step) => sum + step.delta, 0);
+  const userBefore = new Map((allClubs(state).find((c) => c.id === userId)?.players ?? []).map((p) => [p.id, seasonStart(p)]));
   const retired: RolloverReport["retired"] = [];
   const expired: RolloverReport["expired"] = [];
 
@@ -289,7 +276,11 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   }
 
   // Copa-nacional AC 49: cup discipline starts clean for everyone.
-  for (const p of [...allClubs(state).flatMap((c) => c.players), ...state.market.freeAgents, ...state.market.juniors]) p.cupDiscipline = {};
+  for (const p of [...allClubs(state).flatMap((c) => c.players), ...state.market.freeAgents, ...state.market.juniors]) {
+    p.cupDiscipline = {};
+    // Treino-evolucao AC 9: the season's rating log starts empty.
+    delete p.ratingLog;
+  }
 
   state.season = season;
   state.boardGoal = userBoardGoal(state);

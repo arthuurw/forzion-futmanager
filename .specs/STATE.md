@@ -29,10 +29,10 @@
 
 ## Handoff
 
-**Feature**: parada-obrigatoria (checks escritos, build em andamento); antes, correcoes-validacao verificada (PASS round 1, 73/73, 257e66a..5b5518c, profile light)
-**Where**: publicado em `main` (deploy do Actions verde em 29/09/2026, run 36625992180); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
-**In progress**: parada-obrigatoria - C1-C11 em `.specs/features/parada-obrigatoria/checks.md`
-**Next step**: build e Verifier de parada-obrigatoria; depois a feature treino-e-evolucao (brainstorm: intensidade do clube Leve/Normal/Forte já escolhida pelo autor). L-023, L-024, L-025 e o `revokeObjectURL` foram fechados por correcoes-validacao C64, C63, C65 e C66
+**Feature**: parada-obrigatoria verificada (PASS round 2 scoped, 11/11, e9fdd10..8f2e50f, profile light; round 1 FAIL em C4, prova reforçada em 8f2e50f, L-006 promovida)
+**Where**: commits locais em `main`, ainda não publicados; o site no ar em https://arthuurw.github.io/forzion.tech-futmanager/ continua em correcoes-validacao até o push
+**In progress**: nada
+**Next step**: push para `main` quando o autor autorizar; depois a feature treino-e-evolucao (brainstorm: intensidade do clube Leve/Normal/Forte já escolhida pelo autor). Observações não bloqueantes do Verifier: C5 sem prova de vermelho na store, aviso «Goleiro expulso: {nome}.» sem check. L-023, L-024, L-025 e o `revokeObjectURL` foram fechados por correcoes-validacao C64, C63, C65 e C66
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

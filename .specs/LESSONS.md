@@ -20,6 +20,12 @@ Corroborated across multiple features. Safe to apply as guidance.
 - evidence: checks.md C47 (checks) (+1 more)
 - last seen: 2026-09-27T15:59:05Z
 
+### L-006 - A selection-rule check must name who takes the slot and the no-alternative fallback, with a fixture where the right and the likely wrong pick differ.
+- signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `checks` · harmful: 0
+- features: partida-ao-vivo, parada-obrigatoria
+- evidence: checks.md C48 (checks) (+1 more)
+- last seen: 2026-09-29T21:43:50Z
+
 ### L-007 - When a check says available, the fixture must include an unavailable member so exclusion is actually exercised.
 - signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `tests` · harmful: 0
 - features: partida-ao-vivo, elenco-mercado-financas
@@ -59,12 +65,6 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - features: nucleo-liga-partida
 - evidence: C7 / src/ui/ChooseClub.test.tsx (tests)
 - last seen: 2026-09-26T19:16:04Z
-
-### L-006 - A selection-rule check must name who takes the slot and the no-alternative fallback, with a fixture where the right and the likely wrong pick differ.
-- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
-- features: partida-ao-vivo
-- evidence: checks.md C48 (checks)
-- last seen: 2026-09-26T20:54:53Z
 
 ### L-010 - Give every displayed value a non-zero fixture so a miswired field cannot pass by showing zero.
 - signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0

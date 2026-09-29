@@ -281,12 +281,14 @@ export const useGame = create<GameStore>()((set, get) => {
     if (!game || saving) return false;
     const r = action(game);
     if (!r.ok) {
-      set({ marketMessage: refusalText(r.reason, r.amount) });
-      // Correcoes-validacao AC 27: a refusal that still changed the game (an offer withdrawn) is kept.
+      // Correcoes-validacao AC 27: a refusal that still changed the game (an offer withdrawn) is
+      // kept, saved first and shown with its message.
       if (r.state) {
         set({ saving: true });
         await persist(r.state, set, get);
-        set({ game: r.state, saving: false });
+        set({ game: r.state, saving: false, marketMessage: refusalText(r.reason, r.amount) });
+      } else {
+        set({ marketMessage: refusalText(r.reason, r.amount) });
       }
       return false;
     }

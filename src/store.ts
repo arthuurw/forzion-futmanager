@@ -16,7 +16,7 @@ import {
 import * as finance from "./engine/finance";
 import * as market from "./engine/market";
 import { userBoardGoal, userCupGoal } from "./engine/board";
-import { nextDate } from "./engine/calendar";
+import { nextCompetition, nextDate } from "./engine/calendar";
 import { finishCupDate, startCupDate } from "./engine/cup";
 import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
@@ -340,7 +340,9 @@ export const useGame = create<GameStore>()((set, get) => {
     setFormation(formation) {
       const game = get().game;
       if (!game) return;
-      set({ game: editUserClub(game, (club) => ({ ...club, lineup: autoLineup(club, formation) })) });
+      // Correcoes-validacao AC 21: filled for the next match's competition, keeping the posture.
+      const competition = nextCompetition(game);
+      set({ game: editUserClub(game, (club) => ({ ...club, lineup: autoLineup(club, formation, club.lineup?.posture ?? "balanced", 0, competition) })) });
     },
 
     setPosture(posture) {
@@ -354,7 +356,8 @@ export const useGame = create<GameStore>()((set, get) => {
       if (!game) return;
       set({
         game: editUserClub(game, (club) => {
-          const lineup = club.lineup ? assignSlot(club, club.lineup, slotIndex, playerId) : null;
+          // Correcoes-validacao AC 19, AC 20: the discipline of the next match's competition.
+          const lineup = club.lineup ? assignSlot(club, club.lineup, slotIndex, playerId, nextCompetition(game)) : null;
           return lineup ? { ...club, lineup } : club;
         }),
       });

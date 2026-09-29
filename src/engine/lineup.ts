@@ -78,21 +78,24 @@ export function aiLineup(club: Club, competition: Competition = LEAGUE): Lineup 
   return autoLineup(club, AI_FORMATION, "balanced", AI_REST_BELOW, competition);
 }
 
-/** Any available player may take any slot; out of position costs 25% of their strength (door 6). */
-export function canAssign(slotPosition: Position, player: Player): boolean {
+/**
+ * Any player available for `competition` may take any slot; out of position costs 25% of their
+ * strength (door 6). Correcoes-validacao AC 19, AC 20: the competition of the user's next match.
+ */
+export function canAssign(slotPosition: Position, player: Player, competition: Competition = LEAGUE): boolean {
   void slotPosition;
-  return isAvailable(player);
+  return isAvailableFor(player, competition);
 }
 
 /**
- * Put `playerId` in `slotIndex`. Returns null when the player is unavailable or unknown.
- * A player already in another slot is moved, leaving that slot empty.
+ * Put `playerId` in `slotIndex`. Returns null when the player is unavailable for `competition` or
+ * unknown. A player already in another slot is moved, leaving that slot empty.
  */
-export function assignSlot(club: Club, lineup: Lineup, slotIndex: number, playerId: string): Lineup | null {
+export function assignSlot(club: Club, lineup: Lineup, slotIndex: number, playerId: string, competition: Competition = LEAGUE): Lineup | null {
   const slots = formationSlots(lineup.formation);
   const slotPosition = slots[slotIndex];
   const player = club.players.find((p) => p.id === playerId);
-  if (!slotPosition || !player || !canAssign(slotPosition, player)) return null;
+  if (!slotPosition || !player || !canAssign(slotPosition, player, competition)) return null;
   const starters = lineup.starters.map((id) => (id === playerId ? null : id));
   starters[slotIndex] = playerId;
   return { formation: lineup.formation, starters, posture: lineup.posture };

@@ -152,13 +152,13 @@ Proof: `npx vitest run src/ui/Round.test.tsx -t "rodada explica o botão desliga
 
 ### S3 - Escalação de copa pela disciplina certa · 2 files · 25 KB · ~6k
 
-**C21** - Na primeira data de copa que o usuário joga (seed 5), tabela sobre `store.assignStarter`:
+**C21** ✓ - Na primeira data de copa que o usuário joga (seed 5), tabela sobre `store.assignStarter`:
 - reserva suspenso só na liga: aceito;
 - reserva suspenso na copa: recusado, e a escalação não muda (AC 19, AC 20, L-003, L-007).
 
 Proof: `npx vitest run src/store.test.ts -t "titular de copa pela disciplina da copa"`
 
-**C22** - Na mesma data, com um titular suspenso na copa:
+**C22** ✓ - Na mesma data, com um titular suspenso na copa:
 - `setFormation("4-3-3")` deixa uma escalação válida, sem o suspenso;
 - a postura `attacking` escolhida antes continua `attacking` (AC 21).
 

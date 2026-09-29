@@ -9,9 +9,10 @@ import { Banner } from "./ui/Banner";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 import { userBoardGoal } from "./engine/board";
-import { AI_FORMATION, autoLineup } from "./engine/lineup";
+import { AI_FORMATION, autoLineup, validateLineup } from "./engine/lineup";
+import { nextCompetition } from "./engine/calendar";
 import { atCupDate, expectedCupGoal } from "./engine/test-fixtures";
-import { resetAll, seededGame } from "./ui/test-utils";
+import { preliminaryWithCupSuspended, resetAll, seededGame } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can look at the store mid-save. */
 const ctl = vi.hoisted(() => ({ gate: null as Promise<void> | null, fail: false }));
@@ -343,5 +344,51 @@ describe("importar e armazenamento persistente (lancamento)", () => {
     await useGame.getState().skipToEnd();
     expect(useGame.getState().saveStatus).toBe("ok");
     expect(persist).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("escalação de copa pela disciplina da copa (correcoes-validacao)", () => {
+  /** Seed 5, right before the Preliminar, the user's club plays its first tie. */
+  function firstCupDate() {
+    const { game, suspended } = preliminaryWithCupSuspended(5, (s) => s.cups[0]!.phases[0]!.ties[0]!.homeId);
+    expect(nextCompetition(game)).toEqual({ kind: "cup", cupId: "cup-nat" });
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    return { game, suspended };
+  }
+
+  test("titular de copa pela disciplina da copa", () => {
+    // C21 (AC 19, AC 20, L-003, L-007): two reserves, one suspended in the league only, one in the cup.
+    const { game } = firstCupDate();
+    const me = userClub(game)!;
+    const bench = me.players.filter((p) => !me.lineup!.starters.includes(p.id));
+    const leagueOnly = bench[0]!;
+    const cupOnly = bench[1]!;
+    leagueOnly.suspendedRounds = 1;
+    cupOnly.cupDiscipline = { "cup-nat": { yellowCards: 0, suspendedRounds: 1 } };
+    const rows: [string, string, boolean][] = [
+      ["suspenso só na liga", leagueOnly.id, true],
+      ["suspenso na copa", cupOnly.id, false],
+    ];
+    for (const [name, id, accepted] of rows) {
+      useGame.setState({ game: JSON.parse(JSON.stringify(game)) as GameState });
+      const before = userClub(useGame.getState().game!)!.lineup!;
+      useGame.getState().assignStarter(10, id);
+      const after = userClub(useGame.getState().game!)!.lineup!;
+      if (accepted) expect(after.starters[10], name).toBe(id);
+      else expect(after, name).toEqual(before);
+    }
+  });
+
+  test("formação de copa sem suspenso de copa", () => {
+    // C22 (AC 21): a starter suspended in the cup; the posture chosen before is kept.
+    const { suspended } = firstCupDate();
+    expect(userClub(useGame.getState().game!)!.lineup!.starters).toContain(suspended.id);
+    useGame.getState().setPosture("attacking");
+    useGame.getState().setFormation("4-3-3");
+    const me = userClub(useGame.getState().game!)!;
+    expect(me.lineup!.formation).toBe("4-3-3");
+    expect(me.lineup!.starters).not.toContain(suspended.id);
+    expect(validateLineup(me, me.lineup, { kind: "cup", cupId: "cup-nat" })).toEqual({ ok: true, missing: 0 });
+    expect(me.lineup!.posture).toBe("attacking");
   });
 });

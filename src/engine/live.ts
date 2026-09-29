@@ -44,6 +44,12 @@ const DRAIN_PER_MINUTE_VETERAN = 0.2;
 const VETERAN_AGE = 30;
 const AI_TIRED_FITNESS = 60;
 const AI_TIRED_FROM_MINUTE = 60;
+/**
+ * Correcoes-validacao AC 41: a sector's strength grows with its slots, as the square root of the
+ * slots over the 4-4-2's (4 DF, 4 MF, 2 FW), so a 4-4-2 plays exactly as before.
+ */
+const SECTOR_REFERENCE: Record<Position, number> = { GK: 1, DF: 4, MF: 4, FW: 2 };
+const SECTOR_EXPONENT = 0.5;
 
 export type LivePlayer = PlayerCore & Partial<Condition>;
 
@@ -167,7 +173,25 @@ export interface Strength {
   att: number;
 }
 
-/** Sector strength = sum of effective ratings / slots the formation gives that sector. An empty slot counts 0. */
+/**
+ * Correcoes-validacao AC 38: the keeper in the GK slot; with that slot empty, the best outfield
+ * player on the pitch in goal, out of position (× 0,75).
+ */
+export function keeperStrength(side: LiveSide, players: Record<string, LivePlayer>): number {
+  const inGoal = (id: string) => {
+    const p = players[id];
+    return p ? effectiveRating(p, "GK", side.fitness[id] ?? p.fitness ?? 100) : 0;
+  };
+  const keeper = onPitch(side).find((o) => o.pos === "GK");
+  if (keeper) return inGoal(keeper.id);
+  return Math.max(0, ...onPitch(side).map((o) => inGoal(o.id)));
+}
+
+/**
+ * Sector strength = sum of effective ratings / slots the formation gives that sector, an empty slot
+ * counting 0, × √(slots / the 4-4-2's slots) (correcoes-validacao AC 41). The keeper is
+ * `keeperStrength`.
+ */
 export function sideStrength(side: LiveSide, players: Record<string, LivePlayer>): Strength {
   const sum: Record<Position, number> = { GK: 0, DF: 0, MF: 0, FW: 0 };
   const count: Record<Position, number> = { GK: 0, DF: 0, MF: 0, FW: 0 };
@@ -177,11 +201,11 @@ export function sideStrength(side: LiveSide, players: Record<string, LivePlayer>
     const p = id ? players[id] : undefined;
     if (id && p) sum[pos] += effectiveRating(p, pos, side.fitness[id] ?? p.fitness ?? 100);
   });
-  const avg = (pos: Position) => (count[pos] ? sum[pos] / count[pos] : 0);
-  const gk = avg("GK");
-  const def = avg("DF");
-  const mid = avg("MF");
-  const att = avg("FW");
+  const sector = (pos: Position) => (count[pos] ? (sum[pos] / count[pos]) * (count[pos] / SECTOR_REFERENCE[pos]) ** SECTOR_EXPONENT : 0);
+  const gk = keeperStrength(side, players);
+  const def = sector("DF");
+  const mid = sector("MF");
+  const att = sector("FW");
   const floor = (n: number) => Math.max(n, 20);
   return {
     gk: floor(gk * 0.7 + def * 0.3),
@@ -242,6 +266,21 @@ function aiSubstitutions(m: LiveMatch, side: LiveSide, minute: number, players: 
     candidates.sort((a, b) => effectiveRating(b, pos) - effectiveRating(a, pos) || a.id.localeCompare(b.id));
     return candidates[0]?.id ?? null;
   };
+  // Correcoes-validacao AC 40: a keeper sent off is replaced by the bench keeper; the weakest
+  // outfield player goes off, and his slot is the one left empty.
+  side.slots.forEach((id, slot) => {
+    if (id || side.slotPos[slot] !== "GK" || side.vacancy[slot]?.why !== "red" || side.subsUsed >= MAX_SUBS) return;
+    const keeper = bestFor("GK", true);
+    const off = onPitch(side)
+      .filter((o) => o.pos !== "GK")
+      .sort((a, b) => ownSlotRating(side, a, players) - ownSlotRating(side, b, players) || a.id.localeCompare(b.id))[0];
+    if (!keeper || !off) return;
+    side.vacancy[off.slot] = side.vacancy[slot]!;
+    delete side.vacancy[slot];
+    side.slots[off.slot] = null;
+    side.slots[slot] = off.id;
+    bringOn(m, side, slot, keeper, minute, players);
+  });
   // Injured players are replaced at once.
   side.slots.forEach((id, slot) => {
     if (id || side.vacancy[slot]?.why !== "injury" || side.subsUsed >= MAX_SUBS) return;
@@ -261,6 +300,11 @@ function aiSubstitutions(m: LiveMatch, side: LiveSide, minute: number, players: 
       return;
     }
   }
+}
+
+function ownSlotRating(side: LiveSide, o: { id: string; pos: Position }, players: Record<string, LivePlayer>): number {
+  const p = players[o.id];
+  return p ? effectiveRating(p, o.pos, side.fitness[o.id] ?? p.fitness ?? 100) : 0;
 }
 
 function discipline(m: LiveMatch, side: LiveSide, minute: number, rng: Rng, players: Record<string, LivePlayer>): void {
@@ -580,6 +624,8 @@ export function substitute(input: LiveRound, clubId: string, slot: number, inId:
 /**
  * Re-seats the players on the pitch in the slots of `formation`: same-position players first,
  * then the rest wherever a slot is left (out of position). Nobody leaves; empty slots stay empty.
+ * Correcoes-validacao AC 43: each empty slot is kept first in the sector of the player who left
+ * it, the last slot of that sector, when the new formation has one free.
  */
 export function changeFormation(input: LiveRound, clubId: string, formation: FormationName): LiveRound {
   const live = clone(input);
@@ -590,18 +636,29 @@ export function changeFormation(input: LiveRound, clubId: string, formation: For
   const ids = side.slots.filter((id): id is string => !!id);
   const vacancies = side.slots.map((id, i) => (id ? null : side.vacancy[i] ?? null)).filter((v): v is VacantSlot => !!v);
   const seats: (string | null)[] = newPos.map(() => null);
+  const vacancy: Record<number, VacantSlot> = {};
+  const unplaced: VacantSlot[] = [];
+  for (const v of vacancies) {
+    const lost = live.players[v.playerId]?.position;
+    let slot = -1;
+    newPos.forEach((pos, i) => {
+      if (pos === lost && !vacancy[i]) slot = i;
+    });
+    if (slot >= 0) vacancy[slot] = v;
+    else unplaced.push(v);
+  }
+  const free = (i: number) => !seats[i] && !vacancy[i];
   const left = [...ids];
   newPos.forEach((pos, i) => {
+    if (!free(i)) return;
     const k = left.findIndex((id) => live.players[id]?.position === pos);
     if (k >= 0) seats[i] = left.splice(k, 1)[0] as string;
   });
-  // Fill the remaining slots from the back so the empty ones (vacancies) sit where the losses were.
-  const emptyIdx = seats.map((s, i) => (s ? -1 : i)).filter((i) => i >= 0);
-  const toFill = emptyIdx.slice(0, left.length);
-  toFill.forEach((slotIdx, k) => (seats[slotIdx] = left[k] as string));
-  const vacancy: Record<number, VacantSlot> = {};
+  // The rest sit wherever a slot is left, from the front; any vacancy not placed yet takes what remains.
+  const emptyIdx = newPos.map((_, i) => i).filter(free);
+  emptyIdx.slice(0, left.length).forEach((slotIdx, k) => (seats[slotIdx] = left[k] as string));
   emptyIdx.slice(left.length).forEach((slotIdx, k) => {
-    const v = vacancies[k];
+    const v = unplaced[k];
     if (v) vacancy[slotIdx] = v;
   });
   side.formation = formation;

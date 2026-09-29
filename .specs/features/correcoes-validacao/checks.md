@@ -267,32 +267,32 @@ Proof: `npx vitest run src/engine/rollover.test.ts -t "base estrangeira com nome
 
 ### S6 - Partida coerente · 3 files · 46 KB · ~11k
 
-**C42** - Com o slot GK vazio e o melhor jogador de linha em campo de força 80, a força de goleiro é 60 (80 × 0,75, conta no teste) (AC 38).
+**C42** ✓ - Com o slot GK vazio e o melhor jogador de linha em campo de força 80, a força de goleiro é 60 (80 × 0,75, conta no teste) (AC 38).
 
 Proof: `npx vitest run src/engine/live.test.ts -t "goleiro efetivo sem goleiro"`
 
-**C43** - 2000 partidas, seed fixa, contra time sem goleiro: a conversão de chutes no alvo fica < 0,8 (AC 39).
+**C43** ✓ - 2000 partidas, seed fixa, contra time sem goleiro: a conversão de chutes no alvo fica < 0,8 (AC 39).
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "conversão sem goleiro"`
 
-**C44** - IA com goleiro expulso:
+**C44** ✓ - IA com goleiro expulso:
 - com substituição restante e goleiro reserva disponível, o slot GK recebe o reserva e sai um jogador de linha;
 - sem substituição, nada muda;
 - sem goleiro reserva, nada muda (AC 40, L-007).
 
 Proof: `npx vitest run src/engine/live.test.ts -t "IA repõe goleiro expulso"`
 
-**C45** - Com os 11 de força 70, `sideStrength` do ataque:
+**C45** ✓ - Com os 11 de força 70, `sideStrength` do ataque:
 - 4-3-3 ≥ 1,2 × 4-5-1;
 - defesa de 5-3-2 > defesa de 3-5-2 (AC 41).
 
 Proof: `npx vitest run src/engine/live.test.ts -t "setor cresce com a contagem"`
 
-**C46** - 2000 partidas com os mesmos clubes: os gols do mandante em 4-3-3 contra 4-4-2 são ≥ 1,05 × os gols em 4-5-1 contra 4-4-2 (AC 42).
+**C46** ✓ - 2000 partidas com os mesmos clubes: os gols do mandante em 4-3-3 contra 4-4-2 são ≥ 1,05 × os gols em 4-5-1 contra 4-4-2 (AC 42).
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "formação muda o placar"`
 
-**C47** - Tabela de `changeFormation` com 10 homens:
+**C47** ✓ - Tabela de `changeFormation` com 10 homens:
 - expulso um DF, de 4-5-1 para 4-4-2: a vaga fica num slot DF;
 - expulso o FW, de 4-4-2 para 4-5-1: a vaga fica no slot FW (AC 43, L-005).
 

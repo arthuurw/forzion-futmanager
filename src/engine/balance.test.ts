@@ -5,10 +5,10 @@ import { simulateMatch, type TeamSheet } from "./match";
 import { createRng } from "./rng";
 import { nextSeason } from "./rollover";
 import { playDate, playRound } from "./season";
-import type { Country, GameState, PlayerCore, Posture, TransferRecord } from "./types";
+import type { Country, FormationName, GameState, PlayerCore, Posture, TransferRecord } from "./types";
 
-function flatSheet(clubId: string, rating: number, posture: Posture = "balanced"): TeamSheet {
-  const starters: PlayerCore[] = formationSlots("4-4-2").map((position, i) => ({
+function flatSheet(clubId: string, rating: number, posture: Posture = "balanced", formation: FormationName = "4-4-2"): TeamSheet {
+  const starters: PlayerCore[] = formationSlots(formation).map((position, i) => ({
     id: `${clubId}-${i}`,
     name: `${clubId} ${i}`,
     position,
@@ -342,4 +342,39 @@ describe("equilíbrio em várias temporadas", () => {
     // Paises C33 (door 1): after every round and every turn of the season of 5 seasons of seeds 1-3.
     for (const run of multiSeason()) expect(run.countryMoves).toEqual([]);
   }, 120_000);
+});
+
+describe("partida coerente (correcoes-validacao)", () => {
+  test("conversão sem goleiro", () => {
+    // C43 (AC 39): 2000 matches against a 4-4-2 with no keeper (ten outfield players).
+    const home = flatSheet("H", 70);
+    const away = flatSheet("A", 70);
+    away.starters = away.starters.filter((p) => p.position !== "GK");
+    expect(away.starters).toHaveLength(10);
+    let goals = 0;
+    let onTarget = 0;
+    for (let seed = 1; seed <= 2000; seed++) {
+      for (const e of simulateMatch(home, away, createRng(seed)).events) {
+        if (e.clubId !== "H") continue;
+        if (e.type === "goal") goals++;
+        if (e.type === "goal" || e.type === "shot_saved") onTarget++;
+      }
+    }
+    console.log(`C43 conversão contra time sem goleiro: ${(goals / onTarget).toFixed(3)} (${goals}/${onTarget})`);
+    expect(onTarget).toBeGreaterThan(0);
+    expect(goals / onTarget).toBeLessThan(0.8);
+  });
+
+  test("formação muda o placar", () => {
+    // C46 (AC 42): the same clubs, 70 against 70; the home side in 4-3-3 and then in 4-5-1, against a 4-4-2.
+    const homeGoals = (formation: FormationName) => {
+      let goals = 0;
+      for (let seed = 1; seed <= 2000; seed++) goals += simulateMatch(flatSheet("H", 70, "balanced", formation), flatSheet("A", 70), createRng(seed)).result.homeGoals;
+      return goals / 2000;
+    };
+    const attacking = homeGoals("4-3-3");
+    const holding = homeGoals("4-5-1");
+    console.log(`C46 gols do mandante: 4-3-3 ${attacking.toFixed(3)}, 4-5-1 ${holding.toFixed(3)}`);
+    expect(attacking).toBeGreaterThanOrEqual(1.05 * holding);
+  });
 });

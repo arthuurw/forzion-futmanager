@@ -4,12 +4,14 @@ import { AI_FORMATION, aiLineup, autoLineup, formationSlots } from "./lineup";
 import {
   MAX_SUBS,
   changeFormation,
+  keeperStrength,
   makeMatch,
   makeSide,
   runToEnd,
   sideStrength,
   startRound,
   step,
+  stepMatch,
   substitute,
   userMatch,
   type LivePlayer,
@@ -17,10 +19,10 @@ import {
   type LiveSide,
 } from "./live";
 import { narrate, narrationContext } from "./narration";
-import { mix32 } from "./rng";
+import { createRng, mix32 } from "./rng";
 import { finishRound, playRound } from "./season";
 import { effectiveRating } from "./strength";
-import { MATCH_EVENT_TYPES, type GameState, type MatchEventType, type Player } from "./types";
+import { MATCH_EVENT_TYPES, type FormationName, type GameState, type MatchEventType, type Player, type Position } from "./types";
 
 function game(seed = 1, clubIndex = 0): GameState {
   const state = newGame(seed);
@@ -430,6 +432,133 @@ describe("sementes dos países (paises)", () => {
       const two = playRound(playRound(newGame(seed)).state).state;
       const results = [0, 1].map((k) => [0, 1].map((r) => two.leagues[k]!.rounds[r]!.matches.map((m) => m.result)));
       expect(results, `seed ${seed}`).toEqual(snapshot[seed]!.results);
+    }
+  });
+});
+
+describe("partida coerente (correcoes-validacao)", () => {
+  /** A fresh player (fitness 100, morale 0) of `position` and `rating`. */
+  const fresh = (id: string, position: Position, rating: number): LivePlayer => ({ id, name: id, position, age: 25, rating, fitness: 100, morale: 0 });
+  /** One side with a player of the slot's own position in every slot, all rated `rating`. */
+  function flatSide(slotPos: Position[], rating = 70) {
+    const players: Record<string, LivePlayer> = {};
+    const ids = slotPos.map((pos, i) => {
+      players[`p${i}`] = fresh(`p${i}`, pos, rating);
+      return `p${i}`;
+    });
+    return { side: makeSide("c", slotPos, ids, [], players), players };
+  }
+  const shape = (df: number, mf: number, fw: number): Position[] => [
+    "GK",
+    ...Array<Position>(df).fill("DF"),
+    ...Array<Position>(mf).fill("MF"),
+    ...Array<Position>(fw).fill("FW"),
+  ];
+
+  test("goleiro efetivo sem goleiro", () => {
+    // C42 (AC 38): the best outfield player on the pitch, 80, in goal at 80 × 0,75.
+    const { side, players } = flatSide(formationSlots("4-4-2"));
+    players.p3 = fresh("p3", "DF", 80);
+    players.p9 = fresh("p9", "FW", 76);
+    side.slots[0] = null;
+    side.vacancy[0] = { why: "red", playerId: "p0" };
+    expect(keeperStrength(side, players)).toBe(80 * 0.75);
+    expect(keeperStrength(side, players)).toBe(60);
+    // With the keeper in his slot, it is his own rating.
+    const withKeeper = flatSide(formationSlots("4-4-2"));
+    expect(keeperStrength(withKeeper.side, withKeeper.players)).toBe(70);
+    // The side's keeper term reads it: 0,7 × keeper + 0,3 × the defenders' mean (as in the core).
+    expect(sideStrength(side, players).gk).toBeCloseTo(0.7 * 60 + 0.3 * ((70 + 70 + 80 + 70) / 4), 10);
+  });
+
+  test("IA repõe goleiro expulso", () => {
+    // C44 (AC 40, L-007): a keeper on the bench and a sub left; no sub left; no keeper on the bench.
+    function sentOffKeeper(opts: { subsUsed: number; benchKeeper: boolean }) {
+      const slotPos = formationSlots("4-4-2");
+      const players: Record<string, LivePlayer> = {};
+      const ids = slotPos.map((pos, i) => {
+        players[`a${i}`] = fresh(`a${i}`, pos, 70 + i);
+        return `a${i}`;
+      });
+      players.benchGk = fresh("benchGk", "GK", 65);
+      players.benchDf = fresh("benchDf", "DF", 90);
+      const bench = opts.benchKeeper ? ["benchDf", "benchGk"] : ["benchDf"];
+      const ai = makeSide("ai", slotPos, ids, bench, players);
+      ai.slots[0] = null;
+      ai.vacancy[0] = { why: "red", playerId: "a0" };
+      ai.sentOff.push("a0");
+      ai.subsUsed = opts.subsUsed;
+      const other = flatSide(formationSlots("4-4-2"));
+      Object.assign(players, other.players);
+      const m = makeMatch("m", ai, other.side, 12345);
+      const before = [...ai.slots];
+      stepMatch(m, 20, players, createRng(12345));
+      return { m, before, players };
+    }
+    const replaced = sentOffKeeper({ subsUsed: 0, benchKeeper: true });
+    const side = replaced.m.home;
+    expect(side.slots[0]).toBe("benchGk");
+    // One outfield player went off for him: the weakest on the pitch, a1 (71).
+    expect(side.subbedOff).toEqual(["a1"]);
+    expect(side.slots).not.toContain("a1");
+    expect(side.slots.filter(Boolean)).toHaveLength(10);
+    expect(side.subsUsed).toBe(1);
+    expect(side.vacancy[1]).toEqual({ why: "red", playerId: "a0" });
+    expect(replaced.m.events.filter((e) => e.type === "substitution")).toEqual([
+      { minute: 20, type: "substitution", clubId: "ai", playerId: "a1", playerInId: "benchGk" },
+    ]);
+
+    for (const [label, opts] of [
+      ["sem substituição", { subsUsed: MAX_SUBS, benchKeeper: true }],
+      ["sem goleiro reserva", { subsUsed: 0, benchKeeper: false }],
+    ] as const) {
+      const { m, before } = sentOffKeeper(opts);
+      expect(m.home.slots, label).toEqual(before);
+      expect(m.home.slots[0], label).toBeNull();
+      expect(m.home.subsUsed, label).toBe(opts.subsUsed);
+      expect(m.events.filter((e) => e.type === "substitution"), label).toEqual([]);
+    }
+  });
+
+  test("setor cresce com a contagem", () => {
+    // C45 (AC 41): the 11 rated 70, each in his own position.
+    const of = (slotPos: Position[]) => {
+      const { side, players } = flatSide(slotPos);
+      return sideStrength(side, players);
+    };
+    const s433 = of(formationSlots("4-3-3"));
+    const s451 = of(formationSlots("4-5-1"));
+    expect(s433.att).toBeGreaterThanOrEqual(1.2 * s451.att);
+    expect(of(shape(5, 3, 2)).def).toBeGreaterThan(of(shape(3, 5, 2)).def);
+    // The 4-4-2 of the core is unchanged: every sector is its players' mean.
+    const s442 = of(formationSlots("4-4-2"));
+    expect([s442.gk, s442.def, s442.mid, s442.att]).toEqual([70, 70, 70, 70].map((x) => expect.closeTo(x, 10)));
+  });
+
+  test("vaga fica no setor perdido", () => {
+    // C47 (AC 43, L-005): 10 men, a DF sent off (4-5-1 -> 4-4-2) and the FW sent off (4-4-2 -> 4-5-1).
+    const cases: [FormationName, Position, FormationName][] = [
+      ["4-5-1", "DF", "4-4-2"],
+      ["4-4-2", "FW", "4-5-1"],
+    ];
+    for (const [from, lost, to] of cases) {
+      const state = game(7);
+      const me = state.leagues[0]!.clubs[0]!;
+      for (const p of me.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+      me.lineup = autoLineup(me, from);
+      const live = startRound(state);
+      const side = userSide(live);
+      const slot = side.slotPos.lastIndexOf(lost);
+      const id = side.slots[slot]!;
+      expect(live.players[id]!.position, `${from} ${lost}`).toBe(lost);
+      side.slots[slot] = null;
+      side.vacancy[slot] = { why: "red", playerId: id };
+      side.sentOff.push(id);
+      const after = userSide(changeFormation(live, state.userClubId!, to));
+      const empty = after.slots.flatMap((s, i) => (s ? [] : [i]));
+      expect(empty, `${from} -> ${to}`).toHaveLength(1);
+      expect(after.slotPos[empty[0]!], `${from} -> ${to}`).toBe(lost);
+      expect(after.vacancy[empty[0]!], `${from} -> ${to}`).toEqual({ why: "red", playerId: id });
     }
   });
 });

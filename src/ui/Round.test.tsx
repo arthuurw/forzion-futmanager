@@ -38,7 +38,7 @@ describe("tela Rodada", () => {
     const mine = lastRound.results.find((r) => r.homeId === before.userClubId || r.awayId === before.userClubId)!;
     const clubs = state.leagues[0]!.clubs;
     const name = (id: string) => clubs.find((c) => c.id === id)!.name;
-    const section = screen.getByRole("region", { name: "Sua partida" });
+    const section = screen.getByRole("tabpanel", { name: "Sua partida" });
     expect(within(section).getByRole("heading")).toHaveTextContent(
       `${name(mine.homeId)} ${mine.result.homeGoals} x ${mine.result.awayGoals} ${name(mine.awayId)}`,
     );
@@ -50,7 +50,7 @@ describe("tela Rodada", () => {
     const goalLines = lines.filter((li) => li.textContent!.includes("GOL do"));
     expect(goalLines).toHaveLength(mine.result.homeGoals + mine.result.awayGoals);
 
-    const others = within(screen.getByRole("region", { name: "Outros resultados" })).getAllByRole("listitem");
+    const others = within(screen.getByRole("tabpanel", { name: "Outros resultados" })).getAllByRole("listitem");
     expect(others).toHaveLength(9);
     for (const r of lastRound.results.filter((x) => x !== mine)) {
       expect(others.map((li) => li.textContent)).toContain(`${name(r.homeId)} ${r.result.homeGoals} x ${r.result.awayGoals} ${name(r.awayId)}`);
@@ -65,8 +65,8 @@ describe("tela Rodada", () => {
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
     expect(await screen.findByText("Não foi possível salvar")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Sua partida" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Outros resultados" })).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Sua partida" })).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Outros resultados" })).toBeInTheDocument();
     expect(useGame.getState().game!.leagues[0]!.currentRound).toBe(1);
   });
 
@@ -79,7 +79,7 @@ describe("tela Rodada", () => {
     expect(screen.getByText("Rodada 6 de 38")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
-    await screen.findByRole("region", { name: "Sua partida" });
+    await screen.findByRole("tabpanel", { name: "Sua partida" });
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Rodada 6");
     expect(screen.getByText("Rodada 7 de 38")).toBeInTheDocument();
   });
@@ -96,7 +96,7 @@ describe("tela Rodada", () => {
       seen[home ? "home" : "away"] = true;
       useGame.setState({ phase: "round", game: state, lastRound });
       const { unmount } = render(<Round />);
-      const section = screen.getByRole("region", { name: "Sua partida" });
+      const section = screen.getByRole("tabpanel", { name: "Sua partida" });
       const l = state.leagues[0]!.clubs.find((c) => c.id === before.userClubId)!.finance.lastRound!;
       if (home) {
         expect(section).toHaveTextContent(`Público ${num(l.attendance)}`);
@@ -129,7 +129,7 @@ describe("rodada com duas divisões", () => {
     expect(names()).toEqual(computeTable(game.leagues[0]!).map((r) => r.name));
     // The other results are the user's division too.
     const bNames = new Set(game.leagues[1]!.clubs.map((c) => c.name));
-    const items = within(screen.getByRole("region", { name: "Outros resultados" })).getAllByRole("listitem");
+    const items = within(screen.getByRole("tabpanel", { name: "Outros resultados" })).getAllByRole("listitem");
     expect(items).toHaveLength(9);
     for (const li of items) expect(bNames.has(li.querySelector(".h")!.textContent!)).toBe(true);
   });
@@ -144,13 +144,13 @@ describe("resultados da copa (copa-nacional)", () => {
     useGame.setState({ phase: "round", game: state, lastRound });
     const { unmount } = render(<Round />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Copa Nacional · Preliminar");
-    const ties = within(screen.getByRole("region", { name: "Confrontos" })).getAllByRole("listitem");
+    const ties = within(screen.getByRole("tabpanel", { name: "Confrontos" })).getAllByRole("listitem");
     expect(ties).toHaveLength(8);
     state.cups[0]!.phases[0]!.ties.forEach((t, i) => {
       expect(ties[i]).toHaveTextContent(nameIn(state, t.homeId));
       expect(ties[i]).toHaveTextContent(nameIn(state, t.awayId));
     });
-    const next = within(screen.getByRole("region", { name: "Próxima fase" })).getAllByRole("listitem");
+    const next = within(screen.getByRole("tabpanel", { name: "Próxima fase" })).getAllByRole("listitem");
     expect(next).toHaveLength(16);
     state.cups[0]!.phases[1]!.ties.forEach((t, i) => expect(next[i]).toHaveTextContent(`${nameIn(state, t.homeId)} x ${nameIn(state, t.awayId)}`));
     expect(screen.queryByText(/^Campeão:/)).not.toBeInTheDocument();
@@ -164,7 +164,7 @@ describe("resultados da copa (copa-nacional)", () => {
     render(<Round />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Copa Nacional · Final");
     expect(screen.getByText(`Campeão: ${nameIn(ended, ended.cups[0]!.phases[5]!.ties[0]!.winnerId!)}`)).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Próxima fase" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tabpanel", { name: "Próxima fase" })).not.toBeInTheDocument();
   }, 60_000);
 
   test("placar com pênaltis nos resultados", () => {
@@ -175,10 +175,10 @@ describe("resultados da copa (copa-nacional)", () => {
     mine.penalties = { home: 4, away: 3 };
     useGame.setState({ phase: "round", game: state, lastRound });
     render(<Round />);
-    expect(within(screen.getByRole("region", { name: "Sua partida" })).getByRole("heading")).toHaveTextContent(
+    expect(within(screen.getByRole("tabpanel", { name: "Sua partida" })).getByRole("heading")).toHaveTextContent(
       `${nameIn(state, mine.homeId)} 1 x 1 (pên. 4 x 3) ${nameIn(state, mine.awayId)}`,
     );
-    expect(within(screen.getByRole("region", { name: "Confrontos" })).getAllByRole("listitem")[0]!).toHaveTextContent(
+    expect(within(screen.getByRole("tabpanel", { name: "Confrontos" })).getAllByRole("listitem")[0]!).toHaveTextContent(
       `${nameIn(state, mine.homeId)} 1 x 1 (pên. 4 x 3) ${nameIn(state, mine.awayId)}`,
     );
   });
@@ -255,16 +255,18 @@ describe("rodada nas bordas (correcoes-validacao)", () => {
     expect(useGame.getState().lastRound!.results.some((r) => r.homeId === game.userClubId || r.awayId === game.userClubId)).toBe(false);
     const view = render(<Round />);
     expect(screen.getByRole("tab", { name: "Resultados" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Partida" })).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByRole("region", { name: "Confrontos" })).toHaveClass("m-active");
+    // No match of his: no «Partida» tab to open onto an empty screen.
+    expect(screen.queryByRole("tab", { name: "Partida" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tabpanel", { name: "Sua partida" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tabpanel", { name: "Confrontos" })).toHaveClass("m-active");
     view.unmount();
 
     const { state, ...lastRound } = playRound(seededGame(8, 5));
     useGame.setState({ phase: "round", game: state, lastRound });
     render(<Round />);
     expect(screen.getByRole("tab", { name: "Partida" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("region", { name: "Sua partida" })).toHaveClass("m-active");
-    expect(screen.getByRole("region", { name: "Outros resultados" })).not.toHaveClass("m-active");
+    expect(screen.getByRole("tabpanel", { name: "Sua partida" })).toHaveClass("m-active");
+    expect(screen.getByRole("tabpanel", { name: "Outros resultados" })).not.toHaveClass("m-active");
   });
 
   test("narração com jogador que mudou de clube", () => {
@@ -279,7 +281,7 @@ describe("rodada nas bordas (correcoes-validacao)", () => {
     state.leagues[1]!.clubs[0]!.players.push(player);
     useGame.setState({ phase: "round", game: state, lastRound });
     render(<Round />);
-    const ticker = within(screen.getByRole("region", { name: "Sua partida" })).getAllByRole("listitem");
+    const ticker = within(screen.getByRole("tabpanel", { name: "Sua partida" })).getAllByRole("listitem");
     expect(ticker).toHaveLength(lastRound.userEvents.length);
     const line = ticker[lastRound.userEvents.indexOf(event)]!;
     expect(line).toHaveTextContent(player.name);

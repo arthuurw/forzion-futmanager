@@ -437,9 +437,34 @@ describe("elenco curto (correcoes-validacao)", () => {
     expect(screen.queryByText(/Falta/)).not.toBeInTheDocument();
     await user.click(play);
     await skipLive(user);
-    await screen.findByRole("region", { name: "Sua partida" });
+    await screen.findByRole("tabpanel", { name: "Sua partida" });
     expect(useGame.getState().phase).toBe("round");
     expect(useGame.getState().lastRound!.results.some((r) => r.homeId === me.id || r.awayId === me.id)).toBe(true);
     expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeEnabled();
   }, 60_000);
+});
+
+describe("abas do elenco (correcoes-validacao)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const layout = (narrow: boolean) =>
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(max-width: 900px)" ? narrow : false, media: query, addEventListener() {}, removeEventListener() {} }));
+
+  test("aba selecionada visível no desktop", () => {
+    // C52 (AC 48): «Campo» is mobile-only; a wide screen starts on a tab it shows.
+    layout(false);
+    useGame.setState({ phase: "squad", game: seededGame(4), hasSave: true });
+    const wide = render(<Squad />);
+    const selected = screen.getAllByRole("tab").filter((t) => t.getAttribute("aria-selected") === "true");
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toHaveTextContent("Elenco");
+    expect(selected[0]).not.toHaveClass("mobile-only");
+    expect(document.getElementById(selected[0]!.getAttribute("aria-controls")!)).toHaveClass("m-active");
+    wide.unmount();
+
+    // A narrow screen still starts on the pitch.
+    layout(true);
+    render(<Squad />);
+    expect(screen.getByRole("tab", { name: "Campo" })).toHaveAttribute("aria-selected", "true");
+  });
 });

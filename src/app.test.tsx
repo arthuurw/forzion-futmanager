@@ -69,11 +69,11 @@ describe("fluxo do app", () => {
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
     expect(vi.mocked(saveGame)).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("region", { name: "Sua partida" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tabpanel", { name: "Sua partida" })).not.toBeInTheDocument();
     expect(await loadGame()).toEqual({ kind: "none" });
 
     gate.resolve();
-    expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
+    expect(await screen.findByRole("tabpanel", { name: "Sua partida" })).toBeInTheDocument();
     const loaded = await loadGame();
     expect(loaded.kind).toBe("ok");
     if (loaded.kind === "ok") expect(loaded.state.leagues[0]!.currentRound).toBe(1);
@@ -86,7 +86,7 @@ describe("fluxo do app", () => {
     await user.selectOptions(screen.getByLabelText("Formação"), "4-3-3");
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
-    await screen.findByRole("region", { name: "Sua partida" });
+    await screen.findByRole("tabpanel", { name: "Sua partida" });
     const before = useGame.getState().game!;
     expect(before.leagues[0]!.currentRound).toBe(3);
     expect(userClub(before)!.lineup!.formation).toBe("4-3-3");
@@ -117,7 +117,7 @@ describe("fluxo do app", () => {
     await user.click((await screen.findAllByRole("button")).filter((b) => b.classList.contains("club-card"))[0]!);
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
-    expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
+    expect(await screen.findByRole("tabpanel", { name: "Sua partida" })).toBeInTheDocument();
     expect(screen.getByText("Salvamento indisponível neste navegador")).toBeInTheDocument();
     expect(useGame.getState().game!.leagues[0]!.currentRound).toBe(1);
   });
@@ -135,7 +135,7 @@ describe("fluxo do app", () => {
     await user.click(await screen.findByRole("button", { name: "Continuar" }));
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
-    await screen.findByRole("region", { name: "Sua partida" });
+    await screen.findByRole("tabpanel", { name: "Sua partida" });
 
     const viaReload = useGame.getState();
     expect(viaReload.game).toEqual(direct.state);
@@ -162,7 +162,7 @@ describe("fluxo do app", () => {
     await user.click(await screen.findByRole("button", { name: "Continuar" }));
     await user.click(await screen.findByRole("button", { name: "Jogar rodada" }));
     await skipLive(user);
-    await screen.findByRole("region", { name: "Sua partida" });
+    await screen.findByRole("tabpanel", { name: "Sua partida" });
 
     const viaReload = useGame.getState().game!;
     expect(viaReload.leagues[0]!.rounds).toEqual(direct.state.leagues[0]!.rounds);
@@ -182,8 +182,8 @@ describe("fluxo do app", () => {
     // Generous waits: 20 matches per tick, and the suite runs files in parallel.
     await screen.findByText("Intervalo", {}, { timeout: 25000 });
     await user.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(await screen.findByRole("region", { name: "Sua partida" }, { timeout: 25000 })).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "Outros resultados" })).getAllByRole("listitem")).toHaveLength(9);
+    expect(await screen.findByRole("tabpanel", { name: "Sua partida" }, { timeout: 25000 })).toBeInTheDocument();
+    expect(within(screen.getByRole("tabpanel", { name: "Outros resultados" })).getAllByRole("listitem")).toHaveLength(9);
     expect(within(screen.getByRole("table", { name: "Classificação" })).getAllByRole("row")).toHaveLength(21);
     const saved = await loadGame();
     expect(saved.kind).toBe("ok");

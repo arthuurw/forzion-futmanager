@@ -16,7 +16,7 @@ import { divisionOf } from "../engine/board";
 import { userLeague } from "../engine/season";
 import { useGame, userClub } from "../store";
 import { formatMoney, formatNumber } from "./money";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 
 type FinanceTab = "summary" | "round" | "loan";
 
@@ -77,6 +77,7 @@ export function Finance() {
       <div className="screen-head">
         <h1 className="title-bar">Finanças</h1>
         <ScreenTabs
+          idBase="finance"
           hideOnDesktop
           active={tab}
           onChange={setTab}
@@ -89,7 +90,7 @@ export function Finance() {
       </div>
 
       <div className="screen-body finance-body tabbed">
-        <section aria-label="Clube" className={panelClass("summary")} style={{ "--i": 0 } as React.CSSProperties}>
+        <section aria-label="Clube" {...tabPanel("finance", "summary", { named: true })} className={panelClass("summary")} style={{ "--i": 0 } as React.CSSProperties}>
           <h2 className="title-bar">Clube</h2>
           <dl className="money-list fill">
             <dt>Caixa</dt>
@@ -142,7 +143,7 @@ export function Finance() {
           )}
         </section>
 
-        <section aria-label="Última rodada" className={panelClass("round")} style={{ "--i": 1 } as React.CSSProperties}>
+        <section aria-label="Última rodada" {...tabPanel("finance", "round", { named: true })} className={panelClass("round")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Última rodada</h2>
           {last ? (
             <table aria-label="Registro da rodada" className="compact money-table">
@@ -160,7 +161,7 @@ export function Finance() {
           )}
         </section>
 
-        <section aria-label="Empréstimo" className={panelClass("loan")} style={{ "--i": 2 } as React.CSSProperties}>
+        <section aria-label="Empréstimo" {...tabPanel("finance", "loan", { named: true })} className={panelClass("loan")} style={{ "--i": 2 } as React.CSSProperties}>
           <h2 className="title-bar">Empréstimo</h2>
           <dl className="money-list">
             <dt>Saldo devedor</dt>

@@ -8,7 +8,7 @@ import { BASE_TICK_MS, useGame, type GameStore, type Speed } from "../store";
 import { FitnessBar, MoraleArrow } from "./Condition";
 import { cupPhaseTitle, scoreText } from "./Cup";
 import { Flag } from "./Flag";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
 type LiveTab = "match" | "games" | "team";
@@ -135,6 +135,7 @@ export function Live() {
       <div className="screen-head">
         <h1 className="title-bar">Ao vivo · {cup && live.cup ? cupPhaseTitle(cup, live.cup.phase) : `Rodada ${live.roundNumber}`}</h1>
         <ScreenTabs
+          idBase="live"
           hideOnDesktop
           active={tab}
           onChange={setTab}
@@ -147,7 +148,7 @@ export function Live() {
       </div>
 
       <div className="screen-body round-body tabbed">
-        <section aria-label="Partida ao vivo" className={panelClass("match")} style={{ "--i": 0 } as React.CSSProperties}>
+        <section aria-label="Partida ao vivo" {...tabPanel("live", "match", { named: true })} className={panelClass("match")} style={{ "--i": 0 } as React.CSSProperties}>
           <h2 className="scorebug">
             <Flag clubId={mine.home.clubId} name={name(mine.home.clubId)} size={20} />
             <span className="team home">{name(mine.home.clubId)}</span>{" "}
@@ -173,7 +174,7 @@ export function Live() {
           </ul>
         </section>
 
-        <section aria-label="Jogos da rodada" className={panelClass("games")} style={{ "--i": 1 } as React.CSSProperties}>
+        <section aria-label="Jogos da rodada" {...tabPanel("live", "games", { named: true })} className={panelClass("games")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Jogos da rodada</h2>
           <ul className="results live-results fill">
             {live.matches.filter((m) => m.leagueId === mine.leagueId).map((m) => (
@@ -188,7 +189,7 @@ export function Live() {
           </ul>
         </section>
 
-        <section aria-label="Seu time" className={`${panelClass("team")} team-panel`} style={{ "--i": 2 } as React.CSSProperties}>
+        <section aria-label="Seu time" {...tabPanel("live", "team", { named: true })} className={`${panelClass("team")} team-panel`} style={{ "--i": 2 } as React.CSSProperties}>
           <div className="panel-head">
             <h2 className="title-bar">Seu time</h2>
             <span className="subs-count">

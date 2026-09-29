@@ -9,7 +9,7 @@ import { cupPhaseTitle, nextDateLabel, scoreText } from "./Cup";
 import { Flag } from "./Flag";
 import { missingStartersText } from "./lineupText";
 import { formatMoney, formatNumber } from "./money";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { DivisionTable } from "./Table";
 
 type RoundTab = "match" | "results" | "table";
@@ -48,11 +48,13 @@ export function Round() {
       <div className="screen-head">
         <h1 className="title-bar">{cup && cupDate ? cupPhaseTitle(cup, cupDate.phase) : `Rodada ${lastRound.roundNumber}`}</h1>
         <ScreenTabs
+          idBase="round"
           hideOnDesktop
           active={tab}
           onChange={setTab}
           tabs={[
-            { id: "match", label: "Partida" },
+            // Correcoes-validacao AC 44: no «Partida» tab on a date without the user's match.
+            ...(mine ? [{ id: "match" as const, label: "Partida" }] : []),
             { id: "results", label: "Resultados" },
             { id: "table", label: cup ? "Próxima fase" : "Classificação" },
           ]}
@@ -61,7 +63,7 @@ export function Round() {
 
       <div className="screen-body round-body tabbed">
         {mine && (
-          <section aria-label="Sua partida" className={panelClass("match")} style={{ "--i": 0 } as React.CSSProperties}>
+          <section aria-label="Sua partida" {...tabPanel("round", "match", { named: true })} className={panelClass("match")} style={{ "--i": 0 } as React.CSSProperties}>
             <h2 className="scorebug">
               <Flag clubId={mine.homeId} name={name(mine.homeId)} size={20} />
               <span className="team home">{name(mine.homeId)}</span>{" "}
@@ -91,7 +93,7 @@ export function Round() {
           </section>
         )}
 
-        <section aria-label={cup ? "Confrontos" : "Outros resultados"} className={panelClass("results")} style={{ "--i": 1 } as React.CSSProperties}>
+        <section aria-label={cup ? "Confrontos" : "Outros resultados"} {...tabPanel("round", "results", { named: true })} className={panelClass("results")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">{cup ? "Confrontos" : "Outros resultados"}</h2>
           <ul className="results fill">
             {others.map((r) => (
@@ -107,7 +109,7 @@ export function Round() {
         </section>
 
         {cup ? (
-          <section aria-label={champion ? "Campeão" : "Próxima fase"} className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
+          <section aria-label={champion ? "Campeão" : "Próxima fase"} {...tabPanel("round", "table", { named: true })} className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
             <h2 className="title-bar">{champion ? cup.name : "Próxima fase"}</h2>
             {champion ? (
               <p className="champion">Campeão: {name(champion)}</p>
@@ -124,7 +126,7 @@ export function Round() {
             )}
           </section>
         ) : (
-          <section className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
+          <section {...tabPanel("round", "table")} className={panelClass("table")} style={{ "--i": 2 } as React.CSSProperties}>
             <h2 className="title-bar">Classificação</h2>
             <div className="fill">
               <DivisionTable game={game} highlightClubId={club.id} />

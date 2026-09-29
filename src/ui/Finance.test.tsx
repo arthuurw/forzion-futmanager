@@ -17,7 +17,7 @@ const brl = (n: number) => `${n < 0 ? "-" : ""}R$ ${num(n)}`;
 
 /** The value next to a label in the club summary. */
 function valueOf(label: string): HTMLElement {
-  const dt = within(screen.getByRole("region", { name: "Clube" })).getByText(label).closest("dt")!;
+  const dt = within(screen.getByRole("tabpanel", { name: "Clube" })).getByText(label).closest("dt")!;
   return dt.nextElementSibling as HTMLElement;
 }
 

@@ -4,7 +4,7 @@ import { bestElevenMean } from "../engine/lineup";
 import { useGame } from "../store";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 
 /**
  * AC 7 of the core, AC 2, paises AC 21: the 20 clubs of each league, one tab per league,
@@ -22,12 +22,14 @@ export function ChooseClub() {
       <div className="screen-head">
         <h1 className="title-bar">Escolher clube</h1>
         <ScreenTabs
+          idBase="choose"
+          shared
           active={tab}
           onChange={setTab}
           tabs={game.leagues.map((l, i) => ({ id: l.id, label: DIVISION_LABEL[i] ?? l.name }))}
         />
       </div>
-      <div className="club-grid" key={tab}>
+      <div className="club-grid" key={tab} {...tabPanel("choose", tab, { shared: true })}>
         {clubs.map((club, i) => {
           const strength = bestElevenMean(club);
           return (

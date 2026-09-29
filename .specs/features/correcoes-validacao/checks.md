@@ -330,7 +330,7 @@ Nas três, a tela mostra «Algo deu errado» e «Exportar jogo» (AC 47, L-005).
 
 Proof: `npx vitest run src/ui/ErrorBoundary.test.tsx -t "erro fora do render"`
 
-**C52** - Nas abas:
+**C52** - ✓ Nas abas:
 - cada `role="tab"` tem `aria-controls` apontando para um `role="tabpanel"` existente;
 - seta direita e seta esquerda mudam a aba selecionada;
 - no Elenco em desktop, uma aba visível começa com `aria-selected="true"` (AC 48).

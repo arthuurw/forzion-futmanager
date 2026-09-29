@@ -4,7 +4,7 @@ import { findAnyClub, topScorers, userLeague } from "../engine/season";
 import { CONTINENTAL_CUP_ID } from "../engine/cup";
 import type { DivisionRecord, SeasonRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
 type HistoryTab = "scorers" | "stats" | "champions";
@@ -46,6 +46,8 @@ export function History() {
       <div className="screen-head">
         <h1 className="title-bar">Histórico</h1>
         <ScreenTabs
+          idBase="history"
+          shared
           active={tab}
           onChange={setTab}
           tabs={[
@@ -55,7 +57,7 @@ export function History() {
           ]}
         />
       </div>
-      <div className="screen-body">
+      <div className="screen-body" {...tabPanel("history", tab, { shared: true })}>
         {tab === "scorers" && (
           <section aria-label="Artilharia" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
             <h2 className="title-bar">Artilharia · {division(userLeague(game).id)}</h2>

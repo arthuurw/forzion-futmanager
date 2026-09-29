@@ -12,7 +12,7 @@ import { formatMoney } from "./money";
 import { missingStartersText } from "./lineupText";
 import { Flag } from "./Flag";
 import { RatingBar } from "./RatingBar";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { DivisionTable } from "./Table";
 
 export const POSITION_LABEL: Record<Position, string> = { GK: "GOL", DF: "ZAG", MF: "MEI", FW: "ATA" };
@@ -40,6 +40,11 @@ function slotCoordinates(slots: Position[]): { x: number; y: number; w: number }
 
 type SquadTab = "pitch" | "roster" | "table";
 
+/** The wide layout (above 900 px), where the pitch is always visible and «Campo» is hidden. */
+function isWide(): boolean {
+  return typeof window.matchMedia === "function" && !window.matchMedia("(max-width: 900px)").matches;
+}
+
 const POSTURE_LABEL: Record<Posture, string> = { defensive: "Defensiva", balanced: "Equilibrada", attacking: "Ofensiva" };
 
 export function Squad() {
@@ -56,7 +61,8 @@ export function Squad() {
   const goToCup = useGame((s) => s.goToCup);
   const renewContract = useGame((s) => s.renewContract);
   const message = useGame((s) => s.marketMessage);
-  const [tab, setTab] = useState<SquadTab>("pitch");
+  // Correcoes-validacao AC 48: wide screens hide «Campo» (the pitch is always there), so they start on «Elenco».
+  const [tab, setTab] = useState<SquadTab>(() => (isWide() ? "roster" : "pitch"));
   const [releasing, setReleasing] = useState<string | null>(null);
   const [renewing, setRenewing] = useState<string | null>(null);
   if (!game) return null;
@@ -95,6 +101,7 @@ export function Squad() {
           {club.name}
         </h1>
         <ScreenTabs
+          idBase="squad"
           active={tab}
           onChange={setTab}
           tabs={[
@@ -106,7 +113,7 @@ export function Squad() {
       </div>
 
       <div className="screen-body squad-body tabbed">
-        <section className={`${panelClass("pitch")} pitch-panel`} style={{ "--i": 0 } as React.CSSProperties}>
+        <section {...tabPanel("squad", "pitch")} className={`${panelClass("pitch")} pitch-panel`} style={{ "--i": 0 } as React.CSSProperties}>
           <div className="panel-head">
             <h2 className="title-bar">Escalação</h2>
             <div className="formation-controls">
@@ -175,7 +182,7 @@ export function Squad() {
           </div>
         </section>
 
-        <section className={panelClass("roster")} style={{ "--i": 1 } as React.CSSProperties}>
+        <section {...tabPanel("squad", "roster")} className={panelClass("roster")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Elenco</h2>
           <div className="fill">
             <table aria-label="Elenco" className="compact">
@@ -248,7 +255,7 @@ export function Squad() {
           </div>
         </section>
 
-        <section className={panelClass("table")} style={{ "--i": 1 } as React.CSSProperties}>
+        <section {...tabPanel("squad", "table")} className={panelClass("table")} style={{ "--i": 1 } as React.CSSProperties}>
           <h2 className="title-bar">Classificação</h2>
           <div className="fill">
             <DivisionTable game={game} highlightClubId={club.id} />

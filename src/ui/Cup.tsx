@@ -6,7 +6,7 @@ import { findAnyClub } from "../engine/season";
 import type { Country, Cup as CupState, GameState, MatchResult } from "../engine/types";
 import { useGame } from "../store";
 import { Flag } from "./Flag";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 
 /** Copa-continental AC 18: the country beside each club of the continental cup. */
 export const COUNTRY_CODE: Readonly<Record<Country, string>> = { BR: "BRA", AR: "ARG", PT: "POR" };
@@ -92,13 +92,15 @@ export function Cup() {
         )}
         {game.cups.length > 1 && (
           <ScreenTabs
+            idBase="cup"
+            shared
             active={String(index)}
             onChange={(id) => setIndex(Number(id))}
             tabs={game.cups.map((c, i) => ({ id: String(i), label: c.name }))}
           />
         )}
       </div>
-      <div className={`screen-body cup-body${continental ? " cup-body-2x2" : ""}`}>
+      <div className={`screen-body cup-body${continental ? " cup-body-2x2" : ""}`} {...(game.cups.length > 1 ? tabPanel("cup", String(index), { shared: true }) : {})}>
         {cup.phases.map((phase, k) => (
           <section key={`${cup.id}-${phase.name}`} aria-label={phase.name} className="panel" style={{ "--i": k } as React.CSSProperties}>
             <h2 className="title-bar">{phase.name}</h2>

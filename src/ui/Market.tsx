@@ -4,7 +4,7 @@ import { allClubs, findAnyClub } from "../engine/season";
 import { COUNTRIES, POSITIONS, type Country, type GameState, type Player, type Position } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { formatMoney } from "./money";
-import { ScreenTabs } from "./ScreenTabs";
+import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
 type MarketTab = "buy" | "offers" | "youth" | "transfers";
@@ -143,6 +143,8 @@ export function Market() {
     <div className="screen">
       {head}
       <ScreenTabs
+        idBase="market"
+        shared
         active={tab}
         onChange={setTab}
         tabs={[
@@ -154,7 +156,7 @@ export function Market() {
       />
 
       {tab === "buy" && (
-        <div className="screen-body market-body">
+        <div className="screen-body market-body" {...tabPanel("market", tab, { shared: true })}>
           <section className="panel" style={{ "--i": 0 } as React.CSSProperties}>
             <div className="panel-head">
               <h2 className="title-bar">Jogadores</h2>
@@ -268,7 +270,7 @@ export function Market() {
       )}
 
       {tab === "offers" && (
-        <div className="screen-body">
+        <div className="screen-body" {...tabPanel("market", tab, { shared: true })}>
           <section aria-label="Propostas" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
             <h2 className="title-bar">Propostas</h2>
             {game.market.offers.length === 0 ? (
@@ -318,7 +320,7 @@ export function Market() {
       )}
 
       {tab === "youth" && (
-        <div className="screen-body">
+        <div className="screen-body" {...tabPanel("market", tab, { shared: true })}>
           <section aria-label="Base" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
             <h2 className="title-bar">Base</h2>
             {game.market.juniors.length === 0 ? (
@@ -342,7 +344,7 @@ export function Market() {
       )}
 
       {tab === "transfers" && (
-        <div className="screen-body">
+        <div className="screen-body" {...tabPanel("market", tab, { shared: true })}>
           <Transfers game={game} />
         </div>
       )}

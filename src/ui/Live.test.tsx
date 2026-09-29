@@ -68,7 +68,7 @@ describe("tela Ao vivo", () => {
     startLiveFake();
     expect(useGame.getState().phase).toBe("live");
     expect(clockText()).toBe("0'");
-    const games = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem");
+    const games = within(screen.getByRole("tabpanel", { name: "Jogos da rodada" })).getAllByRole("listitem");
     expect(games).toHaveLength(10);
     for (const g of games) expect(g.querySelector("b")!.textContent).toBe("0 x 0");
   });
@@ -115,7 +115,7 @@ describe("tela Ao vivo", () => {
       const shown = userMatch(live)!.leagueId;
       const scored = live.matches.find((m) => m.leagueId === shown && m.homeGoals + m.awayGoals > 0);
       if (!scored) continue;
-      const row = screen.getByRole("region", { name: "Jogos da rodada" }).querySelector(`[data-match="${scored.matchId}"]`)!;
+      const row = screen.getByRole("tabpanel", { name: "Jogos da rodada" }).querySelector(`[data-match="${scored.matchId}"]`)!;
       expect(row.querySelector("b")!.textContent).toBe(`${scored.homeGoals} x ${scored.awayGoals}`);
       expect(row).toHaveClass("flash");
       act(() => useGame.getState().pause());
@@ -165,7 +165,7 @@ describe("tela Ao vivo", () => {
     const user = await startLive();
     const started = Date.now();
     await user.click(screen.getByRole("button", { name: "Pular para o fim" }));
-    expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
+    expect(await screen.findByRole("tabpanel", { name: "Sua partida" })).toBeInTheDocument();
     // Far less than the 27 s the clock would take.
     expect(Date.now() - started).toBeLessThan(5000);
     const last = useGame.getState().lastRound!;
@@ -180,7 +180,7 @@ describe("tela Ao vivo", () => {
     expect(screen.getByLabelText("Sai")).toBeDisabled();
     expect(screen.getByText("Pause para mexer no time")).toBeInTheDocument();
     await pauseNow(user);
-    const team = screen.getByRole("region", { name: "Seu time" });
+    const team = screen.getByRole("tabpanel", { name: "Seu time" });
     const onPitch = within(within(team).getByRole("table", { name: "Em campo" })).getAllByRole("row");
     const bench = within(within(team).getByRole("table", { name: "Banco" })).getAllByRole("row");
     expect(onPitch).toHaveLength(11);
@@ -245,7 +245,7 @@ describe("tela Ao vivo", () => {
   test("formação marca fora de posição", async () => {
     const user = await startLive();
     await pauseNow(user);
-    const team = screen.getByRole("region", { name: "Seu time" });
+    const team = screen.getByRole("tabpanel", { name: "Seu time" });
     expect(within(team).queryByText("fora de posição")).not.toBeInTheDocument();
     await user.selectOptions(within(team).getByLabelText("Formação"), "3-5-2");
     expect(within(team).getAllByText("fora de posição")).toHaveLength(1);
@@ -267,7 +267,7 @@ describe("ao vivo com duas divisões", () => {
       expect(useGame.getState().live!.matches).toHaveLength(40);
       const names = new Set(game.leagues[division]!.clubs.map((c) => c.name));
       const others = game.leagues[1 - division]!.clubs.map((c) => c.name);
-      const games = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem");
+      const games = within(screen.getByRole("tabpanel", { name: "Jogos da rodada" })).getAllByRole("listitem");
       expect(games, `divisão ${division}`).toHaveLength(10);
       for (const g of games) {
         const home = g.querySelector(".h")!.textContent!;
@@ -290,7 +290,7 @@ describe("ao vivo na copa (copa-nacional)", () => {
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ao vivo · Copa Nacional · Oitavas");
-    const items = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem");
+    const items = within(screen.getByRole("tabpanel", { name: "Jogos da rodada" })).getAllByRole("listitem");
     expect(items).toHaveLength(8);
     game.cups[0]!.phases[2]!.ties.forEach((t, i) => {
       expect(items[i]).toHaveTextContent(nameIn(game, t.homeId));
@@ -306,8 +306,8 @@ describe("ao vivo na copa (copa-nacional)", () => {
     useGame.setState({ phase: "live", game, live, clock: "paused", finishing: false });
     render(<Live />);
     expect(screen.getByRole("timer", { name: "Relógio" })).toHaveTextContent("90'");
-    expect(within(screen.getByRole("region", { name: "Partida ao vivo" })).getByRole("heading")).toHaveTextContent("1 x 1 (pên. 4 x 3)");
-    const item = within(screen.getByRole("region", { name: "Jogos da rodada" })).getAllByRole("listitem")[0]!;
+    expect(within(screen.getByRole("tabpanel", { name: "Partida ao vivo" })).getByRole("heading")).toHaveTextContent("1 x 1 (pên. 4 x 3)");
+    const item = within(screen.getByRole("tabpanel", { name: "Jogos da rodada" })).getAllByRole("listitem")[0]!;
     expect(item).toHaveTextContent(`${nameIn(game, mine.home.clubId)} 1 x 1 (pên. 4 x 3) ${nameIn(game, mine.away.clubId)}`);
   });
 });
@@ -387,7 +387,7 @@ describe("som ao vivo (audio)", () => {
     expect(ahead.some((e) => e.type === "shot_saved" || e.type === "shot_missed")).toBe(true);
     const from = backend.calls.length;
     await user.click(screen.getByRole("button", { name: "Pular para o fim" }));
-    expect(await screen.findByRole("region", { name: "Sua partida" })).toBeInTheDocument();
+    expect(await screen.findByRole("tabpanel", { name: "Sua partida" })).toBeInTheDocument();
     expect(effects(backend.calls.slice(from))).toEqual(["whistle-long"]);
   });
 
@@ -506,7 +506,7 @@ describe("som ao vivo (audio)", () => {
     await user.click(await screen.findByRole("button", { name: "4x" }));
     await screen.findByText("Intervalo", {}, { timeout: 25000 });
     await user.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(await screen.findByRole("region", { name: "Sua partida" }, { timeout: 25000 })).toBeInTheDocument();
+    expect(await screen.findByRole("tabpanel", { name: "Sua partida" }, { timeout: 25000 })).toBeInTheDocument();
     expect(useGame.getState().lastRound!.userEvents.at(-1)).toMatchObject({ minute: 90, type: "fulltime" });
   }, 90_000);
 });

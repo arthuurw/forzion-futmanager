@@ -26,13 +26,14 @@
 | AD-020 | Uma aba ativa por vez: `navigator.locks.request("forzion-futmanager-save", { ifAvailable: true })` na abertura; sem o lock a tela «O jogo está aberto em outra aba» oferece «Usar nesta aba» (`steal: true`), e a aba que perde o lock deixa de gravar e mostra a mesma tela. Sem `navigator.locks` o jogo abre sem a guarda | revisão no documento só acusa o conflito ao gravar, depois de o usuário jogar na aba velha; BroadcastChannel não impede a escrita; plano de correcoes-validacao (door 2) | active | 2026-09-29 |
 | AD-021 | `Player.arrivedSeason?: number` guarda a temporada em que o usuário contratou um livre, promoveu um júnior ou comprou o jogador; com ela igual à temporada atual o jogador não vai «À venda» nem recebe proposta. Ausente = chegou antes da regra e pode ser vendido; save continua v8 | o boletim `market.transfers` não registra livre nem júnior e é limpo na virada; plano de correcoes-validacao (door 3) | active | 2026-09-29 |
 | AD-022 | «Pular para o fim» e a reabertura com `pendingLive` jogam o resto da data com as vagas do usuário preenchidas pela regra da IA (lesão: reserva da posição; goleiro expulso: goleiro reserva no gol e o pior de linha sai), por `runToEnd(live, { fillUserVacancies: true })`; `runToEnd` sem a opção continua igual a `step` até o 90. Amplia AD-019, que jogava sem decisão nenhuma | com a parada obrigatória, pular ou recarregar deixaria o time com um buraco que o jogo manda preencher; checks de parada-obrigatoria (C4, C7) | active | 2026-09-29 |
+| AD-023 | O rating evolui por rodada da liga, não na virada: chance de subir/descer 1 pela média da faixa de `EVOLUTION` ÷ rodadas, × treino (Leve 0,5 / Normal 1 / Forte 1,5) e × 0,5 para quem não entrou em campo; fluxo próprio `mix32(mix32(rngState, 0x7e), n * 16 + d)`. `Club.training?` (ausente = Normal) e `Player.ratingLog?` (zerado na virada) são opcionais e o save continua v8 | o treino precisa pesar durante a temporada e aparecer rodada a rodada; plano de treino-evolucao (doors 1, 2 e 3) | active | 2026-09-29 |
 
 ## Handoff
 
-**Feature**: parada-obrigatoria verificada (PASS round 2 scoped, 11/11, e9fdd10..8f2e50f, profile light; round 1 FAIL em C4, prova reforçada em 8f2e50f, L-006 promovida)
-**Where**: commits locais em `main`, ainda não publicados; o site no ar em https://arthuurw.github.io/forzion.tech-futmanager/ continua em correcoes-validacao até o push
-**In progress**: nada
-**Next step**: push para `main` quando o autor autorizar; depois a feature treino-e-evolucao (brainstorm: intensidade do clube Leve/Normal/Forte já escolhida pelo autor). Observações não bloqueantes do Verifier: C5 sem prova de vermelho na store, aviso «Goleiro expulso: {nome}.» sem check. L-023, L-024, L-025 e o `revokeObjectURL` foram fechados por correcoes-validacao C64, C63, C65 e C66
+**Feature**: treino-evolucao (plano e checks escritos, build em andamento); antes, parada-obrigatoria verificada (PASS round 2, 11/11) e publicada (deploy verde de 61a48fe)
+**Where**: parada-obrigatoria no ar em https://arthuurw.github.io/forzion.tech-futmanager/
+**In progress**: treino-evolucao - C1-C17 em `.specs/features/treino-evolucao/checks.md`
+**Next step**: build e Verifier de treino-evolucao; o autor pediu seguir com as recomendações até o fim. Observações não bloqueantes de parada-obrigatoria: C5 sem prova de vermelho na store, aviso «Goleiro expulso: {nome}.» sem check.
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

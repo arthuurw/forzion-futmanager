@@ -78,7 +78,7 @@ Proof: `npx vitest run src/engine/cup.test.ts -t "data de copa não mexe no merc
 
 ### S4 - O caixa e a força da IA ficam numa faixa · ~1 file · ~10 KB · ~3k
 
-**C19** - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, o caixa final de cada clube fica entre −2× e 15× o inicial, e a mediana entre 2× e 4×. Substitui multiplas-temporadas C53 (AC 14)
+**C19** - Em 3 seeds (1, 2, 3) e 5 temporadas sem usuário, o caixa final de cada clube fica entre −2× e 15× o inicial, e a mediana entre 2× e 4×. Substitui multiplas-temporadas C53 (AC 14). Mediana revisada para 2×–6,5× por correcoes-validacao C34
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
 
 **C20** - Nas mesmas seeds e temporadas, as linhas `kind: "buy"` do boletim (compras entre clubes da IA e vendas do vermelho; sem usuário não há proposta aceita), contadas antes de cada virada, somam entre 50 e 600 por seed, e nenhuma temporada tem zero. O teste confere a contagem contra o número de jogadores que mudaram de um clube da IA para outro, medido pelos elencos antes e depois de cada rodada (AC 15, L-015)

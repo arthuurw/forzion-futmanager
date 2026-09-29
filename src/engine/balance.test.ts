@@ -241,6 +241,7 @@ describe("equilíbrio em várias temporadas", () => {
 
   test("caixa em 5 temporadas", () => {
     // Gastos-da-ia C19 (Superseded checks): −2× to 15×, median 2× to 4×; was −2× to 30×, median 3× to 10×.
+    // Correcoes-validacao C34: median 2× to 6,5×, was 4× (user's decision; the rest unchanged).
     // Paises C26 (Superseded checks): the clubs that started in the leagues of Brazil only.
     const ratios = multiSeason().flatMap((r) => r.cash.filter((c) => c.country === "BR").map((c) => c.ratio));
     expect(ratios).toHaveLength(120);
@@ -252,7 +253,7 @@ describe("equilíbrio em várias temporadas", () => {
       expect(r).toBeLessThanOrEqual(15);
     }
     expect(median).toBeGreaterThanOrEqual(2);
-    expect(median).toBeLessThanOrEqual(4);
+    expect(median).toBeLessThanOrEqual(6.5);
   }, 120_000);
 
   test("compras da IA em 5 temporadas", () => {
@@ -308,6 +309,7 @@ describe("equilíbrio em várias temporadas", () => {
   test("caixa em 5 temporadas dos países novos", () => {
     // Paises C24 (AC 23): every club of the Liga Argentina and the Liga Portuguesa between −2× and
     // 15× its initial cash, the median of each league between 1,2× and 4× (floor renegotiated from 2×).
+    // Correcoes-validacao C34: the median's ceiling is 6,5×, was 4× (user's decision; the rest unchanged).
     const all = multiSeason().flatMap((r) => r.cash);
     for (const country of ["AR", "PT"] as const) {
       const ratios = all.filter((c) => c.country === country).map((c) => c.ratio);
@@ -320,7 +322,7 @@ describe("equilíbrio em várias temporadas", () => {
       const sorted = [...ratios].sort((a, b) => a - b);
       const median = (sorted[29]! + sorted[30]!) / 2;
       expect(median, country).toBeGreaterThanOrEqual(1.2);
-      expect(median, country).toBeLessThanOrEqual(4);
+      expect(median, country).toBeLessThanOrEqual(6.5);
     }
   }, 120_000);
 
@@ -470,4 +472,57 @@ describe("economia sem dinheiro do nada (correcoes-validacao)", () => {
       expect(me(s).finance.cash, `seed ${seed}`).toBeLessThanOrEqual(me(played).finance.cash);
     }
   }, 120_000);
+});
+
+describe("carreira longa sem usuário (correcoes-validacao)", () => {
+  /** Seed 5, no user, 20 seasons, played once: the Série A strength at each start, the cash at each end. */
+  let long: { strength: number[]; red: number[]; medians: number[]; initialMedian: number } | null = null;
+  const median80 = (values: number[]) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    expect(sorted).toHaveLength(80);
+    return (sorted[39]! + sorted[40]!) / 2;
+  };
+  function longCareer() {
+    if (long) return long;
+    let s = newGame(5);
+    const cash = () => s.leagues.flatMap((l) => l.clubs).map((c) => c.finance.cash);
+    const initialMedian = median80(cash());
+    const strength: number[] = [];
+    const red: number[] = [];
+    const medians: number[] = [];
+    for (let season = 1; season <= 20; season++) {
+      strength.push(s.leagues[0]!.clubs.reduce((sum, c) => sum + best18(c.players.map((p) => p.rating)), 0) / 20);
+      while (nextDate(s).kind !== "over") s = playDate(s).state;
+      red.push(cash().filter((c) => c < 0).length);
+      medians.push(median80(cash()));
+      if (season < 20) s = nextSeason(s).state;
+    }
+    long = { strength, red, medians, initialMedian };
+    return long;
+  }
+
+  test("força estável em 20 temporadas", () => {
+    // C31 (AC 30): the mean of each Série A club's best 18, within 5 points of season 1.
+    const { strength } = longCareer();
+    expect(strength).toHaveLength(20);
+    const drift = strength.map((x) => Math.abs(x - strength[0]!));
+    console.log(`C31 deriva: ${drift.map((x) => x.toFixed(2)).join(", ")}`);
+    for (const [k, d] of drift.entries()) expect(d, `temporada ${k + 1}`).toBeLessThanOrEqual(5);
+  }, 300_000);
+
+  test("caixa em 20 temporadas", () => {
+    // C32 (AC 31): at most 10 of the 80 clubs in the red at the end of each season.
+    const { red } = longCareer();
+    expect(red).toHaveLength(20);
+    console.log(`C32 clubes no vermelho: ${red.join(", ")}`);
+    for (const [k, n] of red.entries()) expect(n, `temporada ${k + 1}`).toBeLessThanOrEqual(10);
+  }, 300_000);
+
+  test("caixa da IA limitado em 20 temporadas", () => {
+    // C73 (AC 68): the median cash of the 80 clubs at most 20 × the initial median, every season.
+    const { medians, initialMedian } = longCareer();
+    expect(medians).toHaveLength(20);
+    console.log(`C73 mediana / inicial: ${medians.map((m) => (m / initialMedian).toFixed(2)).join(", ")}`);
+    for (const [k, m] of medians.entries()) expect(m, `temporada ${k + 1}`).toBeLessThanOrEqual(20 * initialMedian);
+  }, 300_000);
 });

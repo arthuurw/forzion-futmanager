@@ -211,11 +211,11 @@ Proof: `npx vitest run src/engine/market.test.ts -t "titular pela força no pre�
 
 Proof: `npx vitest run src/engine/rollover.test.ts -t "poda dos livres"`
 
-**C31** - Seed 5, sem usuário, 20 temporadas: a média dos 18 melhores de cada clube da Série A fica a no máximo 5 pontos da temporada 1 em todas as temporadas (AC 30).
+**C31** - ✓ Seed 5, sem usuário, 20 temporadas: a média dos 18 melhores de cada clube da Série A fica a no máximo 5 pontos da temporada 1 em todas as temporadas (AC 30).
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 20 temporadas"`
 
-**C32** - Na mesma simulação, o fim de cada temporada tem no máximo 10 dos 80 clubes com caixa negativo (AC 31).
+**C32** - ✓ Na mesma simulação, o fim de cada temporada tem no máximo 10 dos 80 clubes com caixa negativo (AC 31).
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 20 temporadas"`
 
@@ -223,7 +223,7 @@ Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 20 temporadas"`
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "revenda de livres não dá lucro"`
 
-**C34** - As faixas de gastos-da-ia continuam verdes: C19 com a mediana revisada para entre 2× e 6,5× (máximo 15× mantido) e paises C24 com a mediana de AR e PT revisada para entre 1,2× e 6,5× (decisões do usuário, Impact do plano), e C20, C21 e C34 de lá e a vantagem do mandante sem mudar limite (Impact)
+**C34** - ✓ As faixas de gastos-da-ia continuam verdes: C19 com a mediana revisada para entre 2× e 6,5× (máximo 15× mantido) e paises C24 com a mediana de AR e PT revisada para entre 1,2× e 6,5× (decisões do usuário, Impact do plano), e C20, C21 e C34 de lá e a vantagem do mandante sem mudar limite (Impact)
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas dos países novos"`
@@ -231,7 +231,7 @@ Proof: `npx vitest run src/engine/balance.test.ts -t "compras da IA em 5 tempora
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa equilibrado em uma temporada"`
 
-**C73** - Seed 5, sem usuário, 20 temporadas: ao fim de cada temporada a mediana do caixa dos 80 clubes é ≤ 20 × a mediana do caixa inicial (AC 68)
+**C73** - ✓ Seed 5, sem usuário, 20 temporadas: ao fim de cada temporada a mediana do caixa dos 80 clubes é ≤ 20 × a mediana do caixa inicial (AC 68)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa da IA limitado em 20 temporadas"`
 
 ### S5 - Regras de temporada e diretoria coerentes · 6 files · 43 KB · ~11k
@@ -535,6 +535,6 @@ Tamanhos por `wc -c` dos arquivos que cada slice toca (produção + testes), div
   - lote A = S1–S6 (103k, store + motor);
   - lote B = S7–S9 (58k, telas + som + guardas)
 - Mechanism: handoff - escolha do usuário; lote B só começa com o lote A verde
-- **Boundary:** C1-C30 e C33-C47 closed at `adc9491`; C31 e C32 abertos - a calibração da evolução, único ajuste que o plano prevê (Flow, passo 6), não mantém ao mesmo tempo C31/C32 e as faixas de caixa do C34 sem mudar limite. Tabela `[[1,4],[0,3],[-1,1],[-2,0],[-4,-1],[-6,-2]]` (até 20, 23, 27, 30, 33, 34+): deriva de 20 temporadas 3,22 na seed 5 (1: 3,69; 2: 2,40; 3: 3,02; 21: 3,54), no máximo 1 clube no vermelho, mas «caixa em 5 temporadas» com mediana BR 5,86 e AR 5,54 (limite 4). Tabelas que mantêm o C34 (a atual: mediana 3,59; `[[2,6],[1,4],[-1,2],[-2,0],[-4,-1],[-6,-2]]`: 3,95 e AR 3,65) derivam de 15,3 a 16,0 em 20 temporadas, com mais de 10 clubes no vermelho da 10ª temporada em diante e os 80 da 15ª. Decisão do usuário: outra alavanca econômica ou limites novos no C34
+- **Boundary:** C1-C47 + C73 closed at `<SHA>`. Tabela de evolução calibrada `[[1,4],[0,3],[-1,1],[-2,0],[-4,-1],[-6,-2]]` e medianas de caixa revisadas pelo usuário (gastos-da-ia C19 e paises C24, até 6,5×). Seed 5, 20 temporadas: deriva máxima 3,22, no máximo 1 clube no vermelho, mediana do caixa no máximo 16,05× a inicial; 5 temporadas: Brasil 1,37 / 5,86 / 14,84, AR mediana 5,54, PT 2,86. Antes da decisão, a mesma tabela deixava as medianas acima de 4 (C31 e C32 abertos em `adc9491`)
 - **Settled mid-build:** fixture do C16 com os 9 do elenco em 95 (o teto), para a média ser inteira como na regra da IA, que arredonda; a marca da door 1 fecha a data e abre «Rodada», ou «Fim» se era a última rodada, como qualquer data ao vivo; as gravações passam por uma fila no estado da store, então o slot termina com a última; força do setor × √(vagas / vagas do 4-4-2), o 4-4-2 não muda (gols do mandante 1,91 em 4-3-3 e 1,36 em 4-5-1 contra 4-4-2; conversão contra time sem goleiro 0,505); o acréscimo de titular pelos 11 mais fortes vale para o preço pedido ao usuário, a compra entre clubes da IA segue com `aiLineup`; a poda dos livres mantém a ordem da lista; a prova de tela do C25 aciona a store com o Mercado aberto (a caixa «À venda» fica no Elenco, e um teste extra do Elenco clica nela); recusa com estado novo (`buyer_gone`) grava e mostra lista e mensagem juntas; as sondas de evolução e aposentadoria do `rollover.test` foram da lista de livres para um clube da IA sob contrato (a lista agora para em 80), com as mesmas afirmações; as fixtures de ida e volta e do save v1 do `saveFile.test` dão escalação ao clube do usuário (C3); partida-ao-vivo C12 marcado Superseded pelo C14, e o teste virou «recarregar no meio da rodada fecha a data»
 - **Abandoned:** a tabela de evolução calibrada acima (fecha C31/C32, abre o C34) - revertida à de multiplas-temporadas; salário de renovação da IA que nunca cai, junto dessa tabela (fora do plano, só medido): mediana 4,64, máximo 15,12, deriva 4,07 - ainda vermelho; gravar a marca antes de entrar no ao vivo - quebrava o início síncrono da partida de que a tela Ao vivo depende, a marca entra na fila antes; fila de gravação em variável de módulo - uma gravação presa sob relógio falso travava os testes seguintes

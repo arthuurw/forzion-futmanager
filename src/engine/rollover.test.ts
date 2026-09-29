@@ -134,7 +134,8 @@ describe("virada de temporada", () => {
   test("virada usa o próprio Rng", () => {
     const before = ended();
     // The first 8 players of the first Série A club that stays up are 22 with long contracts: each stays, and
-    // the rollover's first 8 draws are exactly their evolutions, randInt(1, 4) in squad order.
+    // the rollover's first 8 draws are exactly their evolutions, randInt(0, 3) in squad order
+    // (correcoes-validacao C31: the table's row up to 23, was randInt(1, 4)).
     const down = computeTable(before.leagues[0]!).slice(16).map((r) => r.clubId);
     const stays = before.leagues[0]!.clubs.find((c) => !down.includes(c.id))!;
     const probe = stays.players.slice(0, 8);
@@ -146,7 +147,7 @@ describe("virada de temporada", () => {
     expect(a.rngState).toBe(advanced.getState());
     expect(a.leagues[0]!.clubs[0]!.id).toBe(stays.id);
     const deltas = probe.map((p) => everyone(a).find((x) => x.id === p.id)!.rating - 60);
-    const draws = (rng: ReturnType<typeof createRng>) => probe.map(() => randInt(rng, 1, 4));
+    const draws = (rng: ReturnType<typeof createRng>) => probe.map(() => randInt(rng, 0, 3));
     // Door 3: createRng(mix32(rngState, 0x5E45 + season)), written out.
     expect(deltas).toEqual(draws(createRng(mix32(before.rngState, 0x5e45 + before.season))));
     // Neither the rejected alternative (the save's own Rng) nor a neighbouring salt gives these deltas.
@@ -161,12 +162,13 @@ describe("virada de temporada", () => {
 describe("evolução e aposentadoria", () => {
   test("evolução por idade", () => {
     const before = ended();
+    // Correcoes-validacao C31 (Impact): the calibrated table, was +2..+6, +1..+4, -1..+2, -2..+1, -4..0.
     const bands = [
-      { ages: [17, 18, 19, 20], min: 2, max: 6 },
-      { ages: [21, 22, 23], min: 1, max: 4 },
-      { ages: [24, 25, 26, 27], min: -1, max: 2 },
-      { ages: [28, 29, 30], min: -2, max: 1 },
-      { ages: [31, 32, 33], min: -4, max: 0 },
+      { ages: [17, 18, 19, 20], min: 1, max: 4 },
+      { ages: [21, 22, 23], min: 0, max: 3 },
+      { ages: [24, 25, 26, 27], min: -1, max: 1 },
+      { ages: [28, 29, 30], min: -2, max: 0 },
+      { ages: [31, 32, 33], min: -4, max: -1 },
       { ages: [34], min: -6, max: -2 },
     ];
     const fixture = bands.map((b) => Array.from({ length: 1000 }, (_, i) => player(b.ages[i % b.ages.length]!, 60, "MF", 3)));

@@ -17,13 +17,17 @@ import { POSITIONS, RATING_MAX, RATING_MIN, type Club, type Country, type GameSt
 /** Door 3. */
 const ROLLOVER_SALT = 0x5e45;
 
-/** AC 16: rating change by age before the birthday; the first row whose `maxAge` fits. */
+/**
+ * AC 16: rating change by age before the birthday; the first row whose `maxAge` fits.
+ * Correcoes-validacao AC 30, AC 31: calibrated so 20 seasons stay within 5 points of the first
+ * (was +2..+6, +1..+4, -1..+2, -2..+1, -4..0 up to 33).
+ */
 export const EVOLUTION: readonly { maxAge: number; min: number; max: number }[] = [
-  { maxAge: 20, min: 2, max: 6 },
-  { maxAge: 23, min: 1, max: 4 },
-  { maxAge: 27, min: -1, max: 2 },
-  { maxAge: 30, min: -2, max: 1 },
-  { maxAge: 33, min: -4, max: 0 },
+  { maxAge: 20, min: 1, max: 4 },
+  { maxAge: 23, min: 0, max: 3 },
+  { maxAge: 27, min: -1, max: 1 },
+  { maxAge: 30, min: -2, max: 0 },
+  { maxAge: 33, min: -4, max: -1 },
   { maxAge: Infinity, min: -6, max: -2 },
 ];
 

@@ -26,7 +26,7 @@
 ## Handoff
 
 **Feature**: lancamento verificada (PASS round 3, 36/36, b41e1d3..e2fbd88, profile light); sub-projeto 5 completo - o roteiro de 26/09/2026 terminou
-**Where**: no ar em https://arthuurw.github.io/forzion-futmanager/ (repositório público `arthuurw/forzion-futmanager`, Pages por Actions, cada push em `main` publica se test, lint e build passarem)
+**Where**: no ar em https://arthuurw.github.io/forzion.tech-futmanager/ (repositório público `arthuurw/forzion.tech-futmanager`, renomeado pelo autor em 28/09/2026, Pages por Actions, cada push em `main` publica se test, lint e build passarem)
 **In progress**: nada
 **Next step**: nenhum sub-projeto planejado. Achados antigos ainda abertos: L-023 (`check:layout` sorteia a seed), L-024, L-025; observação do Verifier: o adiamento do `revokeObjectURL` não tem teste
 **Blockers**: none

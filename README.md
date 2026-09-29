@@ -5,7 +5,7 @@ dos anos 90. Você escolhe um clube, monta o elenco, mexe no mercado e nas
 finanças, e acompanha as partidas minuto a minuto pela narração. Clubes,
 jogadores e competições são fictícios.
 
-**Jogue agora:** <https://arthuurw.github.io/forzion-futmanager/>
+**Jogue agora:** <https://arthuurw.github.io/forzion.tech-futmanager/>
 
 ## O que tem no jogo
 

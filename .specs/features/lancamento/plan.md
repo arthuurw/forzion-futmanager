@@ -183,6 +183,8 @@ O jogo abre num endereço público, e só código verde é publicado.
 | texto do ícone | «F» em itálico nas cores do título sobre fundo escuro, SVG feito à mão | nenhuma arte existe; SVG não pede ferramenta | n |
 | autorização para push e deploy | concedida | «vá até o fim sem minha aprovação» em 28/09/2026 | y |
 
+Resolução em 28/09/2026: o autor pediu «cria o repositório»; o GitHub recusou Pages no repositório privado (plano grátis, HTTP 422) e o autor escolheu torná-lo público. As duas perguntas abaixo estão resolvidas.
+
 **Open questions:**
 
 | # | Kind | Question | Until answered |

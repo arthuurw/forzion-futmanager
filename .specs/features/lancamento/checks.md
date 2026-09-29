@@ -3,7 +3,7 @@
 Profile: light
 Plan: `.specs/features/lancamento/plan.md`
 
-36 checks in 6 slices · 3 one-way doors · 2 open, of which 0 block (2 block go-live)
+36 checks in 6 slices · 3 one-way doors · 2 open at approval, both resolved 2026-09-28 (repositório criado e tornado público pelo autor)
 
 Comando base: `npx vitest run <arquivo> -t "<nome>"` (vitest 5, `npm test` = `vitest run`).
 

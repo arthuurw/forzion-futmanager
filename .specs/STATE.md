@@ -25,10 +25,10 @@
 
 ## Handoff
 
-**Feature**: lancamento (sub-projeto 5) - Verifier round 2 FAIL só em C35 (35/36, b41e1d3..28b542f, profile light): o site público não existe porque criar o repositório no GitHub foi negado pela permissão da sessão
-**Where**: exportar/importar save (envelope, AD-018), tela Sobre, tela de erro, pedido de armazenamento persistente, versão 1.0.0, favicon e meta, `base: "./"`, `.github/workflows/deploy.yml`, `scripts/dist-check.mjs`
-**In progress**: nada no código
-**Next step**: o autor cria o repositório `arthuurw/forzion-futmanager` (privado; Pages em repo privado pode exigir plano pago - senão público), ativa Pages com fonte GitHub Actions, adiciona o remoto e faz push de `main`; depois re-verificar só C35. Achados antigos ainda abertos: L-023, L-024, L-025
-**Blockers**: go-live bloqueado pela criação do repositório remoto (plano, perguntas abertas 1 e 2)
+**Feature**: lancamento verificada (PASS round 3, 36/36, b41e1d3..e2fbd88, profile light); sub-projeto 5 completo - o roteiro de 26/09/2026 terminou
+**Where**: no ar em https://arthuurw.github.io/forzion-futmanager/ (repositório público `arthuurw/forzion-futmanager`, Pages por Actions, cada push em `main` publica se test, lint e build passarem)
+**In progress**: nada
+**Next step**: nenhum sub-projeto planejado. Achados antigos ainda abertos: L-023 (`check:layout` sorteia a seed), L-024, L-025; observação do Verifier: o adiamento do `revokeObjectURL` não tem teste
+**Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

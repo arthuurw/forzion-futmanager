@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { loadGame, saveGame } from "./persistence/save";
 import { encodeSaveFile } from "./engine/saveFile";
-import type { GameState } from "./engine/types";
+import type { GameState, MatchEvent } from "./engine/types";
 import { TAB_LOCK, useGame, userClub, type GameStore } from "./store";
 import { Home } from "./ui/Home";
-import { makeMatch, matchSeed, roundSnapshot, runToEnd, sideFor } from "./engine/live";
+import { makeMatch, matchSeed, roundSnapshot, runToEnd, sideFor, startRound, step, userMatch, type LiveRound } from "./engine/live";
 import { act, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { Banner } from "./ui/Banner";
@@ -14,7 +14,7 @@ import { userBoardGoal } from "./engine/board";
 import { AI_FORMATION, autoLineup, validateLineup } from "./engine/lineup";
 import { nextCompetition } from "./engine/calendar";
 import { atCupDate, expectedCupGoal } from "./engine/test-fixtures";
-import { preliminaryWithCupSuspended, resetAll, resetStore, seededGame } from "./ui/test-utils";
+import { liveBeforeIncident, preliminaryWithCupSuspended, resetAll, resetStore, seededGame, userSideOf } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can look at the store mid-save. */
 const ctl = vi.hoisted(() => ({ gate: null as Promise<void> | null, fail: false, openFails: false }));
@@ -668,7 +668,11 @@ describe("o save sobrevive (correcoes-validacao)", () => {
     const { clubs, players } = roundSnapshot(game);
     const side = (id: string) => sideFor(clubs.get(id)!, game.userClubId, players);
     const match = makeMatch(m.id, side(m.homeId), side(m.awayId), matchSeed(game.rngState, round.number, i, 0), league.id);
-    const ended = runToEnd({ roundIndex: 0, roundNumber: round.number, minute: 0, userClubId: game.userClubId, matches: [match], players }).matches[0]!;
+    // AD-022: nobody decides after a reload, so the user's holes are filled by the AI's rule.
+    const ended = runToEnd(
+      { roundIndex: 0, roundNumber: round.number, minute: 0, userClubId: game.userClubId, matches: [match], players },
+      { fillUserVacancies: true },
+    ).matches[0]!;
     return [ended.homeGoals, ended.awayGoals];
   }
 
@@ -695,7 +699,8 @@ describe("o save sobrevive (correcoes-validacao)", () => {
     const scores: [number, number][] = [];
     for (const [name, decide] of decisions) {
       resetAll();
-      const before = seededGame(13);
+      // Parada-obrigatoria: seed 16 has no stop of the user in the first 30 minutes, so 10 ticks reach 10'.
+      const before = seededGame(16);
       const expected = expectedScore(before);
       await saveGame(before);
       useGame.setState({ phase: "squad", game: before, hasSave: true });
@@ -741,5 +746,97 @@ describe("o save sobrevive (correcoes-validacao)", () => {
     await useGame.getState().init();
     expect(useGame.getState().phase).toBe("home");
     expect(useGame.getState().game!.leagues[0]!.currentRound).toBe(1);
+  });
+});
+
+describe("parada obrigatória (parada-obrigatoria)", () => {
+  const isUserStop = (me: string) => (e: MatchEvent) => e.clubId === me && (e.type === "injury" || e.type === "red");
+
+  function goLive(game: GameState, live: LiveRound, clock: "running" | "paused" = "running"): void {
+    useGame.setState({ phase: "live", game, hasSave: true, live, clock, finishing: false, liveStop: null });
+  }
+
+  /** The user's side at minute 10 of round 1, with `slot` emptied for `why`. */
+  function withVacancy(seed: number, slot: number, why: "injury" | "red"): { game: GameState; live: LiveRound; out: string } {
+    const game = seededGame(seed);
+    let live = startRound(game);
+    while (live.minute < 10) live = step(live);
+    const side = userSideOf(live);
+    const out = side.slots[slot]!;
+    side.slots[slot] = null;
+    side.vacancy[slot] = { why, playerId: out };
+    if (why === "red") side.sentOff.push(out);
+    return { game, live, out };
+  }
+
+  test("lesão do usuário para o relógio", () => {
+    // C5: minute 21 stops on "paused", minute 45 stays on "halftime", a rival's injury does not stop.
+    const game = seededGame(4);
+    const me = game.userClubId!;
+    const hurt = liveBeforeIncident(game, 20, (ev) => ev.some((e) => e.clubId === me && e.type === "injury"));
+    goLive(game, hurt);
+    useGame.getState().tick();
+    const stops = userMatch(useGame.getState().live!)!.events.filter((e) => e.minute === 21 && isUserStop(me)(e));
+    expect(stops.length).toBeGreaterThan(0);
+    expect(useGame.getState().clock).toBe("paused");
+    expect(useGame.getState().liveStop).toEqual(stops);
+
+    const half = liveBeforeIncident(game, 44, (ev) => ev.some(isUserStop(me)));
+    goLive(game, half);
+    useGame.getState().tick();
+    expect(useGame.getState().clock).toBe("halftime");
+    expect(useGame.getState().liveStop!.map((e) => e.minute)).toContain(45);
+
+    const rival = liveBeforeIncident(game, 20, (ev) => ev.some((e) => e.clubId !== me && e.type === "injury") && !ev.some(isUserStop(me)));
+    goLive(game, rival);
+    useGame.getState().tick();
+    expect(useGame.getState().clock).toBe("running");
+    expect(useGame.getState().liveStop).toBeNull();
+  });
+
+  test("continuar bloqueado até a troca", () => {
+    // C6.
+    const { game, live, out } = withVacancy(4, 10, "injury");
+    goLive(game, live, "paused");
+    useGame.setState({ liveStop: [{ minute: 10, type: "injury", clubId: game.userClubId!, playerId: out }] });
+    useGame.getState().resume();
+    expect(useGame.getState().clock).toBe("paused");
+    useGame.getState().substitute(10, userSideOf(live).bench[0]!);
+    useGame.getState().resume();
+    expect(useGame.getState().clock).toBe("running");
+    expect(useGame.getState().liveStop).toBeNull();
+
+    const red = withVacancy(4, 4, "red");
+    goLive(red.game, red.live, "paused");
+    useGame.getState().resume();
+    expect(useGame.getState().clock).toBe("running");
+  });
+
+  test("pular para o fim preenche a lesão", async () => {
+    // C7: the injured player's slot is filled the next minute, by the AI's rule (AD-022).
+    const { game, live, out } = withVacancy(4, 10, "injury");
+    const bench = userSideOf(live).bench;
+    goLive(game, live, "paused");
+    await useGame.getState().skipToEnd();
+    const sub = useGame.getState().lastRound!.userEvents.find((e) => e.type === "substitution" && e.clubId === game.userClubId && e.playerId === out);
+    expect(sub).toBeDefined();
+    expect(sub!.minute).toBe(11);
+    expect(bench).toContain(sub!.playerInId);
+  });
+
+  test("reabrir com lesão preenche a vaga", async () => {
+    // C7 (reload, AD-022): a save left mid-date whose user match has an injury closes with the slot filled.
+    let found: { game: GameState; injured: string } | null = null;
+    for (let seed = 1; seed < 80 && !found; seed++) {
+      const g = seededGame(seed);
+      const ended = runToEnd(startRound(g));
+      const hit = userMatch(ended)!.events.find((e) => e.clubId === g.userClubId && e.type === "injury" && e.minute < 90);
+      if (hit) found = { game: g, injured: hit.playerId! };
+    }
+    expect(found).not.toBeNull();
+    await saveGame({ ...found!.game, pendingLive: true });
+    await useGame.getState().init();
+    const sub = useGame.getState().lastRound!.userEvents.find((e) => e.type === "substitution" && e.playerId === found!.injured);
+    expect(sub).toBeDefined();
   });
 });

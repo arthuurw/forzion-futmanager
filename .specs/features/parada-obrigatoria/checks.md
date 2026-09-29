@@ -60,15 +60,16 @@ Proof: `npx vitest run src/engine/live.test.ts -t "playRound equivale a rodada a
 
 ### S2 - Store · 2 files · 60 KB · ~15k
 
-**C5** - `tick()` que produz lesão ou expulsão do usuário num minuto de 1 a 89 deixa `clock = "paused"` e `liveStop` com esses eventos. No minuto 45, o relógio fica `"halftime"` e `liveStop` também é preenchido. Uma lesão do adversário no mesmo tipo de fixture deixa `clock = "running"` e `liveStop = null`.
+**C5** - ✓ `tick()` que produz lesão ou expulsão do usuário num minuto de 1 a 89 deixa `clock = "paused"` e `liveStop` com esses eventos. No minuto 45, o relógio fica `"halftime"` e `liveStop` também é preenchido. Uma lesão do adversário no mesmo tipo de fixture deixa `clock = "running"` e `liveStop = null`.
 Proof: `npx vitest run src/store.test.ts -t "lesão do usuário para o relógio"`
 
-**C6** - Com `forcedVacancy` não nulo, `resume()` mantém `clock = "paused"`. Depois de `substitute` na vaga, `resume()` deixa `clock = "running"` e `liveStop = null`. Com só um jogador de linha expulso, `resume()` retoma de primeira.
+**C6** - ✓ Com `forcedVacancy` não nulo, `resume()` mantém `clock = "paused"`. Depois de `substitute` na vaga, `resume()` deixa `clock = "running"` e `liveStop = null`. Com só um jogador de linha expulso, `resume()` retoma de primeira.
 Proof: `npx vitest run src/store.test.ts -t "continuar bloqueado até a troca"`
 
-**C7** - `skipToEnd()` com uma vaga por lesão do usuário e reserva no banco fecha a data com o lado do usuário sem vaga por lesão aos 90. A reabertura com `pendingLive` fecha a data como `runToEnd(startRound(save), { fillUserVacancies: true })`.
+**C7** - ✓ `skipToEnd()` com uma vaga por lesão do usuário e reserva no banco fecha a data com o lado do usuário sem vaga por lesão aos 90. A reabertura com `pendingLive` fecha a data como `runToEnd(startRound(save), { fillUserVacancies: true })`.
 Proof: `npx vitest run src/store.test.ts -t "pular para o fim preenche a lesão"`
 Proof: `npx vitest run src/store.test.ts -t "reload no ao vivo fecha a rodada"`
+Proof: `npx vitest run src/store.test.ts -t "reabrir com lesão preenche a vaga"`
 
 ### S3 - Tela · 2 files · 43 KB · ~11k
 

@@ -6,10 +6,12 @@ import {
   MATCH_MINUTES,
   changeFormation,
   changePosture,
+  forcedVacancy,
   runToEnd,
   startRound,
   step,
   substitute,
+  userStops,
   type LiveRound,
   type SubRefusal,
 } from "./engine/live";
@@ -20,7 +22,7 @@ import { nextCompetition, nextDate } from "./engine/calendar";
 import { finishCupDate, startCupDate } from "./engine/cup";
 import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
-import type { Club, Finance, FormationName, GameState, Posture } from "./engine/types";
+import type { Club, Finance, FormationName, GameState, MatchEvent, Posture } from "./engine/types";
 import { decodeSaveFile } from "./engine/saveFile";
 import { isStorageAvailable, loadGame, saveGame, type LoadResult } from "./persistence/save";
 import { formatMoney } from "./ui/money";
@@ -124,6 +126,8 @@ export interface GameStore {
   speed: Speed;
   /** Why the last decision was refused, if it was. */
   liveMessage: string | null;
+  /** Parada-obrigatoria: the user's injuries and sendings-off that stopped the clock, until it goes on. */
+  liveStop: MatchEvent[] | null;
   /** The round reached 90' and is being saved. */
   finishing: boolean;
   /** The live round was run to its end by «Pular para o fim» (ajustes-audio AC 5). */
@@ -381,7 +385,8 @@ export const useGame = create<GameStore>()((set, get) => {
       set({ phase: "home", game, hasSave: true, incompatibleVersion: null });
       return;
     }
-    const live = date.kind === "league" ? startRound(game) : startCupDate(game);
+    // AD-022: nobody decides for the user any more, so the user's holes are filled by the AI's rule.
+    const live = runToEnd(date.kind === "league" ? startRound(game) : startCupDate(game), { fillUserVacancies: true });
     const { state, ...lastRound } = live.cup ? finishCupDate(game, live) : finishRound(game, live);
     set({ game: state, lastRound, hasSave: true, incompatibleVersion: null, live: null });
     await persist(state, set, get);
@@ -441,6 +446,7 @@ export const useGame = create<GameStore>()((set, get) => {
     clock: "paused",
     speed: 1,
     liveMessage: null,
+    liveStop: null,
     finishing: false,
     skipped: false,
     marketMessage: null,
@@ -529,7 +535,7 @@ export const useGame = create<GameStore>()((set, get) => {
       // Door 1 (correcoes-validacao): the state from before the date is saved with the mark, queued
       // ahead of the write that closes the date.
       const goLive = async (live: LiveRound) => {
-        set({ live, phase: "live", clock: "running", speed: 1, liveMessage: null, finishing: false, skipped: false, lastRound: null });
+        set({ live, phase: "live", clock: "running", speed: 1, liveMessage: null, liveStop: null, finishing: false, skipped: false, lastRound: null });
         await persist({ ...game, pendingLive: true }, set, get);
       };
       if (date.kind === "league") return goLive(startRound(game));
@@ -550,6 +556,9 @@ export const useGame = create<GameStore>()((set, get) => {
       const next = step(live);
       set({ live: next });
       if (next.minute === HALFTIME) set({ clock: "halftime" });
+      // Parada-obrigatoria C5: an injury or a red card of the user's stops the clock before 90'.
+      const stops = userStops(next);
+      if (stops.length > 0 && next.minute < MATCH_MINUTES) set({ clock: next.minute === HALFTIME ? "halftime" : "paused", liveStop: stops });
       // Correcoes-validacao AC 47: a date that fails to close shows the error screen.
       if (next.minute >= MATCH_MINUTES) void finishLive().catch((e: unknown) => get().crash(e));
     },
@@ -559,7 +568,10 @@ export const useGame = create<GameStore>()((set, get) => {
     },
 
     resume() {
-      if (get().live && !get().finishing) set({ clock: "running", liveMessage: null });
+      const { live, finishing } = get();
+      // Parada-obrigatoria C6: an empty slot the user must fill keeps the clock stopped.
+      if (!live || finishing || forcedVacancy(live)) return;
+      set({ clock: "running", liveMessage: null, liveStop: null });
     },
 
     setSpeed(speed) {
@@ -569,7 +581,7 @@ export const useGame = create<GameStore>()((set, get) => {
     async skipToEnd() {
       const live = get().live;
       if (!live || get().finishing) return;
-      set({ live: runToEnd(live), clock: "paused", skipped: true });
+      set({ live: runToEnd(live, { fillUserVacancies: true }), clock: "paused", skipped: true, liveStop: null });
       await finishLive().catch((e: unknown) => get().crash(e));
     },
 

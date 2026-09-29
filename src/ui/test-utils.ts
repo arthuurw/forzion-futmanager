@@ -5,9 +5,10 @@ import { IDBFactory } from "fake-indexeddb";
 import { userBoardGoal } from "../engine/board";
 import { newGame } from "../engine/generate";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
+import { startRound, step, userMatch, type LiveRound, type LiveSide } from "../engine/live";
 import { playDate, playRound, type RoundOutcome } from "../engine/season";
 import { atCupDate } from "../engine/test-fixtures";
-import type { GameState, League } from "../engine/types";
+import type { GameState, League, MatchEvent } from "../engine/types";
 import { useGame } from "../store";
 
 /** Fresh IndexedDB and a store back to its initial state - what a page reload gives you. */
@@ -122,4 +123,28 @@ export function captureDownloads(): { name: string; text: Promise<string> }[] {
 /** A save file as `File`, ready for `user.upload`. */
 export function saveFileOf(text: string, name = "jogo.json"): File {
   return new File([text], name, { type: "application/json" });
+}
+
+/**
+ * Parada-obrigatoria: the user's match of the next round alone, at `minute`, with a match stream
+ * whose next minute brings events that pass `wanted`. The stream is searched from 1, so the
+ * fixture is fixed.
+ */
+export function liveBeforeIncident(game: GameState, minute: number, wanted: (events: MatchEvent[], me: string) => boolean): LiveRound {
+  const full = startRound(game);
+  let live: LiveRound = { ...full, matches: [userMatch(full)!] };
+  while (live.minute < minute) live = step(live);
+  const me = game.userClubId!;
+  for (let s = 1; s < 500_000; s++) {
+    const candidate: LiveRound = { ...live, matches: [{ ...live.matches[0]!, rngState: s }] };
+    const events = step(candidate).matches[0]!.events.filter((e) => e.minute === minute + 1);
+    if (wanted(events, me)) return candidate;
+  }
+  throw new Error("no stream found");
+}
+
+/** The user's side of the user's match. */
+export function userSideOf(live: LiveRound): LiveSide {
+  const m = userMatch(live)!;
+  return m.home.clubId === live.userClubId ? m.home : m.away;
 }

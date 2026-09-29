@@ -25,13 +25,14 @@
 | AD-019 | `GameState.pendingLive?: true` é gravado com o estado de antes da data quando o usuário a joga ao vivo e apagado pelo save que a fecha; abrir o jogo com a marca joga a data inteira sem decisões (`runToEnd`, mesmas sementes, escalação gravada) e abre a tela Rodada. Substitui a door 4 de partida-ao-vivo («recarregar recomeça do minuto 0»), que deixava jogar a mesma data até ganhar | gravar cada decisão ao vivo pediria uma escrita por clique e um log eterno no save; plano de correcoes-validacao (door 1) | active | 2026-09-29 |
 | AD-020 | Uma aba ativa por vez: `navigator.locks.request("forzion-futmanager-save", { ifAvailable: true })` na abertura; sem o lock a tela «O jogo está aberto em outra aba» oferece «Usar nesta aba» (`steal: true`), e a aba que perde o lock deixa de gravar e mostra a mesma tela. Sem `navigator.locks` o jogo abre sem a guarda | revisão no documento só acusa o conflito ao gravar, depois de o usuário jogar na aba velha; BroadcastChannel não impede a escrita; plano de correcoes-validacao (door 2) | active | 2026-09-29 |
 | AD-021 | `Player.arrivedSeason?: number` guarda a temporada em que o usuário contratou um livre, promoveu um júnior ou comprou o jogador; com ela igual à temporada atual o jogador não vai «À venda» nem recebe proposta. Ausente = chegou antes da regra e pode ser vendido; save continua v8 | o boletim `market.transfers` não registra livre nem júnior e é limpo na virada; plano de correcoes-validacao (door 3) | active | 2026-09-29 |
+| AD-022 | «Pular para o fim» e a reabertura com `pendingLive` jogam o resto da data com as vagas do usuário preenchidas pela regra da IA (lesão: reserva da posição; goleiro expulso: goleiro reserva no gol e o pior de linha sai), por `runToEnd(live, { fillUserVacancies: true })`; `runToEnd` sem a opção continua igual a `step` até o 90. Amplia AD-019, que jogava sem decisão nenhuma | com a parada obrigatória, pular ou recarregar deixaria o time com um buraco que o jogo manda preencher; checks de parada-obrigatoria (C4, C7) | active | 2026-09-29 |
 
 ## Handoff
 
-**Feature**: correcoes-validacao verificada (PASS round 1, 73/73, 257e66a..5b5518c, profile light) - corrige os 41 achados da validação ampla de 29/09/2026
-**Where**: commits locais em `main`, ainda não publicados; o site no ar em https://arthuurw.github.io/forzion.tech-futmanager/ continua na versão anterior até o push
-**In progress**: nada
-**Next step**: push para `main` (publica pelo Actions) quando o autor autorizar. L-023, L-024, L-025 e o `revokeObjectURL` foram fechados por correcoes-validacao C64, C63, C65 e C66
+**Feature**: parada-obrigatoria (checks escritos, build em andamento); antes, correcoes-validacao verificada (PASS round 1, 73/73, 257e66a..5b5518c, profile light)
+**Where**: publicado em `main` (deploy do Actions verde em 29/09/2026, run 36625992180); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
+**In progress**: parada-obrigatoria - C1-C11 em `.specs/features/parada-obrigatoria/checks.md`
+**Next step**: build e Verifier de parada-obrigatoria; depois a feature treino-e-evolucao (brainstorm: intensidade do clube Leve/Normal/Forte já escolhida pelo autor). L-023, L-024, L-025 e o `revokeObjectURL` foram fechados por correcoes-validacao C64, C63, C65 e C66
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

@@ -349,7 +349,7 @@ Proof: `npx vitest run src/ui/Home.test.tsx -t "foco na confirmação"`
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "foco na confirmação"`
 Proof: `npx vitest run src/ui/Finance.test.tsx -t "foco na confirmação"`
 
-**C55** - Nenhum `font-size` em `src/styles.css` fica abaixo de 0,65rem, verificado por varredura de todos os valores `rem`/`em`/`px` do arquivo (AC 51).
+**C55** - ✓ Nenhum `font-size` em `src/styles.css` fica abaixo de 0,65rem, verificado por varredura de todos os valores `rem`/`em`/`px` do arquivo (AC 51).
 
 Proof: `npx vitest run src/launch.test.ts -t "fonte mínima"`
 
@@ -413,7 +413,7 @@ Proof: `npx vitest run src/engine/continental.test.ts -t "amarelo ligado ao even
 
 Proof: `npx vitest run src/ui/download.test.ts -t "revoga a url depois do clique"`
 
-**C67** - `vite.config.ts` define `test.maxWorkers: 4` (AC 63).
+**C67** - ✓ `vite.config.ts` define `test.maxWorkers: 4` (AC 63).
 
 Proof: `npx vitest run src/launch.test.ts -t "vitest limita workers"`
 
@@ -427,11 +427,11 @@ Proof: `npm run check:layout:selftest`
 
 Proof: `npm run check:layout:selftest`
 
-**C70** - `deploy.yml` roda `npm run check:dist` depois do `npm run build`, e `package.json` tem `check:dist` = `node scripts/dist-check.mjs` (AC 66).
+**C70** - ✓ `deploy.yml` roda `npm run check:dist` depois do `npm run build`, e `package.json` tem `check:dist` = `node scripts/dist-check.mjs` (AC 66).
 
 Proof: `npx vitest run src/launch.test.ts -t "deploy roda o dist-check"`
 
-**C71** - O `index.html` tem:
+**C71** - ✓ O `index.html` tem:
 - `og:image` com URL absoluta `https://arthuurw.github.io/forzion.tech-futmanager/og-image.png`;
 - `og:url`;
 - `apple-touch-icon` relativo;

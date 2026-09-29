@@ -590,7 +590,8 @@ select option {
 
 .title-screen .logo-sub {
   display: block;
-  font-size: 0.4em;
+  /* 0.4 × the logo's size, in rem (correcoes-validacao AC 51: no size under 0.65rem). */
+  font-size: clamp(1.2rem, min(6vw, 6.4vh), 3.6rem);
   letter-spacing: 0.08em;
   margin-top: 0.12em;
 }
@@ -794,7 +795,7 @@ select option {
   font-family: var(--font-body);
   font-style: normal;
   font-weight: 700;
-  font-size: 0.8em;
+  font-size: max(0.65rem, 0.8em);
   text-transform: none;
   color: var(--muted);
   text-shadow: none;
@@ -901,7 +902,7 @@ thead th {
   font-weight: 700;
   font-style: italic;
   text-transform: uppercase;
-  font-size: 0.85em;
+  font-size: max(0.65rem, 0.85em);
   color: var(--cyan);
   text-align: left;
   padding: 3px 8px;
@@ -988,7 +989,7 @@ td.rank {
   font-family: var(--font-display);
   font-weight: 800;
   font-style: italic;
-  font-size: 0.9em;
+  font-size: max(0.65rem, 0.9em);
   background: rgba(95, 160, 255, 0.35);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
@@ -1149,7 +1150,7 @@ td.rating-cell .bar {
 
 .token select {
   width: 100%;
-  font-size: clamp(0.6rem, 2.4cqw, 0.8rem);
+  font-size: clamp(0.65rem, 2.4cqw, 0.8rem);
   padding: 2px 16px 2px 5px;
   border-radius: 6px;
   background-color: rgba(2, 8, 23, 0.8);
@@ -1268,7 +1269,7 @@ td.rating-cell .bar {
 
 .scorebug .vs {
   color: #5a6a90;
-  font-size: 0.8em;
+  font-size: max(0.65rem, 0.8em);
 }
 
 .clock {
@@ -1324,7 +1325,7 @@ td.rating-cell .bar {
   font-family: var(--font-display);
   font-weight: 800;
   font-style: italic;
-  font-size: 0.9em;
+  font-size: max(0.65rem, 0.9em);
   color: var(--cyan);
   background: rgba(2, 8, 23, 0.7);
   border-radius: 5px;
@@ -1622,7 +1623,7 @@ td.contract .last-year {
   margin-left: 4px;
   padding: 0 4px;
   border-radius: 999px;
-  font-size: 0.6em;
+  font-size: 0.65rem;
   letter-spacing: 0;
   font-weight: 700;
   text-transform: uppercase;
@@ -1671,13 +1672,13 @@ td.contract button.contract-n.last {
 
 .country-tag {
   font-family: var(--font-display);
-  font-size: 0.7em;
+  font-size: max(0.65rem, 0.7em);
   letter-spacing: 0.04em;
   color: var(--muted);
 }
 
 .pens {
-  font-size: 0.8em;
+  font-size: max(0.65rem, 0.8em);
   opacity: 0.85;
 }
 
@@ -1894,7 +1895,7 @@ tr.down td:last-child {
   min-width: 22px;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  font-size: 0.9em;
+  font-size: max(0.65rem, 0.9em);
   color: var(--muted);
 }
 
@@ -1906,7 +1907,7 @@ tr.down td:last-child {
   height: 1.3em;
   border-radius: 50%;
   font-weight: 700;
-  font-size: 0.85em;
+  font-size: max(0.65rem, 0.85em);
   line-height: 1;
   vertical-align: middle;
   color: var(--ink);
@@ -1937,7 +1938,7 @@ tr.down td:last-child {
   font-family: var(--font-display);
   font-weight: 800;
   font-style: italic;
-  font-size: 0.75em;
+  font-size: max(0.65rem, 0.75em);
   white-space: nowrap;
 }
 .badge.les {
@@ -2063,7 +2064,7 @@ tbody tr.out td {
   margin-left: 6px;
   padding: 0 5px;
   border-radius: 4px;
-  font-size: 0.7em;
+  font-size: max(0.65rem, 0.7em);
   font-weight: 700;
   text-transform: uppercase;
   background: rgba(255, 59, 59, 0.25);
@@ -2441,7 +2442,7 @@ button.mini {
   }
 
   table[aria-label="Elenco"] thead th {
-    font-size: 0.52rem;
+    font-size: 0.65rem;
     letter-spacing: 0;
   }
 

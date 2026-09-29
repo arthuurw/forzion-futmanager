@@ -51,3 +51,64 @@ describe("publicação (lancamento door 2)", () => {
     expect(job("build")).not.toContain("deploy-pages");
   });
 });
+
+describe("guardas e metadados (correcoes-validacao)", () => {
+  test("fonte mínima", () => {
+    // C55 (AC 51): every rem/em/px value of every font size in styles.css, custom font-size properties included.
+    const css = read("src/styles.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    const declarations = [...css.matchAll(/(?:^|[;{\s])(font-size|--[\w-]*font[\w-]*)\s*:\s*([^;}]+)/g)].map((m) => `${m[1]}: ${m[2]!.trim()}`);
+    expect(declarations.length).toBeGreaterThan(60);
+    const values: [string, number][] = declarations.flatMap((d) =>
+      [...d.matchAll(/(\d*\.?\d+)(rem|em|px)\b/g)].map((m): [string, number] => [d, m[2] === "px" ? Number(m[1]) / 16 : Number(m[1])]),
+    );
+    expect(values.length).toBeGreaterThan(60);
+    for (const [declaration, size] of values) expect(size, declaration).toBeGreaterThanOrEqual(0.65);
+  });
+
+  test("vitest limita workers", () => {
+    // C67 (AC 63).
+    const config = read("vite.config.ts");
+    const test = config.slice(config.indexOf("test: {"));
+    expect(test.slice(0, test.indexOf("}"))).toMatch(/\bmaxWorkers: 4,/);
+  });
+
+  test("deploy roda o dist-check", () => {
+    // C70 (AC 66): after the build, before the upload.
+    const build = read(".github/workflows/deploy.yml");
+    const at = ["run: npm run build", "run: npm run check:dist", "uses: actions/upload-pages-artifact@"].map((s) => build.indexOf(s));
+    expect(at.every((i) => i > -1)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    expect(pkg.scripts["check:dist"]).toBe("node scripts/dist-check.mjs");
+  });
+
+  test("metadados de compartilhamento", () => {
+    // C71 (AC 67): absolute URLs for the share card, relative paths for what the page loads.
+    const html = read("index.html");
+    const meta = (property: string) => html.match(new RegExp(`<meta property="${property}" content="([^"]*)"`))?.[1];
+    expect(meta("og:image")).toBe("https://arthuurw.github.io/forzion.tech-futmanager/og-image.png");
+    expect(meta("og:url")).toBe("https://arthuurw.github.io/forzion.tech-futmanager/");
+    const href = (rel: string) => html.match(new RegExp(`<link rel="${rel}" href="([^"]*)"`))?.[1];
+    expect(href("apple-touch-icon")).toBe("./apple-touch-icon.png");
+    expect(href("manifest")).toBe("./manifest.webmanifest");
+
+    const manifest = JSON.parse(read("public/manifest.webmanifest")) as { name: string; start_url: string; icons: { src: string; sizes: string }[] };
+    expect(manifest.name).toBe("Forzion FutManager");
+    expect(manifest.start_url).toBe("./");
+    for (const icon of manifest.icons) {
+      expect(icon.src, icon.src).not.toMatch(/^\/|^[a-z]+:/);
+      expect(existsSync(new URL(`../public/${icon.src}`, import.meta.url)), icon.src).toBe(true);
+    }
+    expect(manifest.icons.map((i) => [i.src, i.sizes])).toContainEqual(["apple-touch-icon.png", "180x180"]);
+
+    // Width and height from the IHDR chunk, right after the 8-byte PNG signature.
+    const size = (file: string) => {
+      const png = readFileSync(new URL(`../public/${file}`, import.meta.url));
+      expect([...png.subarray(0, 8)], file).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      expect(png.toString("ascii", 12, 16), file).toBe("IHDR");
+      return [png.readUInt32BE(16), png.readUInt32BE(20)];
+    };
+    expect(size("og-image.png")).toEqual([1200, 630]);
+    expect(size("apple-touch-icon.png")).toEqual([180, 180]);
+  });
+});

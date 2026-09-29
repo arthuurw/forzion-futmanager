@@ -11,7 +11,8 @@
     "lint": "eslint src",
     "check:layout": "node scripts/layout-check.mjs",
     "check:layout:selftest": "node scripts/layout-check-selftest.mjs",
-    "check:audio": "node scripts/audio-check.mjs"
+    "check:audio": "node scripts/audio-check.mjs",
+    "check:dist": "node scripts/dist-check.mjs"
   },
   "dependencies": {
     "idb": "^8.0.3",

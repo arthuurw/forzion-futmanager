@@ -1,0 +1,15 @@
+{
+  "name": "Forzion FutManager",
+  "short_name": "FutManager",
+  "description": "Manager de futebol em texto, no navegador, com clubes e jogadores fictícios.",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "browser",
+  "background_color": "#020817",
+  "theme_color": "#07123a",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -230,6 +230,7 @@ Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas dos 
 Proof: `npx vitest run src/engine/balance.test.ts -t "compras da IA em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa equilibrado em uma temporada"`
+Proof: `npx vitest run src/engine/balance.test.ts -t "times iguais"`
 
 **C73** - ✓ Seed 5, sem usuário, 20 temporadas: ao fim de cada temporada a mediana do caixa dos 80 clubes é ≤ 20 × a mediana do caixa inicial (AC 68)
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa da IA limitado em 20 temporadas"`
@@ -388,6 +389,7 @@ Proof: `npx vitest run src/deps.test.ts -t "eslint barra as formas indiretas"`
 
 Proof: `npx vitest run src/engine/narration.test.ts -t "linha de cada tipo de evento"`
 Proof: `npx vitest run src/engine/match.test.ts -t "todos os tipos de evento ocorrem e têm narração"`
+Proof: `npx vitest run src/engine/live.test.ts -t "todos os 10 tipos de evento ocorrem e têm narração"`
 
 **C62** - ✓ O script de seletores varre `.specs/features/*/checks.md` e termina com 0 seletores órfãos. Os checks que eram órfãos estão marcados «Superseded por <feature> <check>» (AC 58).
 

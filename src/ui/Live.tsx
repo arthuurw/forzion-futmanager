@@ -40,7 +40,14 @@ export function Live() {
   // The clock (AC 2, AC 7).
   useEffect(() => {
     if (clock !== "running" || finishing) return;
-    const id = setInterval(() => tick(), BASE_TICK_MS / speed);
+    // Correcoes-validacao AC 47: an error in the clock shows the error screen instead of freezing it.
+    const id = setInterval(() => {
+      try {
+        tick();
+      } catch (e) {
+        useGame.getState().crash(e);
+      }
+    }, BASE_TICK_MS / speed);
     return () => clearInterval(id);
   }, [clock, speed, finishing, tick]);
 

@@ -140,6 +140,10 @@ export interface GameStore {
   pendingImport: GameState | null;
   /** `navigator.storage.persist()` was already asked this session (lancamento AC 20). */
   persistRequested: boolean;
+  /** Correcoes-validacao AC 47: an error escaped an action or the clock; the error screen shows. */
+  crashed: boolean;
+  /** Correcoes-validacao AC 47: reports an error outside the render and shows the error screen. */
+  crash(error: unknown): void;
   init(): Promise<void>;
   /** Correcoes-validacao AC 1, AC 3: reads the save again after a failed read. */
   retryLoad(): Promise<void>;
@@ -445,6 +449,12 @@ export const useGame = create<GameStore>()((set, get) => {
     importMessage: null,
     pendingImport: null,
     persistRequested: false,
+    crashed: false,
+
+    crash(error) {
+      console.error(error);
+      set({ crashed: true });
+    },
 
     async init() {
       // Only the first mount reads storage; StrictMode's second effect run is a no-op.
@@ -540,7 +550,8 @@ export const useGame = create<GameStore>()((set, get) => {
       const next = step(live);
       set({ live: next });
       if (next.minute === HALFTIME) set({ clock: "halftime" });
-      if (next.minute >= MATCH_MINUTES) void finishLive();
+      // Correcoes-validacao AC 47: a date that fails to close shows the error screen.
+      if (next.minute >= MATCH_MINUTES) void finishLive().catch((e: unknown) => get().crash(e));
     },
 
     pause() {
@@ -559,7 +570,7 @@ export const useGame = create<GameStore>()((set, get) => {
       const live = get().live;
       if (!live || get().finishing) return;
       set({ live: runToEnd(live), clock: "paused", skipped: true });
-      await finishLive();
+      await finishLive().catch((e: unknown) => get().crash(e));
     },
 
     substitute(slot, inId) {

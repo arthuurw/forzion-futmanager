@@ -321,7 +321,7 @@ Proof: `npx vitest run src/ui/Market.test.tsx -t "oferta inválida"`
 Proof: `npx vitest run src/ui/Round.test.tsx -t "narração com jogador que mudou de clube"`
 Proof: `npx vitest run src/ui/Live.test.tsx -t "narração sem id cru"`
 
-**C51** - Tabela sobre três origens de erro:
+**C51** - ✓ Tabela sobre três origens de erro:
 - exceção no `tick` do relógio;
 - promise rejeitada em `finishLive`;
 - evento `unhandledrejection`.

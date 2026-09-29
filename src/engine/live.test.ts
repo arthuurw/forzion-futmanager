@@ -311,7 +311,8 @@ describe("rodada ao vivo (engine)", () => {
   test("todos os 10 tipos de evento ocorrem e têm narração", () => {
     const seen = new Map<MatchEventType, string>();
     const base = game(1);
-    const ctx = narrationContext(base.leagues[0]!.clubs);
+    // Every league plays in the round: the context has every club (correcoes-validacao C61).
+    const ctx = narrationContext(base.leagues.flatMap((l) => l.clubs));
     for (let seed = 1; seed <= 200 && seen.size < MATCH_EVENT_TYPES.length; seed++) {
       const state = game(1);
       state.rngState = seed * 2654435761;
@@ -319,6 +320,8 @@ describe("rodada ao vivo (engine)", () => {
         for (const e of m.events) {
           const text = narrate(e, ctx);
           expect(text.length).toBeGreaterThan(0);
+          expect(text, e.type).not.toContain(e.clubId);
+          for (const id of [e.playerId, e.playerInId]) if (id) expect(text, e.type).not.toContain(id);
           if (!seen.has(e.type)) seen.set(e.type, text);
         }
       }

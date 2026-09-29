@@ -32,6 +32,13 @@ export default tseslint.config(
         "error",
         { object: "Math", property: "random", message: "Use the injected Rng (door 2)." },
       ],
+      // Correcoes-validacao AC 56: the indirect forms - `globalThis.Math.random` and import().
+      "no-restricted-syntax": [
+        "error",
+        { selector: "MemberExpression[property.name='random'][object.type='MemberExpression'][object.property.name='Math']", message: "Use the injected Rng (door 2)." },
+        { selector: "ImportExpression[source.value=/^(react|react-dom|zustand|idb)(\\u002F|$)/]", message: "The engine imports nothing from react, react-dom, zustand or idb (door 3)." },
+        { selector: "ImportExpression > TemplateLiteral.source[quasis.0.value.raw=/^(react|react-dom|zustand|idb)(\\u002F|$)/]", message: "The engine imports nothing from react, react-dom, zustand or idb (door 3)." },
+      ],
     },
   },
 );

@@ -1,6 +1,7 @@
 import { strengthRanking } from "./board";
 import { nextDate } from "./calendar";
-import { catchUpPhase, cupLive, cupMatchSeed, drawSeed, startCupDate } from "./cup";
+import { catchUpPhase, cupLive, cupMatchSeed, drawSeed, finishCupDate, startCupDate } from "./cup";
+import { runToEnd } from "./live";
 import { newGame } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
 import { mix32 } from "./rng";
@@ -288,4 +289,38 @@ describe("S2 - a continental no calendário", () => {
       expect(ra.user!.verdict, `meta ${goal}`).toBe(rb.user!.verdict);
     }
   }, 120_000);
+});
+
+describe("disciplina ligada ao evento (correcoes-validacao)", () => {
+  test("amarelo ligado ao evento", () => {
+    // C65 (AC 61, L-025, L-007): the first continental date, every match's events read before closing it.
+    let s = newGame(61);
+    while (!(nextDate(s).kind === "cup" && (nextDate(s) as { cupIndex: number }).cupIndex === 1)) s = playDate(s).state;
+    const live = startCupDate(s);
+    const ended = runToEnd(live);
+    const after = finishCupDate(s, live).state;
+    expect(cont(after).phases[0]!.ties.map((t) => [t.result!.homeGoals, t.result!.awayGoals])).toEqual(ended.matches.map((m) => [m.homeGoals, m.awayGoals]));
+
+    let carded = 0;
+    let spared = 0;
+    for (const m of ended.matches) {
+      const yellows = new Set(m.events.filter((e) => e.type === "yellow").map((e) => e.playerId!));
+      const reds = new Set(m.events.filter((e) => e.type === "red").map((e) => e.playerId!));
+      for (const clubId of [m.home.clubId, m.away.clubId]) {
+        for (const q of clubOf(s, clubId).players) {
+          const p = clubOf(after, clubId).players.find((x) => x.id === q.id)!;
+          const was = q.cupDiscipline["cup-cont"]?.yellowCards ?? 0;
+          const now = p.cupDiscipline["cup-cont"]?.yellowCards ?? 0;
+          // One yellow in the date counts once; a red suspends instead; no event of his, no change.
+          const expected = yellows.has(q.id) && !reds.has(q.id) ? was + 1 : reds.has(q.id) ? 0 : was;
+          expect(now, `${m.matchId} ${q.id}`).toBe(expected);
+          expect(p.yellowCards, q.id).toBe(q.yellowCards);
+          if (expected === was + 1) carded++;
+          else if (!yellows.has(q.id)) spared++;
+        }
+      }
+    }
+    expect(carded).toBeGreaterThan(0);
+    expect(spared).toBeGreaterThan(0);
+  }, 60_000);
 });

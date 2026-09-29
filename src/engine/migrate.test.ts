@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { strengthRanking } from "./board";
 import { nextDate } from "./calendar";
 import { newGame } from "./generate";
-import { aiLineup, formationSlots, isAvailable } from "./lineup";
+import { aiLineup, formationSlots, isAvailable, isAvailableFor } from "./lineup";
 import { makeMatch, makeSide, runToEnd, type LivePlayer } from "./live";
 import { createRng, mix32, randInt } from "./rng";
 import { migrateSave } from "./migrate";
@@ -548,4 +548,80 @@ describe("migração v7 -> v8 (copa-continental)", () => {
     expect(s.history).toEqual(doc.history);
     expect(s.cups[0]).toEqual(doc.cups[0]);
   }, 120_000);
+});
+
+describe("sementes da continental migrada (correcoes-validacao)", () => {
+  test("sementes da migração v8", () => {
+    // C63 (AC 59, L-024): stopped after round 8, past the Oitavas (anchor 7); the Quartas are drawn.
+    const seed = 5;
+    const doc = v7Document(seed, 8) as unknown as GameState;
+    const s = migrated(JSON.parse(JSON.stringify(doc)));
+    const cup = s.cups[1]!;
+    const country = new Map(s.leagues.flatMap((l) => l.clubs.map((c) => [c.id, l.country] as const)));
+    const homeFirst = (a: string, b: string) => (cup.seeding.indexOf(a) > cup.seeding.indexOf(b) ? [a, b] : [b, a]);
+    const shuffled = (clubs: string[], drawState: number, k: number) => {
+      // Door 3 of copa-continental, written out: the draw of phase k over mix32(mix32(state, 0xd1), k).
+      const rng = createRng(mix32(mix32(drawState, 0xd1), k));
+      const out = [...clubs];
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = randInt(rng, 0, i);
+        [out[i], out[j]] = [out[j]!, out[i]!];
+      }
+      return out;
+    };
+    // The Oitavas keep clubs of one country apart: the first club of the country with most clubs
+    // left meets the first club left of another country.
+    const oitavas = (drawState: number) => {
+      const left = shuffled(cup.seeding, drawState, 0);
+      const count = (c: string | undefined) => left.filter((id) => country.get(id) === c).length;
+      const pairs: string[][] = [];
+      while (left.length > 1) {
+        const a = left.reduce((best, id) => (count(country.get(id)) > count(country.get(best)) ? id : best));
+        left.splice(left.indexOf(a), 1);
+        const b = left.find((id) => country.get(id) !== country.get(a)) ?? left[0]!;
+        left.splice(left.indexOf(b), 1);
+        pairs.push(homeFirst(a, b));
+      }
+      return pairs;
+    };
+    const stored = (k: number) => cup.phases[k]!.ties.map((t) => [t.homeId, t.awayId]);
+    expect(stored(0)).toHaveLength(8);
+    expect(stored(0)).toEqual(oitavas(mix32(seed, 8)));
+    expect(stored(0)).not.toEqual(oitavas(mix32(seed, 9)));
+
+    // The Oitavas played with scores only over mix32(mix32(mix32(seed, 9), 0xc1), i), AI elevens for the cup.
+    const competition = { kind: "cup", cupId: "cup-cont" } as const;
+    const replay = (matchState: number) => {
+      const players: Record<string, LivePlayer> = {};
+      const clubs = new Map(doc.leagues.flatMap((l) => l.clubs).map((c) => [c.id, c]));
+      for (const c of clubs.values()) for (const p of c.players) players[p.id] = { ...p };
+      const side = (id: string) => {
+        const club = clubs.get(id)!;
+        const lineup = aiLineup(club, competition);
+        const starters = lineup.starters.map((pid) => (pid && isAvailableFor(club.players.find((p) => p.id === pid)!, competition) ? pid : null));
+        const bench = club.players.filter((p) => isAvailableFor(p, competition) && !starters.includes(p.id)).map((p) => p.id);
+        return makeSide(id, formationSlots(lineup.formation), starters, bench, players, { formation: lineup.formation, posture: "balanced", isUser: false });
+      };
+      return runToEnd({
+        roundIndex: 8,
+        roundNumber: 8,
+        minute: 0,
+        userClubId: null,
+        players,
+        matches: cup.phases[0]!.ties.map((t, i) => ({ ...makeMatch(t.id, side(t.homeId), side(t.awayId), mix32(mix32(matchState, 0xc1), i), "cup-cont"), knockout: true })),
+      }).matches.map((m) => [m.homeGoals, m.awayGoals, m.penalties ?? null]);
+    };
+    const results = cup.phases[0]!.ties.map((t) => [t.result!.homeGoals, t.result!.awayGoals, t.penalties]);
+    expect(results).toEqual(replay(mix32(seed, 9)));
+    expect(results).not.toEqual(replay(mix32(seed, 8)));
+
+    // The Quartas drawn from the winners, in seeding order, over the same draw state.
+    const winners = cup.phases[0]!.ties.map((t) => t.winnerId!).sort((a, b) => cup.seeding.indexOf(a) - cup.seeding.indexOf(b));
+    const quartas = (drawState: number) => {
+      const order = shuffled(winners, drawState, 1);
+      return Array.from({ length: 4 }, (_, i) => homeFirst(order[2 * i]!, order[2 * i + 1]!));
+    };
+    expect(stored(1)).toEqual(quartas(mix32(seed, 8)));
+    expect(stored(1)).not.toEqual(quartas(mix32(seed, 9)));
+  }, 60_000);
 });

@@ -369,7 +369,7 @@ Proof: `npx vitest run src/audio/music.test.ts -t "falha de download tenta de no
 
 ### S9 - Guardas que guardam · 12 files · 70 KB · ~17k
 
-**C59** - `deps.test`:
+**C59** - ✓ `deps.test`:
 - varre todo arquivo de `src/` exceto `engine/rng.ts` e `*.test.*` procurando `Math.random` (inclusive via `globalThis`);
 - varre `src/engine/` procurando import estático e `import()` de `react`, `react-dom`, `zustand` e `idb`.
 
@@ -378,11 +378,11 @@ Uma autoverificação sobre textos de exemplo mostra que a busca pega cada forma
 Proof: `npx vitest run src/deps.test.ts -t "Math.random fora do Rng"`
 Proof: `npx vitest run src/deps.test.ts -t "motor sem dependência de UI"`
 
-**C60** - Um texto em `src/engine/x.ts` com `globalThis.Math.random()` e outro com `import("react")`, passados ao ESLint programaticamente, dão erro cada um (AC 56).
+**C60** - ✓ Um texto em `src/engine/x.ts` com `globalThis.Math.random()` e outro com `import("react")`, passados ao ESLint programaticamente, dão erro cada um (AC 56).
 
 Proof: `npx vitest run src/deps.test.ts -t "eslint barra as formas indiretas"`
 
-**C61** - `narration.test`:
+**C61** - ✓ `narration.test`:
 - uma tabela com a linha literal esperada de cada tipo de evento que `narrate` trata, todos, com nome de jogador e de clube;
 - os testes de match e live que percorrem os tipos afirmam que o texto não contém `playerId` nem `clubId` (AC 57, L-005).
 
@@ -393,7 +393,7 @@ Proof: `npx vitest run src/engine/match.test.ts -t "todos os tipos de evento oco
 
 Proof: `npx vitest run src/launch.test.ts -t "provas dos checks existem"`
 
-**C63** - A migração v7→v8:
+**C63** - ✓ A migração v7→v8:
 - sorteia a continental igual a um replay feito no teste com `createRng(mix32(seed, 8))`;
 - joga as partidas com `mix32(seed, 9)`.
 
@@ -405,11 +405,11 @@ Proof: `npx vitest run src/engine/migrate.test.ts -t "sementes da migração v8"
 
 Proof: `npm run check:layout:selftest`
 
-**C65** - O C13 da copa continental conta o amarelo pelo `playerId` do evento: um amarelo de outro jogador na mesma partida não conta (AC 61, L-007).
+**C65** - ✓ O C13 da copa continental conta o amarelo pelo `playerId` do evento: um amarelo de outro jogador na mesma partida não conta (AC 61, L-007).
 
 Proof: `npx vitest run src/engine/continental.test.ts -t "amarelo ligado ao evento"`
 
-**C66** - Exportar chama `URL.revokeObjectURL` só depois do `setTimeout`: antes de avançar os timers, 0 chamadas; depois, 1 com a URL criada (AC 62).
+**C66** - ✓ Exportar chama `URL.revokeObjectURL` só depois do `setTimeout`: antes de avançar os timers, 0 chamadas; depois, 1 com a URL criada (AC 62).
 
 Proof: `npx vitest run src/ui/download.test.ts -t "revoga a url depois do clique"`
 

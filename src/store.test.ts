@@ -840,3 +840,22 @@ describe("parada obrigatória (parada-obrigatoria)", () => {
     expect(sub).toBeDefined();
   });
 });
+
+describe("treino (treino-evolucao)", () => {
+  test("treino gravado", async () => {
+    // C12 (L-003): the store saves the user's training, and a reopened game shows it.
+    const game = seededGame(4);
+    await saveGame(game);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    await useGame.getState().setTraining("hard");
+    expect(userClub(useGame.getState().game!)!.training).toBe("hard");
+    expect(userClub(((await loadGame()) as { state: GameState }).state)!.training).toBe("hard");
+    resetStore();
+    await useGame.getState().init();
+    useGame.getState().continueGame();
+    render(createElement(App));
+    const select = screen.getByLabelText("Treino") as HTMLSelectElement;
+    expect(select.value).toBe("hard");
+    expect(select.selectedOptions[0]!.textContent).toBe("Forte");
+  });
+});

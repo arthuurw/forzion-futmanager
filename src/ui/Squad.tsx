@@ -4,7 +4,7 @@ import { CONTRACT_RENEWAL, isMarketOpen, releaseCost, renewalSalary } from "../e
 import { nextCompetition } from "../engine/calendar";
 import { formationSlots, isAvailableFor, validateLineup } from "../engine/lineup";
 import { userLeague } from "../engine/season";
-import { FORMATION_NAMES, POSITIONS, POSTURES, type FormationName, type Position, type Posture } from "../engine/types";
+import { FORMATION_NAMES, POSITIONS, POSTURES, TRAININGS, type FormationName, type Position, type Posture, type RatingStep, type Training } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { FitnessBar, MoraleArrow, StatusBadge } from "./Condition";
 import { nextDateLabel } from "./Cup";
@@ -46,11 +46,31 @@ function isWide(): boolean {
 }
 
 const POSTURE_LABEL: Record<Posture, string> = { defensive: "Defensiva", balanced: "Equilibrada", attacking: "Ofensiva" };
+/** Treino-evolucao AC 13, AC 14. */
+const TRAINING_LABEL: Record<Training, string> = { light: "Leve", normal: "Normal", hard: "Forte" };
+const TRAINING_LINE: Record<Training, string> = {
+  light: "Recupera mais o físico e evolui menos.",
+  normal: "Equilíbrio entre físico e evolução.",
+  hard: "Evolui mais, recupera menos o físico e lesiona mais.",
+};
+
+/** Treino-evolucao AC 15, AC 16: the last rating change of the season, if any. */
+function Trend({ log }: { log: RatingStep[] | undefined }) {
+  const last = log?.at(-1);
+  if (!last) return null;
+  const label = `${last.delta > 0 ? "+1" : "−1"} na rodada ${last.round}`;
+  return (
+    <span className={`trend ${last.delta > 0 ? "up" : "down"}`} role="img" aria-label={label} title={label}>
+      {last.delta > 0 ? "▲" : "▼"}
+    </span>
+  );
+}
 
 export function Squad() {
   const game = useGame((s) => s.game);
   const setFormation = useGame((s) => s.setFormation);
   const setPosture = useGame((s) => s.setPosture);
+  const setTraining = useGame((s) => s.setTraining);
   const assignStarter = useGame((s) => s.assignStarter);
   const playRound = useGame((s) => s.playRound);
   const toggleForSale = useGame((s) => s.toggleForSale);
@@ -70,6 +90,7 @@ export function Squad() {
   if (!club) return null;
   const league = userLeague(game);
   const lineup = club.lineup;
+  const training: Training = club.training ?? "normal";
   // Copa-nacional AC 23, 29, ajustes-4a AC 1-3: availability is for the user's next match's competition.
   const competition = nextCompetition(game);
   const isAvailable = (p: (typeof club.players)[number]) => isAvailableFor(p, competition);
@@ -137,7 +158,18 @@ export function Squad() {
                   ))}
                 </select>
               </label>
+              <label className="formation-row">
+                Treino
+                <select aria-label="Treino" value={training} onChange={(e) => void setTraining(e.target.value as Training)}>
+                  {TRAININGS.map((t) => (
+                    <option key={t} value={t}>
+                      {TRAINING_LABEL[t]}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
+            <p className="training-line">{TRAINING_LINE[training]}</p>
           </div>
 
           <div className="pitch-wrap">
@@ -210,6 +242,7 @@ export function Squad() {
                     <td className="num rating-cell">
                       <RatingBar rating={p.rating} />
                       {p.rating}
+                      <Trend log={p.ratingLog} />
                     </td>
                     <td className="num">{formatMoney(p.salary)}</td>
                     <td className="num contract">

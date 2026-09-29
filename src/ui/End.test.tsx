@@ -68,8 +68,10 @@ describe("fim de temporada com duas divisões", () => {
     useGame.setState({ phase: "end", game, hasSave: true });
     render(<App />);
     expect(screen.getByRole("heading", { name: "Fim da temporada 1" })).toBeInTheDocument();
-    expect(screen.getByText(`Campeão: ${tableA[0]!.name}`)).toBeInTheDocument();
-    expect(screen.getByText(`Campeão: ${tableB[0]!.name}`)).toBeInTheDocument();
+    // Treino-evolucao (Superseded checks): a division's champion may also have won a cup, whose card
+    // reads the same line; each name shows once per title, the cups' winners read off the finals here.
+    const cupTitles = (clubId: string) => game.cups.filter((c) => c.phases.at(-1)!.ties[0]!.winnerId === clubId).length;
+    for (const row of [tableA[0]!, tableB[0]!]) expect(screen.getAllByText(`Campeão: ${row.name}`), row.name).toHaveLength(1 + cupTitles(row.clubId));
     const listed = (region: string) => within(screen.getByRole("region", { name: region })).getAllByRole("listitem").map((li) => li.textContent);
     expect(listed("Sobem")).toEqual(tableB.slice(0, 4).map((r) => r.name));
     expect(listed("Descem")).toEqual(tableA.slice(16).map((r) => r.name));

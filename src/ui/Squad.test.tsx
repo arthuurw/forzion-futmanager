@@ -491,3 +491,51 @@ describe("confirmações com foco (correcoes-validacao)", () => {
     }
   });
 });
+
+describe("treino no elenco (treino-evolucao)", () => {
+  test("seletor de treino", async () => {
+    // C13 (L-008): the three options in order, each saved and explained by its exact line.
+    const user = userEvent.setup();
+    const game = seededGame(4);
+    expect(userClub(game)!.training).toBeUndefined();
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<Squad />);
+    const select = screen.getByLabelText("Treino") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual(["Leve", "Normal", "Forte"]);
+    expect(select.selectedOptions[0]!.textContent).toBe("Normal");
+    expect(screen.getByText("Equilíbrio entre físico e evolução.")).toBeInTheDocument();
+    const lines: [string, string, string][] = [
+      ["light", "Leve", "Recupera mais o físico e evolui menos."],
+      ["hard", "Forte", "Evolui mais, recupera menos o físico e lesiona mais."],
+      ["normal", "Normal", "Equilíbrio entre físico e evolução."],
+    ];
+    for (const [value, label, line] of lines) {
+      await user.selectOptions(select, label);
+      expect(userClub(useGame.getState().game!)!.training, label).toBe(value);
+      expect(screen.getByText(line), label).toBeInTheDocument();
+    }
+  });
+
+  test("seta de evolução", () => {
+    // C14: ▲/▼ from the last change, none without a log.
+    const game = seededGame(4);
+    const [up, down, empty, none] = userClub(game)!.players;
+    up!.ratingLog = [
+      { round: 3, delta: -1 },
+      { round: 14, delta: 1 },
+    ];
+    down!.ratingLog = [{ round: 20, delta: -1 }];
+    empty!.ratingLog = [];
+    delete none!.ratingLog;
+    useGame.setState({ phase: "squad", game });
+    render(<Squad />);
+    const table = screen.getByRole("table", { name: "Elenco" });
+    const row = (name: string) => within(table).getAllByRole("row").find((r) => within(r).queryAllByRole("cell")[0]?.textContent === name)!;
+    expect(within(row(up!.name)).getByLabelText("+1 na rodada 14").textContent).toBe("▲");
+    expect(within(row(down!.name)).getByLabelText("−1 na rodada 20").textContent).toBe("▼");
+    for (const p of [empty!, none!]) {
+      expect(within(row(p.name)).queryByLabelText(/na rodada/), p.name).toBeNull();
+      expect(within(row(p.name)).getAllByRole("cell")[3]!.textContent, p.name).toBe(String(p.rating));
+    }
+  });
+});

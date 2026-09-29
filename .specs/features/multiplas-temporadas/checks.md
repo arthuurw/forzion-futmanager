@@ -93,7 +93,7 @@ Proof: `npx vitest run src/ui/NewSeason.test.tsx -t "listas vazias"`
 **C18** - Com o save gravado na rodada 38, «Continuar» depois de recarregar abre a tela Fim com o mesmo campeão, a mesma posição, o mesmo prêmio e o mesmo veredito. `nextSeason` do estado recarregado é igual, campo a campo, ao do estado original (AC 15)
 Proof: `npx vitest run src/app.test.tsx -t "recarregar no fim mostra o mesmo resumo"`
 
-**C19** - `nextSeason` sorteia com `createRng(mix32(rngState, 0x5E45 + season))`. O `rngState` novo é o de `createRng(rngState)` depois de um `next()`. Dois estados que só diferem em `rngState` geram evoluções diferentes (door 3)
+**C19** - `nextSeason` sorteia com `createRng(mix32(rngState, 0x5E45 + season))`. O `rngState` novo é o de `createRng(rngState)` depois de um `next()`. Dois estados que só diferem em `rngState` geram evoluções diferentes (door 3) - Superseded por treino-evolucao C7
 Proof: `npx vitest run src/engine/rollover.test.ts -t "virada usa o próprio Rng"`
 
 **C20** - «Próxima temporada» grava o save da nova temporada antes de a tela «Nova temporada» aparecer. Se a gravação falha, aparece o aviso de falha existente (AC 15, door 1)
@@ -112,7 +112,7 @@ Proof: `npx vitest run src/store.test.ts -t "próxima temporada grava antes de m
 | 31–33 | −4..0 |
 | 34+ | −6..−2 |
 
-Os dois extremos de cada faixa aparecem. Um jogador de força 94 com 18 anos fica em até 95, e um de 41 com 34 anos (sem se aposentar) fica em pelo menos 40 (AC 16)
+Os dois extremos de cada faixa aparecem. Um jogador de força 94 com 18 anos fica em até 95, e um de 41 com 34 anos (sem se aposentar) fica em pelo menos 40 (AC 16) - Superseded por treino-evolucao C6
 Proof: `npx vitest run src/engine/rollover.test.ts -t "evolução por idade"`
 
 **C22** - Todo jogador que continua no save fica exatamente 1 ano mais velho: de clube, livre ou que saiu por contrato (AC 17)

@@ -41,7 +41,8 @@ describe("tela Nova temporada", () => {
     Object.assign(veteran!, { age: 36, contractSeasons: 2 });
     Object.assign(leaving!, { age: 25, contractSeasons: 1 });
     for (const p of rest) Object.assign(p, { age: Math.min(p.age, 30), contractSeasons: Math.max(p.contractSeasons, 2) });
-    const before = new Map(userClub(game)!.players.map((p) => [p.id, p.rating]));
+    // Treino-evolucao C15 (Superseded checks): «Antes» is the rating at the start of the season.
+    const before = new Map(userClub(game)!.players.map((p) => [p.id, p.rating - (p.ratingLog ?? []).reduce((sum, s) => sum + s.delta, 0)]));
     const after = await turnSeason(game);
     expect(within(screen.getByRole("region", { name: "Aposentados" })).getAllByRole("listitem").map((li) => li.textContent)).toEqual([veteran!.name]);
     expect(within(screen.getByRole("region", { name: "Fim de contrato" })).getAllByRole("listitem").map((li) => li.textContent)).toEqual([leaving!.name]);

@@ -90,26 +90,26 @@ Proof: `npx vitest run src/engine/live.test.ts -t "treino na partida"`
 
 ### S3 - O usuário escolhe e vê · 6 files · 95 KB · ~24k
 
-**C12** - `setTraining("hard")` grava `Club.training = "hard"` no clube do usuário, no estado e no save; ao reabrir o jogo, o Elenco mostra «Forte» no seletor «Treino» (AC 13).
+**C12** - ✓ `setTraining("hard")` grava `Club.training = "hard"` no clube do usuário, no estado e no save; ao reabrir o jogo, o Elenco mostra «Forte» no seletor «Treino» (AC 13).
 Proof: `npx vitest run src/store.test.ts -t "treino gravado"`
 
-**C13** - No Elenco, o seletor «Treino» tem as opções «Leve», «Normal», «Forte», nessa ordem; escolher cada uma chama o gravador com `"light"`, `"normal"`, `"hard"` e mostra a linha exata (AC 13, AC 14):
+**C13** - ✓ No Elenco, o seletor «Treino» tem as opções «Leve», «Normal», «Forte», nessa ordem; escolher cada uma chama o gravador com `"light"`, `"normal"`, `"hard"` e mostra a linha exata (AC 13, AC 14):
 - Leve «Recupera mais o físico e evolui menos.»;
 - Normal «Equilíbrio entre físico e evolução.»;
 - Forte «Evolui mais, recupera menos o físico e lesiona mais.».
 Clube sem `training` mostra «Normal».
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "seletor de treino"`
 
-**C14** - No Elenco (AC 15, AC 16):
+**C14** - ✓ No Elenco (AC 15, AC 16):
 - um jogador com `ratingLog` `[{round: 3, delta: -1}, {round: 14, delta: 1}]` mostra «▲» com rótulo acessível «+1 na rodada 14»;
 - um com `[{round: 20, delta: -1}]` mostra «▼» com «−1 na rodada 20»;
 - um com `ratingLog` vazio e um sem o campo não mostram seta.
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "seta de evolução"`
 
-**C15** - O relatório da virada tem, para cada jogador do usuário que ficou, `before` = rating − soma do `ratingLog` da temporada e `after` = rating: um jogador de 70 com `[+1, +1, −1]` dá 69 → 70; um sem mudança dá 70 → 70 (AC 17).
+**C15** - ✓ O relatório da virada tem, para cada jogador do usuário que ficou, `before` = rating − soma do `ratingLog` da temporada e `after` = rating: um jogador de 70 com `[+1, +1, −1]` dá 69 → 70; um sem mudança dá 70 → 70 (AC 17).
 Proof: `npx vitest run src/engine/rollover.test.ts -t "relatório da temporada pelo ratingLog"`
 
-**C16** - A tela «Nova temporada» mostra «Antes» e «Depois» do relatório (o teste existente continua verde).
+**C16** - ✓ A tela «Nova temporada» mostra «Antes» e «Depois» do relatório (o teste existente continua verde).
 Proof: `npx vitest run src/ui/NewSeason.test.tsx -t "mostra aposentados contratos evolução e meta"`
 
 **C17** - ✓ Um save v8 sem `training` e sem `ratingLog` abre, joga uma rodada e vira a temporada sem erro, com o clube em Normal (AC 8, door 1, door 2).
@@ -140,6 +140,8 @@ Proof: `npx vitest run src/engine/training.test.ts -t "save antigo sem os campos
 | multiplas-temporadas C21 (`rollover.test.ts` «evolução por idade», AC 16) | a virada não soma mais delta de idade; a tabela `EVOLUTION` vira a fonte das chances por rodada. O teste passa a afirmar delta 0 na virada para toda faixa | C1, C6 |
 | gastos-da-ia C19 / correcoes-validacao C34 (`balance.test.ts` «caixa em 5 temporadas», máximo 15×) - _achado na build_ | o máximo de um clube passa a 18×: com a evolução por rodada o clube do topo fica entre 15,2× e 17,3× conforme a calibração (antes 14,84×); a mediana 2× a 6,5× não muda. Decisão do autor em 29/09/2026 | C18 |
 | paises C8 (`live.test.ts` «semente das ligas novas», snapshot v6 da rodada 2) - _achado na build_ | só a fixture: a evolução da rodada 1 é desfeita antes da rodada 2, que volta a jogar com os ratings do snapshot; nenhum valor esperado muda | C4 |
+| multiplas-temporadas C17 (`NewSeason.test.tsx` «mostra aposentados contratos evolução e meta», coluna «Antes») - _achado na build_ | «Antes» passa a ser o rating do começo da temporada (rating − soma do `ratingLog`), como o `Impact` do plano define; «Depois» não muda | C15, C16 |
+| `End.test.tsx` «resumo da temporada», «Campeão: X» único - _achado na build_ | com os resultados mudados pela evolução, o campeão da Série A também ganhou uma copa e o card dela lê a mesma linha; o teste passa a contar uma linha por título, com os títulos de copa lidos das finais | fixture |
 | multiplas-temporadas C19 (`rollover.test.ts` «virada usa o próprio Rng», door 3) | os deltas dos 8 jogadores de 22 anos passam a ser 0; a prova do fluxo próprio passa a ser a virada diferente com outro `rngState` e o `rngState` avançado uma vez | C7 |
 
 Regra para os outros testes existentes: um teste antigo que fecha rodadas e compara força, preço ou escalação pode ter a **fixture** ajustada (ex.: `ratingLog`/rating fixos), sem mudar valor esperado. Mudar um valor esperado fora das linhas acima ganha linha nova nesta tabela, marcada _achado na build_, antes do código que a fecha.

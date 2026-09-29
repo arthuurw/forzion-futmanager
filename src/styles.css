@@ -1017,6 +1017,25 @@ td.rating-cell .bar {
   width: 64px;
 }
 
+/* Treino-evolucao: the last rating change of the season. */
+.trend {
+  font-size: 0.7rem;
+  line-height: 1;
+}
+.trend.up {
+  color: #7dffa9;
+}
+.trend.down {
+  color: #ffb3b3;
+}
+
+.training-line {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
 /* ---------- squad / formation ---------- */
 
 .club-title {

@@ -22,7 +22,7 @@ import { nextCompetition, nextDate } from "./engine/calendar";
 import { finishCupDate, startCupDate } from "./engine/cup";
 import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
-import type { Club, Finance, FormationName, GameState, MatchEvent, Posture } from "./engine/types";
+import type { Club, Finance, FormationName, GameState, MatchEvent, Posture, Training } from "./engine/types";
 import { decodeSaveFile } from "./engine/saveFile";
 import { isStorageAvailable, loadGame, saveGame, type LoadResult } from "./persistence/save";
 import { formatMoney } from "./ui/money";
@@ -158,6 +158,8 @@ export interface GameStore {
   /** Correcoes-validacao AC 11: lineup changes are saved; each resolves once its write is done. */
   setFormation(formation: FormationName): Promise<void>;
   setPosture(posture: Posture): Promise<void>;
+  /** Treino-evolucao AC 13: the user's club's training, saved like the lineup. */
+  setTraining(training: Training): Promise<void>;
   assignStarter(slotIndex: number, playerId: string): Promise<void>;
   /**
    * Plays the next date: a league round or a cup phase the user plays opens the live screen; a cup
@@ -515,6 +517,10 @@ export const useGame = create<GameStore>()((set, get) => {
 
     setPosture(posture) {
       return editLineup((game) => editUserClub(game, (club) => (club.lineup ? { ...club, lineup: { ...club.lineup, posture } } : club)));
+    },
+
+    setTraining(training) {
+      return editLineup((game) => editUserClub(game, (club) => ({ ...club, training })));
     },
 
     assignStarter(slotIndex, playerId) {

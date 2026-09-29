@@ -441,7 +441,7 @@ Os PNGs em `public/` têm 1200×630 e 180×180, lidos do cabeçalho IHDR (AC 67)
 
 Proof: `npx vitest run src/launch.test.ts -t "metadados de compartilhamento"`
 
-**C72** - A suíte inteira, o lint, o build e o dist-check passam no HEAD final (todas as slices).
+**C72** - ✓ A suíte inteira, o lint, o build e o dist-check passam no HEAD final (todas as slices).
 
 Proof: `npm test`
 Proof: `npm run lint`

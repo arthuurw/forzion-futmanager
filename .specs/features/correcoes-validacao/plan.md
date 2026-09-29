@@ -52,7 +52,7 @@ Reutiliza `persist`/`init` da store, `saveGame`/`loadGame`, `decodeSaveFile`, `r
 4. Jogar rodada -> `store.playRound` (exists) grava o marcador de ao vivo (door 1) -> `engine/live` (exists): goleiro efetivo, força do setor pela contagem, vaga no setor certo -> `finishLive` limpa o marcador
 5. fechamento da rodada -> `engine/market` (exists): luvas pelo valor, trava de revenda (door 3), propostas dentro do caixa do comprador, preço de titular pela força
 6. virada -> `engine/rollover` (exists) repõe pela base também o usuário, poda os livres e calibra a evolução; `engine/board` (exists) aplica as regras novas de demissão; `engine/season` (exists) conta a artilharia pelas partidas da liga
-7. telas em `src/ui` (exists) e som em `src/audio` (exists): estados de borda, textos, ARIA e visibilidade da aba
+7. telas em `src/ui` (exists) e som em `src/audio` (exists): estados de borda, textos, ARIA e visibilidade da aba. A narração lê `engine/narration` (exists) com todos os clubes e os livres; a oferta inválida volta de `engine/market` como `invalid`; um erro fora do render passa por `store.crash` até a `ErrorBoundary`
 8. `scripts` (exists), `src/deps.test.ts` (exists), `vite.config.ts` (exists), `deploy.yml` (exists), `index.html` (exists): guardas e metadados. O `check:layout --seed=<n>` abre a página com `?seed=<n>`, que `ui/NewGameButton` (exists) passa ao `store.newGame`
 
 ## Impact

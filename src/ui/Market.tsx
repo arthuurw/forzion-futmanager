@@ -73,7 +73,10 @@ export function Market() {
   const [position, setPosition] = useState<Position | "all">("all");
   const [country, setCountry] = useState<Country | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [offer, setOffer] = useState(0);
+  // Correcoes-validacao AC 45: kept as typed, so an empty field stays empty and is not a zero offer.
+  const [offer, setOffer] = useState("");
+  const offerAmount = Number(offer);
+  const validOffer = offer.trim() !== "" && Number.isInteger(offerAmount) && offerAmount > 0;
   const [confirmingOffer, setConfirmingOffer] = useState<string | null>(null);
   if (!game) return null;
   const club = userClub(game);
@@ -133,7 +136,7 @@ export function Market() {
 
   const select = (l: Listing) => {
     setSelectedId(l.player.id);
-    setOffer(marketValue(l.player));
+    setOffer(String(marketValue(l.player)));
   };
 
   return (
@@ -246,12 +249,13 @@ export function Market() {
                         min={0}
                         step={10000}
                         value={offer}
-                        onChange={(e) => setOffer(Number(e.target.value))}
+                        onChange={(e) => setOffer(e.target.value)}
                       />
                     </label>
                     <button
                       className="primary"
-                      onClick={() => void buyPlayer(selected.player.id, offer).then((ok) => ok && setSelectedId(null))}
+                      disabled={!validOffer}
+                      onClick={() => void buyPlayer(selected.player.id, offerAmount).then((ok) => ok && setSelectedId(null))}
                     >
                       Fazer proposta
                     </button>

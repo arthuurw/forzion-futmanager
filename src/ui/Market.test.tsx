@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Club, GameState, Player, TransferRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
@@ -337,5 +337,38 @@ describe("mercado sem dinheiro do nada (correcoes-validacao)", () => {
     expect(items[0]).toHaveTextContent(rival!.name);
     expect(useGame.getState().game!.market.offers.map((o) => o.id)).toEqual(["o1-2"]);
     expect(userClub(useGame.getState().game!)!.players.map((p) => p.id)).toContain(me.players[20]!.id);
+  });
+});
+
+describe("oferta digitada (correcoes-validacao)", () => {
+  test("oferta inválida", async () => {
+    // C49 (AC 45, L-005, L-008): the four invalid offers; each either keeps the button off or says «Valor inválido».
+    const user = userEvent.setup();
+    const rows: [string, string][] = [
+      ["vazia", ""],
+      ["zero", "0"],
+      ["negativa", "-5"],
+      ["decimal", "12.5"],
+    ];
+    expect(rows).toHaveLength(4);
+    for (const [label, typed] of rows) {
+      const game = seededGame(4);
+      const target = reserveGk(game.leagues[0]!.clubs[6]!);
+      show(game);
+      await user.click(screen.getByRole("button", { name: target.name }));
+      // Set as typed: user-event drops a leading «-» in a number field, so the value is set whole.
+      const input = screen.getByLabelText("Oferta") as HTMLInputElement;
+      fireEvent.change(input, { target: { value: typed } });
+      expect(input.value, label).toBe(typed);
+      const button = screen.getByRole("button", { name: "Fazer proposta" });
+      if (!(button as HTMLButtonElement).disabled) {
+        await user.click(button);
+        expect(await screen.findByText("Valor inválido"), label).toBeInTheDocument();
+      }
+      expect(screen.queryByText("Jogador não encontrado"), label).not.toBeInTheDocument();
+      expect(userClub(useGame.getState().game!)!.players.some((p) => p.id === target.id), label).toBe(false);
+      cleanup();
+      useGame.setState({ marketMessage: null });
+    }
   });
 });

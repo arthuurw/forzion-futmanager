@@ -540,3 +540,31 @@ describe("ao vivo na continental (copa-continental)", () => {
     for (const t of cup.phases[0]!.ties) expect(t.winnerId, t.id).not.toBeNull();
   });
 });
+
+describe("narração ao vivo (correcoes-validacao)", () => {
+  test("narração sem id cru", () => {
+    // C50 (AC 46): an opponent named in the ticker leaves every club (released to the free agents).
+    startLiveFake();
+    const me = useGame.getState().game!.userClubId!;
+    let event;
+    for (let i = 0; i < 200 && !event; i++) {
+      advance(300);
+      event = userMatch(useGame.getState().live!)!.events.find((e) => e.playerId && e.clubId !== me);
+    }
+    expect(event).toBeDefined();
+    const game = JSON.parse(JSON.stringify(useGame.getState().game)) as GameState;
+    const from = game.leagues.flatMap((l) => l.clubs).find((c) => c.id === event!.clubId)!;
+    const player = from.players.find((p) => p.id === event!.playerId)!;
+    from.players = from.players.filter((p) => p.id !== player.id);
+    game.market.freeAgents.push(player);
+    act(() => useGame.setState({ game }));
+    const lines = within(screen.getByRole("list", { name: "Narração" })).getAllByRole("listitem");
+    const events = userMatch(useGame.getState().live!)!.events;
+    expect(lines).toHaveLength(events.length);
+    expect(lines[events.indexOf(event!)]).toHaveTextContent(player.name);
+    for (const li of lines) {
+      expect(li.textContent).not.toContain(player.id);
+      expect(li.textContent).not.toMatch(/\bc\d+-p\d+\b/);
+    }
+  });
+});

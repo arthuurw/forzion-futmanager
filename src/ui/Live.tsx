@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { audio, type Crowd } from "../audio";
 import { MATCH_MINUTES, MAX_SUBS, userMatch, type LiveMatch, type LiveSide } from "../engine/live";
-import { narrate, narrationContext } from "../engine/narration";
-import { allClubs, findAnyClub } from "../engine/season";
+import { gameNarrationContext, narrate } from "../engine/narration";
+import { findAnyClub } from "../engine/season";
 import { FORMATION_NAMES, POSTURES, type FormationName, type Posture } from "../engine/types";
 import { BASE_TICK_MS, useGame, type GameStore, type Speed } from "../store";
 import { FitnessBar, MoraleArrow } from "./Condition";
@@ -111,8 +111,8 @@ export function Live() {
   }, [eventCount]);
 
   if (!game || !live || !game.userClubId || !mine) return null;
-  // A cup date mixes both divisions (copa-nacional AC 45).
-  const ctx = narrationContext(allClubs(game));
+  // A cup date mixes both divisions (copa-nacional AC 45); a player may have left his club (correcoes-validacao AC 46).
+  const ctx = gameNarrationContext(game);
   const name = (id: string) => findAnyClub(game, id).name;
   const cup = live.cup ? game.cups[live.cup.cupIndex] : undefined;
   const side = mySide(mine, game.userClubId);

@@ -1435,3 +1435,13 @@ describe("economia sem dinheiro do nada (correcoes-validacao)", () => {
     expect(askingPrice(seller, outside)).toBe(valueOf(60, 25));
   });
 });
+
+describe("oferta inválida (correcoes-validacao)", () => {
+  test("oferta inválida não é jogador não encontrado", () => {
+    // AC 45: empty (0), zero, negative and decimal amounts are «invalid»; an unknown player stays «not_found».
+    const state = game(3);
+    const target = reserveGk(clubs(state)[4]!);
+    for (const offer of [0, -5, 12.5, Number.NaN]) expect(buyPlayer(state, target.id, offer), String(offer)).toMatchObject({ ok: false, reason: "invalid" });
+    expect(buyPlayer(state, "nobody", 100_000)).toMatchObject({ ok: false, reason: "not_found" });
+  });
+});

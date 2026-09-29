@@ -1,4 +1,4 @@
-import type { Club, MatchEvent, Player } from "./types";
+import type { Club, GameState, MatchEvent, Player } from "./types";
 
 export interface NarrationContext {
   clubs: Map<string, Club>;
@@ -13,6 +13,16 @@ export function narrationContext(clubs: readonly Club[]): NarrationContext {
     for (const player of club.players) p.set(player.id, player);
   }
   return { clubs: c, players: p };
+}
+
+/**
+ * Correcoes-validacao AC 46: every club of every division and the free agents, so a player who
+ * changed club or division when the round closed is still named, never shown by id.
+ */
+export function gameNarrationContext(game: Pick<GameState, "leagues" | "market">): NarrationContext {
+  const ctx = narrationContext(game.leagues.flatMap((l) => l.clubs));
+  for (const p of game.market.freeAgents) if (!ctx.players.has(p.id)) ctx.players.set(p.id, p);
+  return ctx;
 }
 
 /** One PT-BR line per event type (C46 of partida-ao-vivo). */

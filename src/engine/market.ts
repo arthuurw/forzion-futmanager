@@ -96,7 +96,8 @@ export type MarketRefusal =
   | "user_min"
   | "not_last_year"
   | "arrived"
-  | "buyer_gone";
+  | "buyer_gone"
+  | "invalid";
 /**
  * A refusal may still change the game: `state` is then the game to keep (correcoes-validacao AC
  * 27, an offer whose buyer gave up leaves the list).
@@ -147,7 +148,9 @@ export function buyPlayer(input: GameState, playerId: string, offer: number): Ma
   // AC 6, paises AC 17: any of the other clubs, in any league of any country.
   const seller = allClubs(input).find((c) => c.id !== user.id && c.players.some((p) => p.id === playerId));
   const player = seller?.players.find((p) => p.id === playerId);
-  if (!seller || !player || !Number.isInteger(offer) || offer <= 0) return refuse("not_found");
+  if (!seller || !player) return refuse("not_found");
+  // Correcoes-validacao AC 45: a bad amount is not a missing player.
+  if (!Number.isInteger(offer) || offer <= 0) return refuse("invalid");
   if (user.players.length >= SQUAD_MAX) return refuse("squad_full");
   if (seller.players.length <= SQUAD_MIN) return refuse("seller_min");
   const asking = askingPrice(seller, player);

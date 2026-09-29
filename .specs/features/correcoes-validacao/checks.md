@@ -304,17 +304,17 @@ Proof: `npx vitest run src/engine/live.test.ts -t "vaga fica no setor perdido"`
 
 ### S7 - Telas nas bordas · 10 files · 134 KB · ~34k
 
-**C48** - A tela Rodada:
+**C48** - ✓ A tela Rodada:
 - após uma data de copa em que o usuário não joga, começa com a aba «Resultados» selecionada e o painel dela com `m-active`;
 - numa data em que ele joga, começa em «Partida» (AC 44, L-007).
 
 Proof: `npx vitest run src/ui/Round.test.tsx -t "aba inicial sem partida do usuário"`
 
-**C49** - Tabela de oferta no Mercado: vazia, 0, −5 e 12,5. Em cada caso, o botão fica desligado ou a mensagem é «Valor inválido», e «Jogador não encontrado» nunca aparece (AC 45, L-005, L-008).
+**C49** - ✓ Tabela de oferta no Mercado: vazia, 0, −5 e 12,5. Em cada caso, o botão fica desligado ou a mensagem é «Valor inválido», e «Jogador não encontrado» nunca aparece (AC 45, L-005, L-008).
 
 Proof: `npx vitest run src/ui/Market.test.tsx -t "oferta inválida"`
 
-**C50** - Num jogador do jogo do usuário vendido para outra divisão no fechamento da rodada:
+**C50** - ✓ Num jogador do jogo do usuário vendido para outra divisão no fechamento da rodada:
 - a narração da Rodada mostra o nome dele e não contém o id cru;
 - o mesmo vale na tela Ao vivo (AC 46).
 

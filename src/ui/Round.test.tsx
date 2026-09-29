@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { nextDate } from "../engine/calendar";
 import { finishCupDate, startCupDate } from "../engine/cup";
 import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
@@ -239,6 +240,52 @@ describe("rodada com escalação inválida (correcoes-validacao)", () => {
       expect(screen.getByText(text)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Jogar rodada" })).toBeDisabled();
       view.unmount();
+    }
+  });
+});
+
+describe("rodada nas bordas (correcoes-validacao)", () => {
+  test("aba inicial sem partida do usuário", async () => {
+    // C48 (AC 44, L-007): a cup date the user skips (a Série A club skips the Preliminar), then one he plays.
+    const game = seededGame(1, 0, 4);
+    expect(nextDate(game)).toMatchObject({ kind: "cup", cupIndex: 0, phase: 0 });
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    await useGame.getState().playRound();
+    expect(useGame.getState().phase).toBe("round");
+    expect(useGame.getState().lastRound!.results.some((r) => r.homeId === game.userClubId || r.awayId === game.userClubId)).toBe(false);
+    const view = render(<Round />);
+    expect(screen.getByRole("tab", { name: "Resultados" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Partida" })).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("region", { name: "Confrontos" })).toHaveClass("m-active");
+    view.unmount();
+
+    const { state, ...lastRound } = playRound(seededGame(8, 5));
+    useGame.setState({ phase: "round", game: state, lastRound });
+    render(<Round />);
+    expect(screen.getByRole("tab", { name: "Partida" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Sua partida" })).toHaveClass("m-active");
+    expect(screen.getByRole("region", { name: "Outros resultados" })).not.toHaveClass("m-active");
+  });
+
+  test("narração com jogador que mudou de clube", () => {
+    // C50 (AC 46): an opponent in the user's match leaves for the Série B as the round closes.
+    const { state, ...lastRound } = playRound(seededGame(8, 5));
+    const me = state.userClubId!;
+    const event = lastRound.userEvents.find((e) => e.playerId && e.clubId !== me)!;
+    expect(event).toBeDefined();
+    const from = state.leagues[0]!.clubs.find((c) => c.id === event.clubId)!;
+    const player = from.players.find((p) => p.id === event.playerId)!;
+    from.players = from.players.filter((p) => p.id !== player.id);
+    state.leagues[1]!.clubs[0]!.players.push(player);
+    useGame.setState({ phase: "round", game: state, lastRound });
+    render(<Round />);
+    const ticker = within(screen.getByRole("region", { name: "Sua partida" })).getAllByRole("listitem");
+    expect(ticker).toHaveLength(lastRound.userEvents.length);
+    const line = ticker[lastRound.userEvents.indexOf(event)]!;
+    expect(line).toHaveTextContent(player.name);
+    for (const li of ticker) {
+      expect(li.textContent).not.toContain(player.id);
+      expect(li.textContent).not.toMatch(/\bc\d+-p\d+\b/);
     }
   });
 });

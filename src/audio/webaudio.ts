@@ -34,6 +34,11 @@ const ECHO_WET = 0.22;
 /** A soft top end, like the console's sampler. */
 const WARMTH_HZ = 6500;
 const AMBIENCE_LEVEL = 0.4;
+/**
+ * How far ahead an effect is scheduled. A start already in the past when the audio thread reads it
+ * begins mid-attack, a click; 10 ms was too little while the live screen re-renders every minute.
+ */
+const LOOKAHEAD_S = 0.05;
 
 function build(ctx: AudioContext): Graph {
   const music = ctx.createGain();
@@ -211,7 +216,7 @@ const OOH: readonly { shape: Shape; band: Shape }[] = [
 ];
 
 function play(g: Graph, id: EffectId, variant: number, pitch: number): void {
-  const t = g.ctx.currentTime + 0.01;
+  const t = g.ctx.currentTime + LOOKAHEAD_S;
   switch (id) {
     case "whistle-short":
       return blow(g, t, 0.22, pitch);

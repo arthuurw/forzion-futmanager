@@ -66,6 +66,7 @@ Reutiliza `persist`/`init` da store, `saveGame`/`loadGame`, `decodeSaveFile`, `r
 | domain | existing criteria: multiplas-temporadas AC 33 e paises AC 13/14 (meta e demissão) são substituídos pelos AC 32–34 deste plano. O copa-nacional C49 («Eliminado na Oitavas») e o núcleo AC 17 («Faltam N titulares») mudam de texto (AC 36) |
 | domain | existing decision: a door 4 de partida-ao-vivo («recarregar recomeça do minuto 0 com as mesmas seeds») é substituída pela door 1 deste plano, com nova entrada AD-019 no `STATE.md` |
 | domain | existing term: força do setor em `sideStrength` era a média do setor. Passa a depender também da contagem. `balance.test` (gols por jogo, vantagem do mandante) é remedido |
+| domain | existing criterion: gastos-da-ia C19 (mediana do caixa entre 2× e 4× em 5 temporadas) passa a mediana entre 2× e 6,5×, com o máximo de 15× mantido. Com a força estável (AC 30), a folha deixa de inflar e o caixa da IA cresce mais; o AC 68 limita o crescimento em carreira longa. Decisão do usuário em 29/09/2026, depois da medição do lote A |
 | stored data | nothing to migrate: os dois campos novos são opcionais, e a ausência tem significado definido (door 1, door 3). `schemaVersion` continua 8 |
 
 ## Relations
@@ -152,6 +153,7 @@ Nenhuma sequência de uso normal faz o jogador perder o progresso gravado.
 29. WHEN a temporada vira THEN a lista de livres SHALL ficar com no máximo 80 jogadores, mantendo os de maior força
 30. The simulação de 20 temporadas sem usuário (seed 5) SHALL manter a média dos 18 melhores de cada clube da Série A a no máximo 5 pontos da média da temporada 1, em todas as temporadas
 31. The mesma simulação SHALL terminar cada temporada com no máximo 10 dos 80 clubes com caixa negativo
+68. The mesma simulação SHALL manter a mediana do caixa dos 80 clubes em no máximo 20 × o caixa inicial, em todas as temporadas
 
 **Independent test:** o ciclo «contratar livre, marcar à venda, aceitar» deixa o caixa menor que o de quem só jogou. 20 temporadas simuladas ficam dentro das faixas.
 

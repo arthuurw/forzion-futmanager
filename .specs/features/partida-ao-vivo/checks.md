@@ -46,7 +46,7 @@ Proof: `npx vitest run src/engine/live.test.ts -t "mesmas decisões mesmos resul
 **C11** - Uma substituição do usuário não muda nenhum dos outros 9 resultados (AC 11, door 2)
 Proof: `npx vitest run src/engine/live.test.ts -t "substituição não muda os outros 9 jogos"`
 
-**C12** - Recarregar a página no meio da rodada ao vivo leva à tela Elenco da mesma rodada, com o save igual ao de antes da rodada (AC 12, door 4)
+**C12** - Recarregar a página no meio da rodada ao vivo leva à tela Elenco da mesma rodada, com o save igual ao de antes da rodada (AC 12, door 4) - Superseded por correcoes-validacao C14 (door 1, AD-019); o teste virou `recarregar no meio da rodada fecha a data`
 Proof: `npx vitest run src/app.test.tsx -t "recarregar no meio da rodada volta ao elenco com save intacto"`
 
 **C13** - `playRound` dá o mesmo resultado que `startRound` seguido de `finish` sem decisões (door 3)

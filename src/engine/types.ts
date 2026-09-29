@@ -295,6 +295,11 @@ export interface GameState {
   cups: Cup[];
   /** Index of the cup phase the user must reach; -1 = no cup goal (no club). */
   cupGoal: number;
+  /**
+   * Door 1 (correcoes-validacao): written with the state from before a date the user plays live,
+   * and gone once it closes. Present when the game opens = the date is played to its end first.
+   */
+  pendingLive?: true;
 }
 
 export type MatchEventType =

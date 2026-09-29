@@ -14,6 +14,7 @@ import { Home } from "./ui/Home";
 import { Live } from "./ui/Live";
 import { Market } from "./ui/Market";
 import { NewSeason } from "./ui/NewSeason";
+import { OtherTab } from "./ui/OtherTab";
 import { Round } from "./ui/Round";
 import { Squad } from "./ui/Squad";
 
@@ -27,6 +28,7 @@ export function App() {
 
 function Screens() {
   const phase = useGame((s) => s.phase);
+  const otherTab = useGame((s) => s.otherTab);
   const season = useGame((s) => s.game?.season);
   const init = useGame((s) => s.init);
   useEffect(() => {
@@ -39,6 +41,16 @@ function Screens() {
 
   const onHome = phase === "loading" || phase === "home";
   const onTitle = onHome || phase === "about";
+
+  // Door 2 (correcoes-validacao): another tab holds the game.
+  if (otherTab)
+    return (
+      <main className="app on-title">
+        <div className="stage">
+          <OtherTab />
+        </div>
+      </main>
+    );
 
   return (
     <main className={`app${onTitle ? " on-title" : ""}`}>

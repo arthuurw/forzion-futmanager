@@ -46,17 +46,24 @@ export function userClubName(state: GameState): string | null {
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
-/** Just enough shape for the screens to open the game: the lists they walk and the numbers they read. */
+/**
+ * Just enough shape for the screens to open the game: the lists they walk and the numbers they
+ * read. Correcoes-validacao AC 4: each league's rounds and current round, each club's players,
+ * money and sale list, and the user's lineup.
+ */
 function hasGameShape(state: unknown): state is GameState {
   if (!isObject(state)) return false;
   if (!Number.isInteger(state.seed) || !Number.isInteger(state.rngState) || !Number.isInteger(state.season)) return false;
   if (!isObject(state.market) || !Array.isArray(state.history) || !Array.isArray(state.cups)) return false;
   const leagues = state.leagues;
   if (!Array.isArray(leagues) || leagues.length === 0) return false;
-  if (!leagues.every((l) => isObject(l) && Array.isArray(l.clubs) && l.clubs.every((c) => isObject(c) && typeof c.id === "string"))) return false;
+  const isClub = (c: unknown) => isObject(c) && typeof c.id === "string" && Array.isArray(c.players) && isObject(c.finance) && Array.isArray(c.forSale);
+  const isLeague = (l: unknown) => isObject(l) && Array.isArray(l.rounds) && Number.isInteger(l.currentRound) && Array.isArray(l.clubs) && l.clubs.every(isClub);
+  if (!leagues.every(isLeague)) return false;
   const userClubId = state.userClubId;
   if (typeof userClubId !== "string") return false;
-  return leagues.some((l) => (l.clubs as { id: string }[]).some((c) => c.id === userClubId));
+  const user = (leagues as { clubs: Record<string, unknown>[] }[]).flatMap((l) => l.clubs).find((c) => c.id === userClubId);
+  return user !== undefined && isObject(user.lineup);
 }
 
 /** Reads an exported file: the envelope, then `migrateSave`, then the shape of the game. */

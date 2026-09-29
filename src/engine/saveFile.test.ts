@@ -51,6 +51,8 @@ describe("arquivo de save (lancamento door 1)", () => {
     while (nextDate(second).kind !== "over") second = playDate(second).state;
     second = nextSeason(second).state;
     second.userClubId = second.leagues[0]!.clubs[3]!.id;
+    // Correcoes-validacao C3: the user's club has a lineup, as after choosing it.
+    second.leagues[0]!.clubs[3]!.lineup = autoLineup(second.leagues[0]!.clubs[3]!, AI_FORMATION);
     expect(second.history.length).toBeGreaterThan(0);
     for (const g of [fresh, midSeason, second]) {
       const r = decodeSaveFile(encodeSaveFile(g, ISO));
@@ -66,7 +68,9 @@ describe("arquivo de save (lancamento door 1)", () => {
     const expected = migrateSave(v7);
     if (r7.kind === "ok" && expected.kind === "ok") expect(r7.state).toEqual(expected.state);
     else throw new Error("v7 did not migrate");
-    const v1 = { ...v1Document(3), userClubId: (v1Document(3) as { leagues: { clubs: { id: string }[] }[] }).leagues[0]!.clubs[2]!.id };
+    // Correcoes-validacao C3: the user's club needs its lineup, so the v1 save keeps its own user
+    // club (which has one) instead of pointing at a club without.
+    const v1 = v1Document(3);
     const r1 = decodeSaveFile(envelope(v1));
     expect(r1.kind).toBe("ok");
     if (r1.kind === "ok") expect(r1.state.schemaVersion).toBe(8);
@@ -113,5 +117,37 @@ describe("arquivo de save (lancamento door 1)", () => {
       expect(decodeSaveFile(envelope(s)), name).toEqual({ kind: "malformed" });
     }
     expect(decodeSaveFile(envelope(withClub())).kind).toBe("ok");
+  });
+});
+
+describe("save importado íntegro (correcoes-validacao)", () => {
+  test("validação profunda do save importado", () => {
+    // C3 (AC 4, L-005, L-007): a valid v8 save with one field taken out at a time.
+    const start = newGame(8);
+    const mine = start.leagues[0]!.clubs[5]!;
+    start.userClubId = mine.id;
+    start.boardGoal = userBoardGoal(start);
+    mine.lineup = autoLineup(mine, AI_FORMATION);
+    const game = played(start, 3);
+    const breaks: [string, (s: GameState) => void][] = [
+      ["leagues[0].rounds", (s) => delete (s.leagues[0] as Partial<GameState["leagues"][0]>).rounds],
+      ["leagues[0].currentRound", (s) => delete (s.leagues[0] as Partial<GameState["leagues"][0]>).currentRound],
+      ["clubs[0].players", (s) => delete (s.leagues[0]!.clubs[0] as Partial<GameState["leagues"][0]["clubs"][0]>).players],
+      ["clubs[0].finance", (s) => delete (s.leagues[0]!.clubs[0] as Partial<GameState["leagues"][0]["clubs"][0]>).finance],
+      ["clubs[0].forSale", (s) => delete (s.leagues[0]!.clubs[0] as Partial<GameState["leagues"][0]["clubs"][0]>).forSale],
+      [
+        "lineup do clube do usuário",
+        (s) => delete (s.leagues.flatMap((l) => l.clubs).find((c) => c.id === s.userClubId) as Partial<GameState["leagues"][0]["clubs"][0]>).lineup,
+      ],
+    ];
+    expect(breaks).toHaveLength(6);
+    // The user is not club 0 of the first league, so the club fields and the lineup are two cases.
+    expect(game.userClubId).not.toBe(game.leagues[0]!.clubs[0]!.id);
+    for (const [name, brk] of breaks) {
+      const s = JSON.parse(JSON.stringify(game)) as GameState;
+      brk(s);
+      expect(decodeSaveFile(encodeSaveFile(s, ISO)), name).toEqual({ kind: "malformed" });
+    }
+    expect(decodeSaveFile(encodeSaveFile(game, ISO))).toEqual({ kind: "ok", state: game });
   });
 });

@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { useGame } from "../store";
 
-/** AC 10: starting over on top of an existing save asks first. */
+/**
+ * AC 10: starting over on top of an existing save asks first. Correcoes-validacao AC 2: so does a
+ * failed read, which may hide one.
+ */
 export function NewGameButton({ primary = false }: { primary?: boolean }) {
   const hasSave = useGame((s) => s.hasSave);
   const incompatibleVersion = useGame((s) => s.incompatibleVersion);
+  const loadFailed = useGame((s) => s.loadFailed);
   const newGame = useGame((s) => s.newGame);
   const [confirming, setConfirming] = useState(false);
-  const mustConfirm = hasSave || incompatibleVersion !== null;
+  const mustConfirm = hasSave || incompatibleVersion !== null || loadFailed;
 
   if (confirming) {
     return (

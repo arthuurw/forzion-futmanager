@@ -25,21 +25,21 @@ Faixas estatísticas (C30, C31, C39, C41, C42) rodam com seeds fixas, então cad
 
 ### S1 - O save sobrevive · 11 files · 82 KB · ~21k
 
-**C1** - Com `indexedDB.open` lançando só na primeira chamada e um save gravado:
+**C1** ✓ - Com `indexedDB.open` lançando só na primeira chamada e um save gravado:
 - a tela inicial mostra «Não foi possível ler o jogo salvo» e o botão «Tentar de novo», e não mostra «Continuar»;
 - tocar «Tentar de novo» mostra «Continuar»;
 - o slot continua com a seed do save original (AC 1, AC 3).
 
 Proof: `npx vitest run src/ui/Home.test.tsx -t "falha de leitura oferece tentar de novo"`
 
-**C2** - Na mesma falha de leitura:
+**C2** ✓ - Na mesma falha de leitura:
 - «Novo jogo» abre a confirmação `alertdialog` antes de gravar;
 - importar um arquivo válido cai em `pendingImport` em vez de gravar;
 - cancelar deixa o slot com a seed original (AC 2, L-003).
 
 Proof: `npx vitest run src/store.test.ts -t "falha de leitura exige confirmação"`
 
-**C3** - Tabela de `decodeSaveFile` sobre um save v8 válido com um campo removido por vez. Cada caso dá `malformed`:
+**C3** ✓ - Tabela de `decodeSaveFile` sobre um save v8 válido com um campo removido por vez. Cada caso dá `malformed`:
 - `leagues[0].rounds`;
 - `leagues[0].currentRound`;
 - `clubs[0].players`;
@@ -51,37 +51,37 @@ O save íntegro dá `ok` (AC 4, L-005, L-007).
 
 Proof: `npx vitest run src/engine/saveFile.test.ts -t "validação profunda do save importado"`
 
-**C4** - Pela store, com um save gravado (seed 7):
+**C4** ✓ - Pela store, com um save gravado (seed 7):
 - importar um documento sem `leagues[0].rounds` e confirmar mostra «Arquivo corrompido: não foi possível ler o jogo»;
 - o slot continua com a seed 7 (AC 4, L-008).
 
 Proof: `npx vitest run src/store.test.ts -t "import corrompido não toca o slot"`
 
-**C5** - Um documento que passa no decode mas faz `openingPhase` lançar (stub) não é gravado no slot, e a mensagem de arquivo corrompido aparece (AC 5).
+**C5** ✓ - Um documento que passa no decode mas faz `openingPhase` lançar (stub) não é gravado no slot, e a mensagem de arquivo corrompido aparece (AC 5).
 
 Proof: `npx vitest run src/store.test.ts -t "abrir o importado falha antes de gravar"`
 
-**C6** - Com um save no slot que faz a abertura lançar, tocar «Continuar» mostra «Não foi possível abrir o jogo salvo». O clique não lança exceção para fora do handler (AC 6, L-008).
+**C6** ✓ - Com um save no slot que faz a abertura lançar, tocar «Continuar» mostra «Não foi possível abrir o jogo salvo». O clique não lança exceção para fora do handler (AC 6, L-008).
 
 Proof: `npx vitest run src/ui/Home.test.tsx -t "continuar com save que não abre"`
 
-**C7** - Com `navigator.locks` simulado e o lock já em posse de outro dono:
+**C7** ✓ - Com `navigator.locks` simulado e o lock já em posse de outro dono:
 - a tela mostra «O jogo está aberto em outra aba» e o botão «Usar nesta aba»;
 - uma ação que grava (`setTicketPrice`) não chama `saveGame` (AC 7).
 
 Proof: `npx vitest run src/store.test.ts -t "segunda aba não grava"`
 
-**C8** - Com o mesmo simulador:
+**C8** ✓ - Com o mesmo simulador:
 - «Usar nesta aba» pede o lock com `steal: true` e abre o jogo relido do slot;
 - o dono anterior recebe a perda do lock, passa a mostrar «O jogo está aberto em outra aba» e não grava mais (AC 8).
 
 Proof: `npx vitest run src/store.test.ts -t "usar nesta aba toma o lock"`
 
-**C9** - Sem `navigator.locks`, `init` abre o jogo gravado e as ações gravam como hoje (AC 9).
+**C9** ✓ - Sem `navigator.locks`, `init` abre o jogo gravado e as ações gravam como hoje (AC 9).
 
 Proof: `npx vitest run src/store.test.ts -t "sem web locks abre sem guarda"`
 
-**C10** - Tabela sobre `saveStatus`:
+**C10** ✓ - Tabela sobre `saveStatus`:
 - `failed`: a faixa mostra o botão «Exportar jogo»;
 - `unavailable`: a faixa mostra o botão «Exportar jogo»;
 - `ok`: não há faixa.
@@ -90,19 +90,19 @@ Tocar o botão baixa um arquivo cujo `save.seed` é o do jogo em memória, no en
 
 Proof: `npx vitest run src/ui/Banner.test.tsx -t "faixa oferece exportar quando não salva"`
 
-**C11** - Tabela sobre as três ações: `setFormation("3-5-2")`, `setPosture("attacking")` e `assignStarter`. Depois de cada uma, `resetStore` + `init` restauram o valor mudado (AC 11, L-003).
+**C11** ✓ - Tabela sobre as três ações: `setFormation("3-5-2")`, `setPosture("attacking")` e `assignStarter`. Depois de cada uma, `resetStore` + `init` restauram o valor mudado (AC 11, L-003).
 
 Proof: `npx vitest run src/store.test.ts -t "escalação é gravada"`
 
-**C12** - Com `setTicketPrice(45)` em voo, `setFormation("4-3-3")` durante o await deixa, no estado final e no slot, o preço 45 **e** a formação 4-3-3 (AC 12).
+**C12** ✓ - Com `setTicketPrice(45)` em voo, `setFormation("4-3-3")` durante o await deixa, no estado final e no slot, o preço 45 **e** a formação 4-3-3 (AC 12).
 
 Proof: `npx vitest run src/store.test.ts -t "escalação durante gravação de mercado"`
 
-**C13** - Depois de `playRound` com partida do usuário, antes de `finishLive`, o slot tem `pendingLive: true`, o `currentRound` de antes da rodada e a escalação do início. Depois de `finishLive`, o slot não tem `pendingLive` (AC 13, door 1).
+**C13** ✓ - Depois de `playRound` com partida do usuário, antes de `finishLive`, o slot tem `pendingLive: true`, o `currentRound` de antes da rodada e a escalação do início. Depois de `finishLive`, o slot não tem `pendingLive` (AC 13, door 1).
 
 Proof: `npx vitest run src/store.test.ts -t "marcador de ao vivo gravado e limpo"`
 
-**C14** - Com `pendingLive` no slot:
+**C14** ✓ - Com `pendingLive` no slot:
 - `init` fecha a data e abre a fase `round`;
 - o slot fica sem o marcador e com `currentRound` + 1;
 - o placar do usuário é igual ao de `runToEnd(makeMatch(...))` com as mesmas seeds e a escalação gravada, calculado no teste.
@@ -111,7 +111,7 @@ Com decisões diferentes tomadas antes do reload, o placar continua o mesmo (AC 
 
 Proof: `npx vitest run src/store.test.ts -t "reload no ao vivo fecha a rodada"`
 
-**C15** - Um save v8 sem `pendingLive` abre na fase de sempre, sem jogar data nenhuma (door 1, ausência).
+**C15** ✓ - Um save v8 sem `pendingLive` abre na fase de sempre, sem jogar data nenhuma (door 1, ausência).
 
 Proof: `npx vitest run src/store.test.ts -t "save sem marcador abre normal"`
 

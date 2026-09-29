@@ -227,3 +227,42 @@ describe("exportar e importar (lancamento)", () => {
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Importar jogo", "Novo jogo", "Sobre"]);
   });
 });
+
+describe("save que não abre (correcoes-validacao)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test("falha de leitura oferece tentar de novo", async () => {
+    // C1 (AC 1, AC 3): a save of seed 7, and `indexedDB.open` throwing on the first call only.
+    const user = userEvent.setup();
+    await saveGame(seededGame(7));
+    vi.spyOn(indexedDB, "open").mockImplementationOnce(() => {
+      throw new DOMException("Connection to Indexed Database server lost", "UnknownError");
+    });
+    await useGame.getState().init();
+    render(<Home />);
+    expect(screen.getByText("Não foi possível ler o jogo salvo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tentar de novo" }));
+    expect(await screen.findByRole("button", { name: "Continuar" })).toBeInTheDocument();
+    expect(screen.queryByText("Não foi possível ler o jogo salvo")).not.toBeInTheDocument();
+    const slot = await loadGame();
+    expect(slot.kind === "ok" && slot.state.seed).toBe(7);
+  });
+
+  test("continuar com save que não abre", async () => {
+    // C6 (AC 6, L-008): the slot holds a game with no league, which cannot open.
+    const user = userEvent.setup();
+    const errors: unknown[] = [];
+    const onError = (e: ErrorEvent) => errors.push(e.error);
+    window.addEventListener("error", onError);
+    await saveGame({ ...seededGame(7), leagues: [] });
+    await useGame.getState().init();
+    render(<Home />);
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("Não foi possível abrir o jogo salvo")).toBeInTheDocument();
+    expect(useGame.getState().phase).toBe("home");
+    window.removeEventListener("error", onError);
+    expect(errors).toEqual([]);
+  });
+});

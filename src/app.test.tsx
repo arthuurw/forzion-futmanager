@@ -193,9 +193,12 @@ describe("fluxo do app", () => {
     }
   }, 90_000);
 
-  test("recarregar no meio da rodada volta ao elenco com save intacto", async () => {
+  test("recarregar no meio da rodada fecha a data", async () => {
+    // Correcoes-validacao C14 (door 1, AD-019) supersedes partida-ao-vivo C12 (door 4): a reload
+    // mid-round no longer starts it again; the date is played to its end from the saved state.
     const user = userEvent.setup();
     const before = seededGame(12);
+    const direct = playRound(before);
     await saveGame(before);
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Continuar" }));
@@ -203,15 +206,15 @@ describe("fluxo do app", () => {
     await screen.findByRole("timer", { name: "Relógio" });
     await new Promise((r) => setTimeout(r, 700));
     expect(useGame.getState().live!.minute).toBeGreaterThanOrEqual(2);
+    expect(await loadGame()).toEqual({ kind: "ok", state: { ...before, pendingLive: true } });
 
     // Reload mid-round: fresh store, same storage.
     cleanup();
     resetStore();
     render(<App />);
-    await user.click(await screen.findByRole("button", { name: "Continuar" }));
-    expect(await screen.findByText("Rodada 1 de 38")).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Elenco" })).toBeInTheDocument();
-    expect(await loadGame()).toEqual({ kind: "ok", state: before });
+    expect(await screen.findByRole("heading", { name: "Rodada 1" })).toBeInTheDocument();
+    expect(await loadGame()).toEqual({ kind: "ok", state: direct.state });
+    expect(useGame.getState().lastRound!.results).toEqual(direct.results);
   });
 
 

@@ -22,7 +22,7 @@ import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
 import type { Club, Finance, FormationName, GameState, Posture } from "./engine/types";
 import { decodeSaveFile } from "./engine/saveFile";
-import { isStorageAvailable, loadGame, saveGame } from "./persistence/save";
+import { isStorageAvailable, loadGame, saveGame, type LoadResult } from "./persistence/save";
 import { formatMoney } from "./ui/money";
 
 export type Phase =
@@ -99,11 +99,26 @@ export interface GameStore {
   game: GameState | null;
   /** A valid save exists in storage. */
   hasSave: boolean;
+  /** Correcoes-validacao AC 1: the last read of the save failed, which is not «no save». */
+  loadFailed: boolean;
+  /** Correcoes-validacao AC 6: «Continuar» found a save that does not open. */
+  openFailed: boolean;
+  /** Door 2 (correcoes-validacao): another tab holds the game; this one does not write. */
+  otherTab: boolean;
+  /** `init` is running, so a second call (StrictMode) does nothing. */
+  booting: boolean;
+  /** The game a market or finance action is saving; lineup changes made meanwhile go into it too. */
+  pendingCommit: GameState | null;
+  /** The last write asked for: writes go one after the other, so the slot ends with the last game. */
+  writeQueue: Promise<unknown>;
   /** Set when storage holds a document with an unsupported schemaVersion. */
   incompatibleVersion: unknown;
   saveStatus: SaveStatus;
   lastRound: LastRound | null;
-  /** The round being played live. In memory only (door 4). */
+  /**
+   * The round being played live, in memory only. The save only gets the mark of door 1
+   * (correcoes-validacao, AD-019), which replaces partida-ao-vivo's door 4.
+   */
   live: LiveRound | null;
   clock: Clock;
   speed: Speed;
@@ -126,11 +141,16 @@ export interface GameStore {
   /** `navigator.storage.persist()` was already asked this session (lancamento AC 20). */
   persistRequested: boolean;
   init(): Promise<void>;
+  /** Correcoes-validacao AC 1, AC 3: reads the save again after a failed read. */
+  retryLoad(): Promise<void>;
+  /** Door 2: takes the game from the other tab, then reads the save again and opens it. */
+  useThisTab(): Promise<void>;
   newGame(seed?: number): void;
   chooseClub(clubId: string): Promise<void>;
-  setFormation(formation: FormationName): void;
-  setPosture(posture: Posture): void;
-  assignStarter(slotIndex: number, playerId: string): void;
+  /** Correcoes-validacao AC 11: lineup changes are saved; each resolves once its write is done. */
+  setFormation(formation: FormationName): Promise<void>;
+  setPosture(posture: Posture): Promise<void>;
+  assignStarter(slotIndex: number, playerId: string): Promise<void>;
   /**
    * Plays the next date: a league round or a cup phase the user plays opens the live screen; a cup
    * phase without the user closes at once and shows its results (copa-nacional AC 44).
@@ -200,14 +220,29 @@ async function persist(game: GameState, set: Set, get: Get): Promise<void> {
     set({ saveStatus: "unavailable" });
     return;
   }
+  // Door 2: a tab without the lock never writes.
+  if (get().otherTab) return;
+  const write = get().writeQueue.then(() => saveGame(game));
+  set({ writeQueue: write.catch(() => undefined) });
   try {
-    await saveGame(game);
-    set({ saveStatus: "ok", hasSave: true, incompatibleVersion: null });
+    await write;
+    set({ saveStatus: "ok", hasSave: true, incompatibleVersion: null, loadFailed: false });
   } catch {
     set({ saveStatus: "failed" });
     return;
   }
   requestPersistence(set, get);
+}
+
+/** Door 2 (correcoes-validacao): the Web Locks name that one tab at a time holds. */
+export const TAB_LOCK = "forzion-futmanager-save";
+
+function tabLocks(): LockManager | undefined {
+  try {
+    return typeof navigator === "undefined" ? undefined : navigator.locks;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The screen «Continuar» opens for this game. */
@@ -237,7 +272,10 @@ function withUserFinance(game: GameState, apply: (f: Finance) => finance.Finance
 }
 
 export const useGame = create<GameStore>()((set, get) => {
-  /** AC 15: the save is written first; only then does the game state (and the screen) change. */
+  /**
+   * AC 15: the save is written first; only then does the game state (and the screen) change.
+   * Correcoes-validacao AC 12: a lineup change made while it saves goes into the saved game too.
+   */
   async function commit(action: (game: GameState) => ActionResult): Promise<boolean> {
     const { game, saving } = get();
     if (!game || saving) return false;
@@ -252,17 +290,112 @@ export const useGame = create<GameStore>()((set, get) => {
       }
       return false;
     }
-    set({ saving: true });
+    set({ saving: true, pendingCommit: r.state });
     await persist(r.state, set, get);
-    set({ game: r.state, marketMessage: null, saving: false });
+    const final = get().pendingCommit ?? r.state;
+    set({ pendingCommit: null });
+    if (final !== r.state) await persist(final, set, get);
+    set({ game: final, marketMessage: null, saving: false });
     return true;
   }
 
-  /** Lancamento AC 6 and AC 14: the imported game is written to the slot and opens even if the write fails. */
+  /** Correcoes-validacao AC 11, AC 12: a lineup change shows at once and is saved. */
+  function editLineup(edit: (game: GameState) => GameState): Promise<void> {
+    const game = get().game;
+    if (!game) return Promise.resolve();
+    const next = edit(game);
+    set({ game: next });
+    const pending = get().pendingCommit;
+    if (pending) {
+      set({ pendingCommit: edit(pending) });
+      return Promise.resolve();
+    }
+    return persist(next, set, get);
+  }
+
+  /**
+   * Lancamento AC 6 and AC 14: the imported game is written to the slot and opens even if the
+   * write fails. Correcoes-validacao AC 5: it opens first; one that does not open is not written.
+   */
   async function openImported(game: GameState): Promise<void> {
+    let phase: Phase;
+    try {
+      phase = openingPhase(game);
+    } catch {
+      set({ importMessage: IMPORT_TEXT.malformed, pendingImport: null });
+      return;
+    }
     set({ game, pendingImport: null, importMessage: null, lastRound: null, live: null, rolloverReport: null });
     await persist(game, set, get);
-    set({ phase: openingPhase(game) });
+    set({ phase });
+  }
+
+  /**
+   * Door 2 (correcoes-validacao): resolves true once this tab holds the lock, false when another
+   * tab has it, and true without Web Locks. The lock is kept for the life of the page; losing it
+   * to another tab turns this one into «O jogo está aberto em outra aba».
+   */
+  function holdTabLock(steal: boolean): Promise<boolean> {
+    const locks = tabLocks();
+    if (!locks) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let granted = false;
+      const options: LockOptions = steal ? { steal: true } : { ifAvailable: true };
+      try {
+        locks
+          .request(TAB_LOCK, options, (lock) => {
+            if (!lock) {
+              resolve(false);
+              return;
+            }
+            granted = true;
+            set({ otherTab: false });
+            resolve(true);
+            return new Promise<void>(() => undefined);
+          })
+          .catch(() => {
+            if (granted) set({ otherTab: true });
+            else resolve(true);
+          });
+      } catch {
+        resolve(true);
+      }
+    });
+  }
+
+  /**
+   * Door 1 (correcoes-validacao): the save was left in the middle of a live date. The date is
+   * played to its end with no decisions, from the saved state and lineup, and saved without the mark.
+   */
+  async function closePendingLive(saved: GameState): Promise<void> {
+    const { pendingLive, ...game } = saved;
+    void pendingLive;
+    const date = nextDate(game);
+    if (date.kind === "over") {
+      set({ phase: "home", game, hasSave: true, incompatibleVersion: null });
+      return;
+    }
+    const live = date.kind === "league" ? startRound(game) : startCupDate(game);
+    const { state, ...lastRound } = live.cup ? finishCupDate(game, live) : finishRound(game, live);
+    set({ game: state, lastRound, hasSave: true, incompatibleVersion: null, live: null });
+    await persist(state, set, get);
+    set({ phase: isSeasonOver(userLeague(state)) ? "end" : "round" });
+  }
+
+  /** Reads the slot. A read that fails is `loadFailed`, not «no save» (correcoes-validacao AC 1). */
+  async function readSlot(): Promise<void> {
+    let r: LoadResult;
+    try {
+      r = await loadGame();
+    } catch {
+      set({ phase: "home", game: null, hasSave: false, saveStatus: "failed", loadFailed: true });
+      return;
+    }
+    set({ loadFailed: false });
+    if (r.kind === "ok" && r.state.pendingLive) await closePendingLive(r.state);
+    else if (r.kind === "ok") set({ phase: "home", game: r.state, hasSave: true, incompatibleVersion: null });
+    else if (r.kind === "incompatible") set({ phase: "home", game: null, hasSave: false, incompatibleVersion: r.version });
+    else set({ phase: "home", game: null, hasSave: false, incompatibleVersion: null });
   }
 
   /** Closes the live round at 90': results, condition, save, then the results screen. */
@@ -289,6 +422,12 @@ export const useGame = create<GameStore>()((set, get) => {
     phase: "loading",
     game: null,
     hasSave: false,
+    loadFailed: false,
+    openFailed: false,
+    otherTab: false,
+    booting: false,
+    pendingCommit: null,
+    writeQueue: Promise.resolve(),
     incompatibleVersion: null,
     saveStatus: "ok",
     lastRound: null,
@@ -307,19 +446,31 @@ export const useGame = create<GameStore>()((set, get) => {
 
     async init() {
       // Only the first mount reads storage; StrictMode's second effect run is a no-op.
-      if (get().phase !== "loading") return;
+      if (get().phase !== "loading" || get().booting) return;
+      set({ booting: true });
       if (!isStorageAvailable()) {
-        set({ phase: "home", saveStatus: "unavailable", hasSave: false, game: null });
+        set({ phase: "home", saveStatus: "unavailable", hasSave: false, game: null, booting: false });
         return;
       }
-      try {
-        const r = await loadGame();
-        if (r.kind === "ok") set({ phase: "home", game: r.state, hasSave: true, incompatibleVersion: null });
-        else if (r.kind === "incompatible") set({ phase: "home", game: null, hasSave: false, incompatibleVersion: r.version });
-        else set({ phase: "home", game: null, hasSave: false, incompatibleVersion: null });
-      } catch {
-        set({ phase: "home", game: null, hasSave: false, saveStatus: "failed" });
+      // Door 2: another tab has the game, so this one neither reads nor writes.
+      if (!(await holdTabLock(false))) {
+        set({ phase: "home", otherTab: true, booting: false });
+        return;
       }
+      await readSlot();
+      set({ booting: false });
+    },
+
+    async retryLoad() {
+      set({ phase: "loading", loadFailed: false });
+      await readSlot();
+    },
+
+    async useThisTab() {
+      if (!(await holdTabLock(true))) return;
+      set({ phase: "loading", otherTab: false, game: null, live: null, lastRound: null, finishing: false, saving: false, pendingCommit: null, pendingImport: null });
+      await readSlot();
+      if (get().phase === "home" && get().hasSave) get().continueGame();
     },
 
     newGame(seed = randomSeed()) {
@@ -338,29 +489,24 @@ export const useGame = create<GameStore>()((set, get) => {
     },
 
     setFormation(formation) {
-      const game = get().game;
-      if (!game) return;
       // Correcoes-validacao AC 21: filled for the next match's competition, keeping the posture.
-      const competition = nextCompetition(game);
-      set({ game: editUserClub(game, (club) => ({ ...club, lineup: autoLineup(club, formation, club.lineup?.posture ?? "balanced", 0, competition) })) });
+      return editLineup((game) =>
+        editUserClub(game, (club) => ({ ...club, lineup: autoLineup(club, formation, club.lineup?.posture ?? "balanced", 0, nextCompetition(game)) })),
+      );
     },
 
     setPosture(posture) {
-      const game = get().game;
-      if (!game) return;
-      set({ game: editUserClub(game, (club) => (club.lineup ? { ...club, lineup: { ...club.lineup, posture } } : club)) });
+      return editLineup((game) => editUserClub(game, (club) => (club.lineup ? { ...club, lineup: { ...club.lineup, posture } } : club)));
     },
 
     assignStarter(slotIndex, playerId) {
-      const game = get().game;
-      if (!game) return;
-      set({
-        game: editUserClub(game, (club) => {
+      return editLineup((game) =>
+        editUserClub(game, (club) => {
           // Correcoes-validacao AC 19, AC 20: the discipline of the next match's competition.
           const lineup = club.lineup ? assignSlot(club, club.lineup, slotIndex, playerId, nextCompetition(game)) : null;
           return lineup ? { ...club, lineup } : club;
         }),
-      });
+      );
     },
 
     async playRound() {
@@ -368,8 +514,12 @@ export const useGame = create<GameStore>()((set, get) => {
       if (!game || finishing) return;
       const date = nextDate(game);
       if (date.kind === "over") return;
-      const goLive = (live: LiveRound) =>
+      // Door 1 (correcoes-validacao): the state from before the date is saved with the mark, queued
+      // ahead of the write that closes the date.
+      const goLive = async (live: LiveRound) => {
         set({ live, phase: "live", clock: "running", speed: 1, liveMessage: null, finishing: false, skipped: false, lastRound: null });
+        await persist({ ...game, pendingLive: true }, set, get);
+      };
       if (date.kind === "league") return goLive(startRound(game));
       const live = startCupDate(game);
       const plays = game.cups[date.cupIndex]!.phases[date.phase]!.ties.some((t) => t.homeId === game.userClubId || t.awayId === game.userClubId);
@@ -466,7 +616,15 @@ export const useGame = create<GameStore>()((set, get) => {
     continueGame() {
       const game = get().game;
       if (!game) return;
-      set({ phase: openingPhase(game), lastRound: null, live: null });
+      // Correcoes-validacao AC 6: a save that does not open says so instead of ignoring the tap.
+      let phase: Phase;
+      try {
+        phase = openingPhase(game);
+      } catch {
+        set({ openFailed: true });
+        return;
+      }
+      set({ phase, lastRound: null, live: null, openFailed: false });
     },
 
     goToSquad() {
@@ -486,8 +644,9 @@ export const useGame = create<GameStore>()((set, get) => {
       if (r.kind === "invalid_json" || r.kind === "not_a_save") return set({ importMessage: IMPORT_TEXT.invalid, pendingImport: null });
       if (r.kind === "malformed") return set({ importMessage: IMPORT_TEXT.malformed, pendingImport: null });
       if (r.kind === "unsupported_version") return set({ importMessage: IMPORT_TEXT.version(r.version), pendingImport: null });
-      const { hasSave, incompatibleVersion } = get();
-      if (hasSave || incompatibleVersion !== null) return set({ pendingImport: r.state, importMessage: null });
+      // Correcoes-validacao AC 2: a failed read may hide a save, so it asks too.
+      const { hasSave, incompatibleVersion, loadFailed } = get();
+      if (hasSave || incompatibleVersion !== null || loadFailed) return set({ pendingImport: r.state, importMessage: null });
       await openImported(r.state);
     },
 

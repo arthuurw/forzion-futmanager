@@ -9,6 +9,9 @@ export function Home() {
   const game = useGame((s) => s.game);
   const hasSave = useGame((s) => s.hasSave);
   const incompatibleVersion = useGame((s) => s.incompatibleVersion);
+  const loadFailed = useGame((s) => s.loadFailed);
+  const openFailed = useGame((s) => s.openFailed);
+  const retryLoad = useGame((s) => s.retryLoad);
   const importMessage = useGame((s) => s.importMessage);
   const pendingImport = useGame((s) => s.pendingImport);
   const continueGame = useGame((s) => s.continueGame);
@@ -43,6 +46,16 @@ export function Home() {
       ) : (
         <div className="menu">
           {incompatibleVersion !== null && <p className="notice">Jogo salvo incompatível (versão {String(incompatibleVersion)})</p>}
+          {loadFailed && (
+            <p className="notice" role="alert">
+              Não foi possível ler o jogo salvo
+            </p>
+          )}
+          {openFailed && (
+            <p className="notice" role="alert">
+              Não foi possível abrir o jogo salvo
+            </p>
+          )}
           {importMessage !== null && (
             <p className="notice" role="alert">
               {importMessage}
@@ -51,6 +64,11 @@ export function Home() {
           {hasSave && (
             <button className="primary" onClick={continueGame}>
               Continuar
+            </button>
+          )}
+          {loadFailed && (
+            <button className="primary" onClick={() => void retryLoad()}>
+              Tentar de novo
             </button>
           )}
           {canExport(game) && <button onClick={() => downloadSave(game)}>Exportar jogo</button>}

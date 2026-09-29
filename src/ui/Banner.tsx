@@ -1,9 +1,24 @@
 import { useGame } from "../store";
+import { canExport, downloadSave } from "./download";
 
-/** AC 27 and AC 32: persistence problems are shown, never fatal. */
+/**
+ * AC 27 and AC 32: persistence problems are shown, never fatal. Correcoes-validacao AC 10: with the
+ * game only in memory, «Exportar jogo» is the way to keep it.
+ */
 export function Banner() {
   const saveStatus = useGame((s) => s.saveStatus);
-  if (saveStatus === "unavailable") return <div className="banner">Salvamento indisponível neste navegador</div>;
-  if (saveStatus === "failed") return <div className="banner error">Não foi possível salvar</div>;
-  return null;
+  const game = useGame((s) => s.game);
+  if (saveStatus === "ok") return null;
+  const exportButton = canExport(game) && <button onClick={() => downloadSave(game)}>Exportar jogo</button>;
+  if (saveStatus === "unavailable")
+    return (
+      <div className="banner">
+        <span>Salvamento indisponível neste navegador</span> {exportButton}
+      </div>
+    );
+  return (
+    <div className="banner error">
+      <span>Não foi possível salvar</span> {exportButton}
+    </div>
+  );
 }

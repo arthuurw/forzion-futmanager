@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { saveGame } from "./persistence/save";
+import { loadGame, saveGame } from "./persistence/save";
 import { encodeSaveFile } from "./engine/saveFile";
 import type { GameState } from "./engine/types";
-import { useGame, userClub, type GameStore } from "./store";
-import { render, screen } from "@testing-library/react";
+import { TAB_LOCK, useGame, userClub, type GameStore } from "./store";
+import { Home } from "./ui/Home";
+import { makeMatch, matchSeed, roundSnapshot, runToEnd, sideFor } from "./engine/live";
+import { act, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { Banner } from "./ui/Banner";
 import userEvent from "@testing-library/user-event";
@@ -12,10 +14,21 @@ import { userBoardGoal } from "./engine/board";
 import { AI_FORMATION, autoLineup, validateLineup } from "./engine/lineup";
 import { nextCompetition } from "./engine/calendar";
 import { atCupDate, expectedCupGoal } from "./engine/test-fixtures";
-import { preliminaryWithCupSuspended, resetAll, seededGame } from "./ui/test-utils";
+import { preliminaryWithCupSuspended, resetAll, resetStore, seededGame } from "./ui/test-utils";
 
 /** Every save waits on `ctl.gate` when one is set, so a test can look at the store mid-save. */
-const ctl = vi.hoisted(() => ({ gate: null as Promise<void> | null, fail: false }));
+const ctl = vi.hoisted(() => ({ gate: null as Promise<void> | null, fail: false, openFails: false }));
+/** Correcoes-validacao C5: with `ctl.openFails`, opening a game (the season check it starts with) throws. */
+vi.mock("./engine/season", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./engine/season")>();
+  return {
+    ...actual,
+    isSeasonOver: vi.fn((league: Parameters<typeof actual.isSeasonOver>[0]) => {
+      if (ctl.openFails) throw new Error("does not open");
+      return actual.isSeasonOver(league);
+    }),
+  };
+});
 vi.mock("./persistence/save", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./persistence/save")>();
   return {
@@ -31,6 +44,7 @@ vi.mock("./persistence/save", async (importOriginal) => {
 beforeEach(() => {
   ctl.gate = null;
   ctl.fail = false;
+  ctl.openFails = false;
   resetAll();
   vi.mocked(saveGame).mockClear();
 });
@@ -356,7 +370,7 @@ describe("escalação de copa pela disciplina da copa (correcoes-validacao)", ()
     return { game, suspended };
   }
 
-  test("titular de copa pela disciplina da copa", () => {
+  test("titular de copa pela disciplina da copa", async () => {
     // C21 (AC 19, AC 20, L-003, L-007): two reserves, one suspended in the league only, one in the cup.
     const { game } = firstCupDate();
     const me = userClub(game)!;
@@ -372,23 +386,360 @@ describe("escalação de copa pela disciplina da copa (correcoes-validacao)", ()
     for (const [name, id, accepted] of rows) {
       useGame.setState({ game: JSON.parse(JSON.stringify(game)) as GameState });
       const before = userClub(useGame.getState().game!)!.lineup!;
-      useGame.getState().assignStarter(10, id);
+      await useGame.getState().assignStarter(10, id);
       const after = userClub(useGame.getState().game!)!.lineup!;
       if (accepted) expect(after.starters[10], name).toBe(id);
       else expect(after, name).toEqual(before);
     }
   });
 
-  test("formação de copa sem suspenso de copa", () => {
+  test("formação de copa sem suspenso de copa", async () => {
     // C22 (AC 21): a starter suspended in the cup; the posture chosen before is kept.
     const { suspended } = firstCupDate();
     expect(userClub(useGame.getState().game!)!.lineup!.starters).toContain(suspended.id);
-    useGame.getState().setPosture("attacking");
-    useGame.getState().setFormation("4-3-3");
+    await useGame.getState().setPosture("attacking");
+    await useGame.getState().setFormation("4-3-3");
     const me = userClub(useGame.getState().game!)!;
     expect(me.lineup!.formation).toBe("4-3-3");
     expect(me.lineup!.starters).not.toContain(suspended.id);
     expect(validateLineup(me, me.lineup, { kind: "cup", cupId: "cup-nat" })).toEqual({ ok: true, missing: 0 });
     expect(me.lineup!.posture).toBe("attacking");
+  });
+});
+
+describe("o save sobrevive (correcoes-validacao)", () => {
+  function stubLocks(locks: unknown) {
+    Object.defineProperty(navigator, "locks", { value: locks, configurable: true });
+  }
+  afterEach(() => stubLocks(undefined));
+
+  /**
+   * A stand-in for `navigator.locks`: one holder at a time; `ifAvailable` gets null while it is
+   * held; `steal` takes it, and the holder's request rejects with an AbortError.
+   */
+  function fakeLocks() {
+    const requests: { name: string; options: LockOptions }[] = [];
+    const other = { lost: false };
+    let holder: { reject: (e: unknown) => void } | null = null;
+    const locks = {
+      request(name: string, options: LockOptions, callback: (lock: Lock | null) => unknown) {
+        requests.push({ name, options });
+        return new Promise((resolve, reject) => {
+          if (holder && options.ifAvailable) {
+            Promise.resolve(callback(null)).then(resolve, reject);
+            return;
+          }
+          if (holder && options.steal) holder.reject(new DOMException("stolen", "AbortError"));
+          const me = { reject };
+          holder = me;
+          Promise.resolve(callback({ name, mode: "exclusive" } as Lock)).then((v) => {
+            if (holder === me) holder = null;
+            resolve(v);
+          }, reject);
+        });
+      },
+    };
+    const byOther = () => ({ reject: () => void (other.lost = true) });
+    return {
+      locks,
+      requests,
+      other,
+      /** Another tab holds the lock; `other.lost` turns true when it is taken from it. */
+      heldByOther: () => void (holder = byOther()),
+      /** Another tab steals the lock from whoever holds it. */
+      stealByOther: () => {
+        holder?.reject(new DOMException("stolen", "AbortError"));
+        holder = byOther();
+      },
+    };
+  }
+
+  /** `indexedDB.open` throws once, as Safari's «Connection to Indexed Database server lost». */
+  function failNextOpen() {
+    vi.spyOn(indexedDB, "open").mockImplementationOnce(() => {
+      throw new DOMException("Connection to Indexed Database server lost", "UnknownError");
+    });
+  }
+
+  const slotSeed = async () => {
+    const r = await loadGame();
+    return r.kind === "ok" ? r.state.seed : null;
+  };
+
+  test("falha de leitura exige confirmação", async () => {
+    // C2 (AC 2, L-003): a save of seed 7, and a read that fails once.
+    await saveGame(seededGame(7));
+    failNextOpen();
+    await useGame.getState().init();
+    expect(useGame.getState()).toMatchObject({ phase: "home", hasSave: false, loadFailed: true });
+    vi.mocked(saveGame).mockClear();
+
+    const user = userEvent.setup();
+    render(createElement(Home));
+    await user.click(screen.getByRole("button", { name: "Novo jogo" }));
+    expect(screen.getByRole("alertdialog", { name: "Confirmar novo jogo" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(useGame.getState().phase).toBe("home");
+
+    // A valid file waits for «Sim, substituir» instead of writing.
+    await useGame.getState().importFile(encodeSaveFile(seededGame(8), "2026-09-29T12:00:00.000Z"));
+    expect(useGame.getState().pendingImport?.seed).toBe(8);
+    expect(await screen.findByRole("alertdialog", { name: "Confirmar importação" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(useGame.getState().pendingImport).toBeNull();
+    expect(vi.mocked(saveGame)).not.toHaveBeenCalled();
+    expect(await slotSeed()).toBe(7);
+  });
+
+  test("import corrompido não toca o slot", async () => {
+    // C4 (AC 4, L-008): a save of seed 7; the file has no `leagues[0].rounds`.
+    const saved = seededGame(7);
+    await saveGame(saved);
+    useGame.setState({ phase: "home", hasSave: true, game: saved });
+    render(createElement(Home));
+    const broken = JSON.parse(JSON.stringify(seededGame(9))) as Record<string, unknown> & { leagues: Record<string, unknown>[] };
+    delete broken.leagues[0]!.rounds;
+    await act(async () => {
+      await useGame.getState().importFile(encodeSaveFile(broken as unknown as GameState, "2026-09-29T12:00:00.000Z"));
+      await useGame.getState().confirmImport();
+    });
+    expect(screen.getByText("Arquivo corrompido: não foi possível ler o jogo")).toBeInTheDocument();
+    expect(await slotSeed()).toBe(7);
+  });
+
+  test("abrir o importado falha antes de gravar", async () => {
+    // C5 (AC 5): the file decodes, but opening it throws.
+    const saved = seededGame(7);
+    await saveGame(saved);
+    useGame.setState({ phase: "home", hasSave: true, game: saved });
+    render(createElement(Home));
+    await act(async () => {
+      await useGame.getState().importFile(encodeSaveFile(seededGame(9), "2026-09-29T12:00:00.000Z"));
+    });
+    expect(useGame.getState().pendingImport?.seed).toBe(9);
+    vi.mocked(saveGame).mockClear();
+    ctl.openFails = true;
+    await act(async () => {
+      await useGame.getState().confirmImport();
+    });
+    ctl.openFails = false;
+    expect(vi.mocked(saveGame)).not.toHaveBeenCalled();
+    expect(screen.getByText("Arquivo corrompido: não foi possível ler o jogo")).toBeInTheDocument();
+    expect(useGame.getState().phase).toBe("home");
+    expect(await slotSeed()).toBe(7);
+  });
+
+  test("segunda aba não grava", async () => {
+    // C7 (AC 7, door 2): another tab holds the lock.
+    await saveGame(seededGame(7));
+    vi.mocked(saveGame).mockClear();
+    const fake = fakeLocks();
+    fake.heldByOther();
+    stubLocks(fake.locks);
+    render(createElement(App));
+    expect(await screen.findByText("O jogo está aberto em outra aba")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Usar nesta aba" })).toBeInTheDocument();
+    expect(fake.requests).toEqual([{ name: "forzion-futmanager-save", options: { ifAvailable: true } }]);
+    expect(TAB_LOCK).toBe("forzion-futmanager-save");
+    // Even with a game in memory, an action that writes does not reach the slot.
+    useGame.setState({ game: seededGame(8) });
+    await act(async () => {
+      await useGame.getState().setTicketPrice(45);
+    });
+    expect(vi.mocked(saveGame)).not.toHaveBeenCalled();
+    expect(await slotSeed()).toBe(7);
+  });
+
+  test("usar nesta aba toma o lock", async () => {
+    // C8 (AC 8, door 2).
+    const saved = seededGame(8);
+    await saveGame(saved);
+    const fake = fakeLocks();
+    fake.heldByOther();
+    stubLocks(fake.locks);
+    const user = userEvent.setup();
+    render(createElement(App));
+    await user.click(await screen.findByRole("button", { name: "Usar nesta aba" }));
+    expect(await screen.findByRole("table", { name: "Elenco" })).toBeInTheDocument();
+    expect(fake.requests.at(-1)).toEqual({ name: "forzion-futmanager-save", options: { steal: true } });
+    expect(fake.other.lost).toBe(true);
+    expect(useGame.getState().phase).toBe("squad");
+    expect(useGame.getState().game).toEqual(saved);
+
+    // Now another tab takes it: this one shows the notice and writes no more.
+    vi.mocked(saveGame).mockClear();
+    await act(async () => {
+      fake.stealByOther();
+      await Promise.resolve();
+    });
+    expect(await screen.findByText("O jogo está aberto em outra aba")).toBeInTheDocument();
+    expect(useGame.getState().otherTab).toBe(true);
+    await act(async () => {
+      await useGame.getState().setTicketPrice(50);
+    });
+    expect(vi.mocked(saveGame)).not.toHaveBeenCalled();
+  });
+
+  test("sem web locks abre sem guarda", async () => {
+    // C9 (AC 9).
+    stubLocks(undefined);
+    const saved = seededGame(9);
+    await saveGame(saved);
+    await useGame.getState().init();
+    expect(useGame.getState()).toMatchObject({ phase: "home", hasSave: true, otherTab: false });
+    expect(useGame.getState().game).toEqual(saved);
+    useGame.getState().continueGame();
+    vi.mocked(saveGame).mockClear();
+    expect(await useGame.getState().setTicketPrice(45)).toBe(true);
+    expect(vi.mocked(saveGame)).toHaveBeenCalledTimes(1);
+    const r = await loadGame();
+    expect(r.kind === "ok" && userClub(r.state)!.finance.ticketPrice).toBe(45);
+  });
+
+  test("escalação é gravada", async () => {
+    // C11 (AC 11, L-003): each of the three actions, then a reload.
+    const cases: [string, (s: GameStore, g: GameState) => Promise<void>, (g: GameState, before: GameState) => void][] = [
+      ["formação", (s) => s.setFormation("3-5-2"), (g) => expect(userClub(g)!.lineup!.formation).toBe("3-5-2")],
+      ["postura", (s) => s.setPosture("attacking"), (g) => expect(userClub(g)!.lineup!.posture).toBe("attacking")],
+      [
+        "titular",
+        (s, g) => s.assignStarter(10, benchOf(g).id),
+        (g, before) => expect(userClub(g)!.lineup!.starters[10]).toBe(benchOf(before).id),
+      ],
+    ];
+    const benchOf = (g: GameState) => userClub(g)!.players.find((p) => !userClub(g)!.lineup!.starters.includes(p.id) && p.injuryRounds === 0 && p.suspendedRounds === 0)!;
+    for (const [name, change, check] of cases) {
+      resetAll();
+      const before = seededGame(10);
+      await saveGame(before);
+      useGame.setState({ phase: "squad", game: before, hasSave: true });
+      await change(useGame.getState(), before);
+      resetStore();
+      await useGame.getState().init();
+      const reloaded = useGame.getState().game!;
+      expect(reloaded, name).not.toBeNull();
+      check(reloaded, before);
+    }
+  });
+
+  test("escalação durante gravação de mercado", async () => {
+    // C12 (AC 12): the formation changes while the ticket price is being saved.
+    const before = seededGame(11);
+    await saveGame(before);
+    useGame.setState({ phase: "squad", game: before, hasSave: true });
+    vi.mocked(saveGame).mockClear();
+    let release!: () => void;
+    ctl.gate = new Promise<void>((r) => (release = r));
+    const done = useGame.getState().setTicketPrice(45);
+    await vi.waitFor(() => expect(vi.mocked(saveGame)).toHaveBeenCalledTimes(1));
+    await useGame.getState().setFormation("4-3-3");
+    release();
+    expect(await done).toBe(true);
+    ctl.gate = null;
+    for (const g of [useGame.getState().game!, ((await loadGame()) as { state: GameState }).state]) {
+      expect(userClub(g)!.finance.ticketPrice).toBe(45);
+      expect(userClub(g)!.lineup!.formation).toBe("4-3-3");
+    }
+  });
+
+  test("marcador de ao vivo gravado e limpo", async () => {
+    // C13 (AC 13, door 1).
+    const before = seededGame(12);
+    await saveGame(before);
+    useGame.setState({ phase: "squad", game: before, hasSave: true });
+    await useGame.getState().playRound();
+    expect(useGame.getState().phase).toBe("live");
+    const marked = ((await loadGame()) as { state: GameState }).state;
+    expect(marked.pendingLive).toBe(true);
+    expect(marked.leagues[0]!.currentRound).toBe(0);
+    expect(userClub(marked)!.lineup).toEqual(userClub(before)!.lineup);
+    await useGame.getState().skipToEnd();
+    const closed = ((await loadGame()) as { state: GameState }).state;
+    expect("pendingLive" in closed).toBe(false);
+    expect(closed.leagues[0]!.currentRound).toBe(1);
+  });
+
+  /** Written out here (L-004): the user's match of round 1 from the saved state, with no decisions. */
+  function expectedScore(game: GameState): [number, number] {
+    const league = game.leagues[0]!;
+    const round = league.rounds[0]!;
+    const i = round.matches.findIndex((m) => m.homeId === game.userClubId || m.awayId === game.userClubId);
+    const m = round.matches[i]!;
+    const { clubs, players } = roundSnapshot(game);
+    const side = (id: string) => sideFor(clubs.get(id)!, game.userClubId, players);
+    const match = makeMatch(m.id, side(m.homeId), side(m.awayId), matchSeed(game.rngState, round.number, i, 0), league.id);
+    const ended = runToEnd({ roundIndex: 0, roundNumber: round.number, minute: 0, userClubId: game.userClubId, matches: [match], players }).matches[0]!;
+    return [ended.homeGoals, ended.awayGoals];
+  }
+
+  test("reload no ao vivo fecha a rodada", async () => {
+    // C14 (AC 14, door 1): no decisions, then a substitution and another posture, before the reload.
+    const decisions: [string, () => void][] = [
+      ["sem decisões", () => undefined],
+      [
+        "com decisões",
+        () => {
+          const s = useGame.getState();
+          s.pause();
+          const live = useGame.getState().live!;
+          const m = live.matches.find((x) => x.home.clubId === live.userClubId || x.away.clubId === live.userClubId)!;
+          const mine = m.home.clubId === live.userClubId ? m.home : m.away;
+          useGame.getState().substitute(10, mine.bench[0]!);
+          useGame.getState().changeLivePosture("attacking");
+          useGame.getState().changeLiveFormation("4-3-3");
+          useGame.getState().resume();
+          for (let k = 0; k < 20; k++) useGame.getState().tick();
+        },
+      ],
+    ];
+    const scores: [number, number][] = [];
+    for (const [name, decide] of decisions) {
+      resetAll();
+      const before = seededGame(13);
+      const expected = expectedScore(before);
+      await saveGame(before);
+      useGame.setState({ phase: "squad", game: before, hasSave: true });
+      await useGame.getState().playRound();
+      for (let k = 0; k < 10; k++) useGame.getState().tick();
+      decide();
+      expect(useGame.getState().live!.minute, name).toBeGreaterThanOrEqual(10);
+
+      resetStore();
+      await useGame.getState().init();
+      const s = useGame.getState();
+      expect(s.phase, name).toBe("round");
+      const saved = ((await loadGame()) as { state: GameState }).state;
+      expect("pendingLive" in saved, name).toBe(false);
+      expect(saved.leagues[0]!.currentRound, name).toBe(before.leagues[0]!.currentRound + 1);
+      const mine = s.lastRound!.results.find((r) => r.homeId === before.userClubId || r.awayId === before.userClubId)!;
+      expect([mine.result.homeGoals, mine.result.awayGoals], name).toEqual(expected);
+      const stored = saved.leagues[0]!.rounds[0]!.matches.find((m) => m.id === mine.matchId)!.result!;
+      expect([stored.homeGoals, stored.awayGoals], name).toEqual(expected);
+      scores.push(expected);
+    }
+    expect(scores[1]).toEqual(scores[0]);
+  });
+
+  test("save sem marcador abre normal", async () => {
+    // C15 (door 1, absence): a v8 save with no mark opens on the title screen, no date played.
+    const before = seededGame(14);
+    expect("pendingLive" in before).toBe(false);
+    await saveGame(before);
+    vi.mocked(saveGame).mockClear();
+    await useGame.getState().init();
+    expect(useGame.getState()).toMatchObject({ phase: "home", hasSave: true, lastRound: null });
+    expect(useGame.getState().game).toEqual(before);
+    expect(vi.mocked(saveGame)).not.toHaveBeenCalled();
+
+    // After a date closed by a reload, the next opening plays nothing more.
+    useGame.getState().continueGame();
+    await useGame.getState().playRound();
+    resetStore();
+    await useGame.getState().init();
+    expect(useGame.getState().phase).toBe("round");
+    resetStore();
+    await useGame.getState().init();
+    expect(useGame.getState().phase).toBe("home");
+    expect(useGame.getState().game!.leagues[0]!.currentRound).toBe(1);
   });
 });

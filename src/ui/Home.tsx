@@ -38,7 +38,7 @@ export function Home() {
       ) : pendingImport ? (
         <div role="alertdialog" aria-label="Confirmar importação" className="panel confirm">
           <p>Isso substitui o jogo salvo. Continuar?</p>
-          <button className="primary" onClick={() => void confirmImport()}>
+          <button className="primary" autoFocus onClick={() => void confirmImport()}>
             Sim, substituir
           </button>
           <button onClick={cancelImport}>Cancelar</button>

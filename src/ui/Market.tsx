@@ -293,6 +293,7 @@ export function Market() {
                           </span>
                           <button
                             className="primary"
+                            autoFocus
                             onClick={() => {
                               setConfirmingOffer(null);
                               void acceptOffer(o.id);

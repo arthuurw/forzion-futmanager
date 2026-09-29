@@ -26,7 +26,8 @@ export function NewGameButton({ primary = false }: { primary?: boolean }) {
     return (
       <div role="alertdialog" aria-label="Confirmar novo jogo" className="panel confirm">
         <p>Isso apaga o jogo salvo. Continuar?</p>
-        <button className="primary" onClick={() => newGame(seedParam())}>
+        {/* Correcoes-validacao AC 50: the focus goes to the confirmation's main button. */}
+        <button className="primary" autoFocus onClick={() => newGame(seedParam())}>
           Sim, apagar
         </button>
         <button onClick={() => setConfirming(false)}>Cancelar</button>

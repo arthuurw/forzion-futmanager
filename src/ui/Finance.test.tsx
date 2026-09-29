@@ -197,3 +197,16 @@ describe("textos das finanças (correcoes-validacao)", () => {
     }
   });
 });
+
+describe("confirmação com foco (correcoes-validacao)", () => {
+  test("foco na confirmação", async () => {
+    // C54 (AC 50): «Ampliar estádio»; the focus lands on «Confirmar».
+    const user = userEvent.setup();
+    const game = seededGame(8);
+    userClub(game)!.finance.cash = 10_000_000;
+    show(game);
+    await user.click(screen.getByRole("button", { name: "Ampliar estádio" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Confirmar ampliação" });
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Confirmar" }));
+  });
+});

@@ -129,6 +129,7 @@ export function Finance() {
               <p>Ampliar custa {formatMoney(EXPANSION_COST)}. Confirmar?</p>
               <button
                 className="primary"
+                autoFocus
                 onClick={() => {
                   setConfirming(false);
                   void expandStadium();

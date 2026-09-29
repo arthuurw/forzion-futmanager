@@ -338,12 +338,12 @@ Proof: `npx vitest run src/ui/ErrorBoundary.test.tsx -t "erro fora do render"`
 Proof: `npx vitest run src/ui/ScreenTabs.test.tsx -t "abas acessíveis"`
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "aba selecionada visível no desktop"`
 
-**C53** - O cartão amarelo do Ao vivo e a seta de moral da Condição têm `role="img"` e o `aria-label` «amarelo» e o da moral (AC 49).
+**C53** - ✓ O cartão amarelo do Ao vivo e a seta de moral da Condição têm `role="img"` e o `aria-label` «amarelo» e o da moral (AC 49).
 
 Proof: `npx vitest run src/ui/Live.test.tsx -t "ícones rotulados"`
 Proof: `npx vitest run src/ui/Condition.test.tsx -t "ícones rotulados"`
 
-**C54** - Tabela sobre as 4 confirmações (Novo jogo, Dispensar, Renovar, Ampliar): ao abrir, `document.activeElement` é o botão principal da confirmação (AC 50, L-005).
+**C54** - ✓ Tabela sobre as 4 confirmações (Novo jogo, Dispensar, Renovar, Ampliar): ao abrir, `document.activeElement` é o botão principal da confirmação (AC 50, L-005).
 
 Proof: `npx vitest run src/ui/Home.test.tsx -t "foco na confirmação"`
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "foco na confirmação"`

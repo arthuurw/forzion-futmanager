@@ -1,12 +1,12 @@
 import { LEAGUE, type Competition, type Condition, type CupDiscipline } from "../engine/types";
 
-/** AC 41: morale as a PES-style 5-level arrow. */
+/** AC 41: morale as a PES-style 5-level arrow; correcoes-validacao AC 49: an image with its label. */
 export const MORALE_ARROW: Record<number, string> = { [-2]: "↓", [-1]: "↘", 0: "→", 1: "↗", 2: "↑" };
 
 export function MoraleArrow({ value }: { value: number }) {
   const v = Math.max(-2, Math.min(2, Math.round(value)));
   return (
-    <span className={`morale m${v < 0 ? "n" : "p"}${Math.abs(v)}`} aria-label={`moral ${v > 0 ? "+" : ""}${v}`} title={`Moral ${v > 0 ? "+" : ""}${v}`}>
+    <span className={`morale m${v < 0 ? "n" : "p"}${Math.abs(v)}`} role="img" aria-label={`moral ${v > 0 ? "+" : ""}${v}`} title={`Moral ${v > 0 ? "+" : ""}${v}`}>
       {MORALE_ARROW[v]}
     </span>
   );

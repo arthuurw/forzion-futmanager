@@ -468,3 +468,26 @@ describe("abas do elenco (correcoes-validacao)", () => {
     expect(screen.getByRole("tab", { name: "Campo" })).toHaveAttribute("aria-selected", "true");
   });
 });
+
+describe("confirmações com foco (correcoes-validacao)", () => {
+  test("foco na confirmação", async () => {
+    // C54 (AC 50, L-005): «Dispensar» and «Renovar»; the focus lands on each «Confirmar».
+    const user = userEvent.setup();
+    const game = seededGame(28);
+    const club = userClub(game)!;
+    const bench = club.players.find((p) => !club.lineup!.starters.includes(p.id))!;
+    bench.contractSeasons = 1;
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<Squad />);
+    const rows: [string, string][] = [
+      [`Dispensar ${bench.name}`, "Confirmar dispensa"],
+      [`Renovar ${bench.name}`, "Confirmar renovação"],
+    ];
+    for (const [open, dialogName] of rows) {
+      await user.click(screen.getByRole("button", { name: open }));
+      const dialog = screen.getByRole("alertdialog", { name: dialogName });
+      expect(document.activeElement, dialogName).toBe(within(dialog).getByRole("button", { name: "Confirmar" }));
+      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    }
+  });
+});

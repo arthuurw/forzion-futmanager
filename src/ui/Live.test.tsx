@@ -568,3 +568,21 @@ describe("narração ao vivo (correcoes-validacao)", () => {
     }
   });
 });
+
+describe("ícones do ao vivo (correcoes-validacao)", () => {
+  test("ícones rotulados", () => {
+    // C53 (AC 49): a booked starter's yellow card is an image named «amarelo»; the others have none.
+    startLiveFake();
+    const live = useGame.getState().live!;
+    const me = userMatch(live)!;
+    const side = me.home.clubId === live.userClubId ? me.home : me.away;
+    const booked = side.slots.find((id): id is string => !!id)!;
+    const edited = { ...side, yellows: { ...side.yellows, [booked]: 1 } };
+    const match = { ...me, ...(me.home === side ? { home: edited } : { away: edited }) };
+    act(() => useGame.setState({ live: { ...live, matches: live.matches.map((m) => (m === me ? match : m)) } }));
+    const team = screen.getByRole("tabpanel", { name: "Seu time" });
+    const cards = within(team).getAllByRole("img", { name: "amarelo" });
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.closest("tr")).toHaveTextContent(live.players[booked]!.name);
+  });
+});

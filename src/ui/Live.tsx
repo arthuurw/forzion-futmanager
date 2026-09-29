@@ -224,7 +224,7 @@ export function Live() {
                       </td>
                       <td>
                         {p.name}
-                        {yellow && <span className="card-yellow" aria-label="amarelo" />}
+                        {yellow && <span className="card-yellow" role="img" aria-label="amarelo" />}
                         {oop && <span className="oop-tag">fora de posição</span>}
                       </td>
                       <td className="num">

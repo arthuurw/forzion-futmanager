@@ -270,6 +270,7 @@ export function Squad() {
           </p>
           <button
             className="primary"
+            autoFocus
             onClick={() => {
               setRenewing(null);
               void renewContract(toRenew.id);
@@ -288,6 +289,7 @@ export function Squad() {
           </p>
           <button
             className="primary"
+            autoFocus
             onClick={() => {
               setReleasing(null);
               void releasePlayer(toRelease.id);

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { openDB } from "idb";
 import { encodeSaveFile } from "../engine/saveFile";
@@ -291,5 +291,17 @@ describe("semente pelo endereço (correcoes-validacao)", () => {
       expect(String(seed), bad).not.toBe(bad);
       again.unmount();
     }
+  });
+});
+
+describe("confirmação com foco (correcoes-validacao)", () => {
+  test("foco na confirmação", async () => {
+    // C54 (AC 50): «Novo jogo» over a save; the focus lands on «Sim, apagar».
+    const user = userEvent.setup();
+    useGame.setState({ phase: "home", game: seededGame(2), hasSave: true });
+    render(<Home />);
+    await user.click(screen.getByRole("button", { name: "Novo jogo" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Confirmar novo jogo" });
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Sim, apagar" }));
   });
 });

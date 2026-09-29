@@ -169,12 +169,15 @@ describe("evolução e aposentadoria", () => {
       { ages: [31, 32, 33], min: -4, max: 0 },
       { ages: [34], min: -6, max: -2 },
     ];
-    const fixture = bands.map((b) => Array.from({ length: 1000 }, (_, i) => player(b.ages[i % b.ages.length]!, 60)));
-    const high = Array.from({ length: 30 }, () => player(18, 94));
-    const low = Array.from({ length: 60 }, () => player(34, 41));
-    before.market.freeAgents.push(...fixture.flat(), ...high, ...low);
+    const fixture = bands.map((b) => Array.from({ length: 1000 }, (_, i) => player(b.ages[i % b.ages.length]!, 60, "MF", 3)));
+    const high = Array.from({ length: 30 }, () => player(18, 94, "MF", 3));
+    const low = Array.from({ length: 60 }, () => player(34, 41, "MF", 3));
+    // Correcoes-validacao C30: the free agents are cut to 80 at the turn, so the probe players sit at
+    // an AI club abroad under contract, where the same summer applies.
+    const host = before.leagues[2]!.clubs[0]!;
+    host.players.push(...fixture.flat(), ...high, ...low);
     const { state } = nextSeason(before);
-    const after = new Map(state.market.freeAgents.map((p) => [p.id, p]));
+    const after = new Map(clubOf(state, host.id).players.map((p) => [p.id, p]));
     bands.forEach((b, k) => {
       const deltas = fixture[k]!.filter((p) => after.has(p.id)).map((p) => after.get(p.id)!.rating - p.rating);
       expect(deltas.length, `faixa ${k}`).toBeGreaterThan(400);
@@ -213,8 +216,10 @@ describe("evolução e aposentadoria", () => {
   test("aposentadoria por idade", () => {
     const before = ended();
     // Ages before the birthday: 32..36, so 33..37 after it.
-    const byAge = new Map([32, 33, 34, 35, 36].map((age) => [age + 1, Array.from({ length: 1000 }, () => player(age, 60))]));
-    before.market.freeAgents.push(...[...byAge.values()].flat());
+    const byAge = new Map([32, 33, 34, 35, 36].map((age) => [age + 1, Array.from({ length: 1000 }, () => player(age, 60, "MF", 3))]));
+    // Correcoes-validacao C30: at an AI club abroad under contract, since the free agents are cut to 80.
+    const host = before.leagues[2]!.clubs[0]!;
+    host.players.push(...[...byAge.values()].flat());
     // A 35-year-old starter of the user retires: gone from the squad, the lineup and the free agents.
     const me = userOf(before);
     const veteran = me.players[0]!;
@@ -222,7 +227,7 @@ describe("evolução e aposentadoria", () => {
     me.lineup = autoLineup(me, AI_FORMATION);
     me.lineup.starters[0] = veteran.id;
     const { state } = nextSeason(before);
-    const left = new Set(state.market.freeAgents.map((p) => p.id));
+    const left = new Set(clubOf(state, host.id).players.map((p) => p.id));
     const retiredShare = (age: number) => byAge.get(age)!.filter((p) => !left.has(p.id)).length / 1000;
     expect(retiredShare(33)).toBe(0);
     expect(retiredShare(34)).toBeGreaterThanOrEqual(0.15);
@@ -595,6 +600,27 @@ describe("virada por país (paises)", () => {
     }
     const abroad = ended().leagues.slice(2);
     record.divisions.slice(2).forEach((d, i) => expect(abroad[i]!.clubs.map((c) => c.id), d.leagueId).toContain(d.championId));
+  });
+});
+
+describe("livres na virada (correcoes-validacao)", () => {
+  test("poda dos livres", () => {
+    // C30 (AC 29): 300 free agents at 25 (the summer moves them by -1 to +2, AC 16): 80 rated 75
+    // and 220 rated 60. No club player leaves, so only these compete.
+    const before = ended();
+    for (const c of all(before)) for (const p of c.players) Object.assign(p, { contractSeasons: 3, age: Math.min(p.age, 30) });
+    const strong = Array.from({ length: 80 }, () => player(25, 75));
+    const weak = Array.from({ length: 220 }, () => player(25, 60));
+    before.market.freeAgents = [...weak.slice(0, 110), ...strong, ...weak.slice(110)];
+    expect(before.market.freeAgents).toHaveLength(300);
+    const { state } = nextSeason(before);
+    expect(state.market.freeAgents).toHaveLength(80);
+    const kept = new Set(state.market.freeAgents.map((p) => p.id));
+    expect(kept).toEqual(new Set(strong.map((p) => p.id)));
+    const pruned = weak.filter((p) => !kept.has(p.id));
+    expect(pruned).toHaveLength(220);
+    // The weakest kept is at least the strongest pruned could be after the summer: 60 + 2.
+    expect(Math.min(...state.market.freeAgents.map((p) => p.rating))).toBeGreaterThanOrEqual(Math.max(...pruned.map((p) => p.rating)) + 2);
   });
 });
 

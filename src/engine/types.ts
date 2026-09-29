@@ -58,6 +58,11 @@ export interface Player extends PlayerCore, Condition, PlayerStats {
    * `yellowCards` and `suspendedRounds` are the league's.
    */
   cupDiscipline: Record<string, CupDiscipline>;
+  /**
+   * Door 3 (correcoes-validacao): the season the user signed, promoted or bought the player.
+   * Absent = arrived before this rule, and may be sold.
+   */
+  arrivedSeason?: number;
 }
 
 /** Door 6 (copa-nacional): which discipline a date reads and writes. */

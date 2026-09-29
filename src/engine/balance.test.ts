@@ -3,6 +3,7 @@ import { nextCompetition, nextDate } from "./calendar";
 import { newGame } from "./generate";
 import { AI_FORMATION, autoLineup, formationSlots, validateLineup } from "./lineup";
 import { simulateMatch, type TeamSheet } from "./match";
+import { acceptOffer, marketValue, signFreeAgent, signingFee, toggleForSale } from "./market";
 import { createRng } from "./rng";
 import { nextSeason } from "./rollover";
 import { allClubs, playDate, playRound, seasonReview } from "./season";
@@ -419,4 +420,54 @@ describe("nenhum save sem saída (correcoes-validacao)", () => {
     expect(s.season).toBe(4);
     expect(nextDate(s).kind).toBe("over");
   }, 180_000);
+});
+
+describe("economia sem dinheiro do nada (correcoes-validacao)", () => {
+  test("revenda de livres não dá lucro", () => {
+    // C33 (AC 22-25): the old exploit - sign the free agents worth the most per real of fee up to
+    // 30 players, put them up for sale, accept every bid for them until round 5 - against just playing.
+    for (const seed of [5, 21]) {
+      const start = (): GameState => {
+        const s = newGame(seed);
+        const club = s.leagues[0]!.clubs[0]!;
+        s.userClubId = club.id;
+        s.boardGoal = userBoardGoal(s);
+        s.cupGoal = userCupGoal(s);
+        club.lineup = autoLineup(club, AI_FORMATION);
+        return s;
+      };
+      const me = (s: GameState) => allClubs(s).find((c) => c.id === s.userClubId)!;
+
+      let played = start();
+      while (played.leagues[0]!.currentRound < 5) played = playRound(played).state;
+
+      let s = start();
+      const signed: string[] = [];
+      const byRatio = [...s.market.freeAgents].sort((a, b) => marketValue(b) / signingFee(b) - marketValue(a) / signingFee(a) || a.id.localeCompare(b.id));
+      for (const p of byRatio) {
+        if (me(s).players.length >= 30) break;
+        const r = signFreeAgent(s, p.id);
+        if (r.ok) {
+          s = r.state;
+          signed.push(p.id);
+        }
+      }
+      for (const id of signed) {
+        const r = toggleForSale(s, id);
+        if (r.ok) s = r.state;
+      }
+      let sold = 0;
+      while (s.leagues[0]!.currentRound < 5) {
+        for (const o of s.market.offers.filter((x) => signed.includes(x.playerId))) {
+          const r = acceptOffer(s, o.id);
+          if (r.ok) sold++;
+          if (r.ok || r.state) s = r.state!;
+        }
+        s = playRound(s).state;
+      }
+      console.log(`C33 seed ${seed}: ${signed.length} contratados, ${sold} vendidos, caixa ${me(s).finance.cash} contra ${me(played).finance.cash}`);
+      expect(signed.length, `seed ${seed}`).toBeGreaterThan(0);
+      expect(me(s).finance.cash, `seed ${seed}`).toBeLessThanOrEqual(me(played).finance.cash);
+    }
+  }, 120_000);
 });

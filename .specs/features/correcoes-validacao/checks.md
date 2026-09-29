@@ -166,7 +166,7 @@ Proof: `npx vitest run src/store.test.ts -t "formação de copa sem suspenso de 
 
 ### S4 - Economia sem dinheiro do nada · 5 files · 128 KB · ~32k
 
-**C23** - Tabela de luvas de livre:
+**C23** ✓ - Tabela de luvas de livre:
 - salário 10.000 com valor 500.000: 250.000;
 - salário 10.000 com valor 60.000: 40.000.
 
@@ -174,7 +174,7 @@ A conta é feita no teste. A rescisão de dispensa do mesmo jogador continua 40.
 
 Proof: `npx vitest run src/engine/market.test.ts -t "luvas pelo valor de mercado"`
 
-**C24** - Tabela sobre `arrivedSeason = temporada atual`:
+**C24** ✓ - Tabela sobre `arrivedSeason = temporada atual`:
 - `signFreeAgent`: grava;
 - `promoteJunior`: grava;
 - compra (`buyPlayer`): grava.
@@ -183,31 +183,31 @@ Um jogador do elenco inicial não tem o campo (AC 23, door 3).
 
 Proof: `npx vitest run src/engine/market.test.ts -t "chegada registra a temporada"`
 
-**C25** - Pôr «À venda» um jogador com `arrivedSeason` igual à temporada é recusado. A tela Mercado mostra «Chegou nesta temporada: só pode ser vendido na próxima». Com `arrivedSeason` da temporada anterior, ou sem o campo, é aceito (AC 24, door 3, L-007, L-008).
+**C25** ✓ - Pôr «À venda» um jogador com `arrivedSeason` igual à temporada é recusado. A tela Mercado mostra «Chegou nesta temporada: só pode ser vendido na próxima». Com `arrivedSeason` da temporada anterior, ou sem o campo, é aceito (AC 24, door 3, L-007, L-008).
 
 Proof: `npx vitest run src/engine/market.test.ts -t "trava de revenda na temporada de chegada"`
 Proof: `npx vitest run src/ui/Market.test.tsx -t "trava de revenda na temporada de chegada"`
 
-**C26** - Em 40 seeds, `closeRoundMarket` com todo o elenco à venda e um jogador de `arrivedSeason` igual à temporada nunca gera proposta por esse jogador (AC 25).
+**C26** ✓ - Em 40 seeds, `closeRoundMarket` com todo o elenco à venda e um jogador de `arrivedSeason` igual à temporada nunca gera proposta por esse jogador (AC 25).
 
 Proof: `npx vitest run src/engine/market.test.ts -t "sem proposta por quem chegou"`
 
-**C27** - Em 40 seeds, com os 12 jogadores mais valiosos à venda, para cada comprador:
+**C27** ✓ - Em 40 seeds, com os 12 jogadores mais valiosos à venda, para cada comprador:
 - a soma das propostas ≤ caixa;
 - o elenco + as propostas ≤ 30 (AC 26).
 
 Proof: `npx vitest run src/engine/market.test.ts -t "propostas cabem no comprador"`
 
-**C28** - Aceitar uma proposta cujo comprador ficou com caixa menor que o valor é recusado. A proposta some da lista, e a tela mostra «O comprador desistiu da proposta». O mesmo acontece com um comprador com 30 jogadores (AC 27, L-008).
+**C28** ✓ - Aceitar uma proposta cujo comprador ficou com caixa menor que o valor é recusado. A proposta some da lista, e a tela mostra «O comprador desistiu da proposta». O mesmo acontece com um comprador com 30 jogadores (AC 27, L-008).
 
 Proof: `npx vitest run src/engine/market.test.ts -t "comprador desistiu"`
 Proof: `npx vitest run src/ui/Market.test.tsx -t "comprador desistiu"`
 
-**C29** - O preço pedido por um DF 74 entre os 11 mais fortes é o mesmo nos três estados: saudável, com `injuryRounds` 1 e com condição 55. Os três custam 1,5 × o valor, com a conta feita no teste. Um jogador fora dos 11 mais fortes custa 1 × (AC 28, L-007).
+**C29** ✓ - O preço pedido por um DF 74 entre os 11 mais fortes é o mesmo nos três estados: saudável, com `injuryRounds` 1 e com condição 55. Os três custam 1,5 × o valor, com a conta feita no teste. Um jogador fora dos 11 mais fortes custa 1 × (AC 28, L-007).
 
 Proof: `npx vitest run src/engine/market.test.ts -t "titular pela força no preço"`
 
-**C30** - Depois da virada com 300 livres, restam 80, e o de menor força entre eles é ≥ o de maior força entre os podados (AC 29).
+**C30** ✓ - Depois da virada com 300 livres, restam 80, e o de menor força entre eles é ≥ o de maior força entre os podados (AC 29).
 
 Proof: `npx vitest run src/engine/rollover.test.ts -t "poda dos livres"`
 
@@ -219,11 +219,11 @@ Proof: `npx vitest run src/engine/balance.test.ts -t "força estável em 20 temp
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 20 temporadas"`
 
-**C33** - O ciclo que era o exploit, em seeds 5 e 21: contratar livres de melhor razão até 30, marcar à venda, aceitar tudo até a rodada 5. O caixa termina ≤ o de quem só jogou (AC 22–25).
+**C33** ✓ - O ciclo que era o exploit, em seeds 5 e 21: contratar livres de melhor razão até 30, marcar à venda, aceitar tudo até a rodada 5. O caixa termina ≤ o de quem só jogou (AC 22–25).
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "revenda de livres não dá lucro"`
 
-**C34** - As faixas de gastos-da-ia (C19, C20, C21, C34 de lá) e a vantagem do mandante continuam verdes, sem mudar limite (Impact).
+**C34** ✓ - As faixas de gastos-da-ia (C19, C20, C21, C34 de lá) e a vantagem do mandante continuam verdes, sem mudar limite (Impact).
 
 Proof: `npx vitest run src/engine/balance.test.ts -t "caixa em 5 temporadas"`
 Proof: `npx vitest run src/engine/balance.test.ts -t "compras da IA em 5 temporadas"`

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Club, GameState, Player, TransferRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
@@ -296,5 +296,46 @@ describe("mercado com países (paises)", () => {
     expect(rows).toHaveLength(squads);
     const names = new Set(portuguese.map((c) => c.name));
     for (const r of rows) expect(names.has(within(r).getAllByRole("cell")[4]!.textContent!)).toBe(true);
+  });
+});
+
+describe("mercado sem dinheiro do nada (correcoes-validacao)", () => {
+  test("trava de revenda na temporada de chegada", async () => {
+    // C25 (AC 24, L-008): the refusal read where the Market screen shows it.
+    const game = seededGame(20);
+    const me = userClub(game)!;
+    const newcomer = me.players[5]!;
+    newcomer.arrivedSeason = game.season;
+    show(game);
+    await act(async () => {
+      expect(await useGame.getState().toggleForSale(newcomer.id)).toBe(false);
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Chegou nesta temporada: só pode ser vendido na próxima");
+    expect(screen.getByText("Chegou nesta temporada: só pode ser vendido na próxima")).toBeInTheDocument();
+    expect(userClub(useGame.getState().game!)!.forSale).toEqual([]);
+  });
+
+  test("comprador desistiu", async () => {
+    // C28 (AC 27, L-008): the buyer's cash fell under the offer; the offer leaves the list.
+    const user = userEvent.setup();
+    const game = seededGame(21);
+    const me = userClub(game)!;
+    const [buyer, rival] = game.leagues[0]!.clubs.filter((c) => c.id !== me.id);
+    buyer!.finance.cash = 1_000_000;
+    game.market.offers = [
+      { id: "o1-1", buyerId: buyer!.id, playerId: me.players[20]!.id, amount: 1_500_000 },
+      { id: "o1-2", buyerId: rival!.id, playerId: me.players[21]!.id, amount: 400_000 },
+    ];
+    show(game);
+    await user.click(screen.getByRole("tab", { name: /Propostas/ }));
+    const first = () => within(screen.getByRole("region", { name: "Propostas" })).getAllByRole("listitem")[0]!;
+    await user.click(within(first()).getByRole("button", { name: "Aceitar" }));
+    await user.click(screen.getByRole("button", { name: "Confirmar" }));
+    expect(await screen.findByText("O comprador desistiu da proposta")).toBeInTheDocument();
+    const items = within(screen.getByRole("region", { name: "Propostas" })).getAllByRole("listitem");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveTextContent(rival!.name);
+    expect(useGame.getState().game!.market.offers.map((o) => o.id)).toEqual(["o1-2"]);
+    expect(userClub(useGame.getState().game!)!.players.map((p) => p.id)).toContain(me.players[20]!.id);
   });
 });

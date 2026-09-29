@@ -56,7 +56,7 @@ export const REFUSAL_TEXT: Record<SubRefusal, string> = {
 };
 
 type Refusal = market.MarketRefusal | finance.FinanceRefusal;
-type ActionResult = { ok: true; state: GameState } | { ok: false; reason: Refusal; amount?: number };
+type ActionResult = { ok: true; state: GameState } | { ok: false; reason: Refusal; amount?: number; state?: GameState };
 
 /** What the screens say when the engine refuses a market or finance action. */
 export function refusalText(reason: Refusal, amount = 0): string {
@@ -87,6 +87,10 @@ export function refusalText(reason: Refusal, amount = 0): string {
       return "Valor inválido";
     case "not_last_year":
       return "Só renova no último ano de contrato";
+    case "arrived":
+      return "Chegou nesta temporada: só pode ser vendido na próxima";
+    case "buyer_gone":
+      return "O comprador desistiu da proposta";
   }
 }
 
@@ -240,6 +244,12 @@ export const useGame = create<GameStore>()((set, get) => {
     const r = action(game);
     if (!r.ok) {
       set({ marketMessage: refusalText(r.reason, r.amount) });
+      // Correcoes-validacao AC 27: a refusal that still changed the game (an offer withdrawn) is kept.
+      if (r.state) {
+        set({ saving: true });
+        await persist(r.state, set, get);
+        set({ game: r.state, saving: false });
+      }
       return false;
     }
     set({ saving: true });

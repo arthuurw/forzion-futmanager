@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FEE_ROUNDS, isMarketOpen, marketValue, nextRoundNumber, nextWindowStart } from "../engine/market";
+import { isMarketOpen, marketValue, nextRoundNumber, nextWindowStart, signingFee } from "../engine/market";
 import { allClubs, findAnyClub } from "../engine/season";
 import { COUNTRIES, POSITIONS, type Country, type GameState, type Player, type Position } from "../engine/types";
 import { useGame, userClub } from "../store";
@@ -234,7 +234,7 @@ export function Market() {
                     className="primary"
                     onClick={() => void signFreeAgent(selected.player.id).then((ok) => ok && setSelectedId(null))}
                   >
-                    Contratar (luvas {formatMoney(FEE_ROUNDS * selected.player.salary)})
+                    Contratar (luvas {formatMoney(signingFee(selected.player))})
                   </button>
                 ) : (
                   <div className="loan-row">

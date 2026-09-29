@@ -11,6 +11,7 @@ import {
   promoteJunior,
   releasePlayer,
   signFreeAgent,
+  toggleForSale,
 } from "./market";
 import { createRng, mix32 } from "./rng";
 import { playRound } from "./season";
@@ -21,6 +22,8 @@ import { POSITIONS, type Club, type GameState, type Player, type Position, type 
 const expectedSalary = (rating: number) => Math.round((2000 * 1.09 ** (rating - 40)) / 100) * 100;
 const factor = (age: number) => (age <= 21 ? 1.5 : age <= 27 ? 1.2 : age <= 30 ? 1 : age <= 33 ? 0.6 : 0.3);
 const expectedValue = (p: Pick<Player, "salary" | "age">) => Math.round((p.salary * 50 * factor(p.age)) / 10_000) * 10_000;
+/** Correcoes-validacao C23: a free agent's sign-on fee, max(4 × salary, 50% of the value), for one whose salary is the table's. */
+const expectedFee = (p: Pick<Player, "salary" | "age">) => Math.max(4 * p.salary, Math.round(0.5 * expectedValue(p)));
 
 function game(seed = 1): GameState {
   const state = newGame(seed);
@@ -147,7 +150,8 @@ describe("mercado (engine)", () => {
     const after = ok(buyPlayer(state, target.id, expectedValue(target)));
     const arrived = user(after).players.find((p) => p.id === target.id)!;
     // Arrives as they are, with the 3-season contract of a purchase (multiplas-temporadas C29).
-    expect(arrived).toEqual({ ...before, contractSeasons: 3 });
+    // Correcoes-validacao C24 (door 3): and the season of arrival.
+    expect(arrived).toEqual({ ...before, contractSeasons: 3, arrivedSeason: 1 });
     expect(user(after).lineup!.starters).not.toContain(target.id);
   });
 
@@ -242,7 +246,8 @@ describe("mercado (engine)", () => {
     const state = game(13);
     const agent = state.market.freeAgents[5]!;
     const after = ok(signFreeAgent(state, agent.id));
-    expect(user(after).finance.cash).toBe(user(state).finance.cash - 4 * agent.salary);
+    // Correcoes-validacao C23 (Impact): max(4 × salary, 50% of the value), was 4 × salary.
+    expect(user(after).finance.cash).toBe(user(state).finance.cash - expectedFee(agent));
     expect(user(after).players.map((p) => p.id)).toContain(agent.id);
     expect(after.market.freeAgents.map((p) => p.id)).not.toContain(agent.id);
   });
@@ -298,7 +303,8 @@ describe("mercado (engine)", () => {
     });
     expect(ai.players).toHaveLength(16);
     const bestFw = state.market.freeAgents.filter((p) => p.position === "FW").sort((a, b) => b.rating - a.rating).slice(0, 2);
-    const fees = 4 * bestFw[0]!.salary + 4 * bestFw[1]!.salary;
+    // Correcoes-validacao C23 (Impact): the AI pays the same fee as the user, was 4 × salary.
+    const fees = expectedFee(bestFw[0]!) + expectedFee(bestFw[1]!);
     const after = playRound(state).state;
     const club = clubById(after, ai.id);
     expect(club.players).toHaveLength(18);
@@ -983,7 +989,8 @@ describe("gastos da IA: boletim (engine)", () => {
           closeRoundMarket(s, s.rngState, 3);
           return {
             got: s.market.transfers,
-            expected: [{ round: 3, kind: "free", playerId: best.id, playerName: best.name, fromId: null, toId: club.id, amount: 4 * best.salary }],
+            // Correcoes-validacao C23 (Impact): the new sign-on fee, was 4 × salary.
+            expected: [{ round: 3, kind: "free", playerId: best.id, playerName: best.name, fromId: null, toId: club.id, amount: expectedFee(best) }],
           };
         },
       ],
@@ -1249,5 +1256,182 @@ describe("mercado com o mundo (paises)", () => {
     expect(buyers.length).toBeGreaterThan(0);
     for (const id of buyers) expect(Number(id.slice(1)), id).toBeGreaterThanOrEqual(61);
     for (const id of buyers) expect(Number(id.slice(1)), id).toBeLessThanOrEqual(80);
+  });
+});
+
+describe("economia sem dinheiro do nada (correcoes-validacao)", () => {
+  test("luvas pelo valor de mercado", () => {
+    // C23 (AC 22, L-005): salary 10.000 with a value of 500.000 (54 at 20) and of 60.000 (48 at 35).
+    const rows: [number, number, number, number][] = [
+      [54, 20, 500_000, 250_000],
+      [48, 35, 60_000, 40_000],
+    ];
+    for (const [rating, age, worth, fee] of rows) {
+      expect(valueOf(rating, age), `${rating} aos ${age}`).toBe(worth);
+      expect(Math.max(4 * 10_000, Math.round(0.5 * worth)), `${rating} aos ${age}`).toBe(fee);
+      const agent = { ...makePlayer("fa-probe", "Probe Livre", "FW", age, rating), salary: 10_000 };
+
+      // The user pays the fee, and releasing the same player costs 4 salaries.
+      const s = game(61);
+      s.market.freeAgents.push(agent);
+      const me = user(s);
+      const signed = ok(signFreeAgent(s, agent.id));
+      expect(user(signed).finance.cash, `${rating} aos ${age}`).toBe(me.finance.cash - fee);
+      const released = ok(releasePlayer(signed, agent.id));
+      expect(user(released).finance.cash, `${rating} aos ${age}`).toBe(user(signed).finance.cash - 40_000);
+
+      // An AI club short of forwards signs him and pays the same fee.
+      const ai = newGame(62);
+      const club = ai.leagues[0]!.clubs[4]!;
+      club.players = club.players.filter((p) => p.position !== "FW");
+      ai.market.freeAgents = [...ai.market.freeAgents.filter((p) => p.position !== "FW"), agent];
+      const cash = club.finance.cash;
+      // Round 5 closes the window: the AI only refills its squads, nothing else moves money.
+      closeRoundMarket(ai, ai.rngState, 5);
+      expect(club.players.map((p) => p.id), `${rating} aos ${age}`).toContain(agent.id);
+      expect(ai.market.transfers, `${rating} aos ${age}`).toEqual([
+        { round: 5, kind: "free", playerId: agent.id, playerName: agent.name, fromId: null, toId: club.id, amount: fee },
+      ]);
+      expect(club.finance.cash, `${rating} aos ${age}`).toBe(cash - fee);
+    }
+  });
+
+  test("chegada registra a temporada", () => {
+    // C24 (AC 23, door 3): the three ways in, in season 3.
+    const at3 = () => {
+      const s = game(63);
+      s.season = 3;
+      user(s).finance.cash = 50_000_000;
+      return s;
+    };
+    const cases: [string, (s: GameState) => { state: GameState; id: string }][] = [
+      ["signFreeAgent", (s) => ({ state: ok(signFreeAgent(s, s.market.freeAgents[0]!.id)), id: s.market.freeAgents[0]!.id })],
+      ["promoteJunior", (s) => ({ state: ok(promoteJunior(s, s.market.juniors[0]!.id)), id: s.market.juniors[0]!.id })],
+      [
+        "buyPlayer",
+        (s) => {
+          const target = reserveGk(clubs(s)[6]!);
+          return { state: ok(buyPlayer(s, target.id, 2 * expectedValue(target))), id: target.id };
+        },
+      ],
+    ];
+    for (const [name, act] of cases) {
+      const s = at3();
+      const { state, id } = act(s);
+      expect(user(state).players.find((p) => p.id === id)!.arrivedSeason, name).toBe(3);
+    }
+    for (const p of user(at3()).players) expect("arrivedSeason" in p, p.id).toBe(false);
+  });
+
+  test("trava de revenda na temporada de chegada", () => {
+    // C25 (AC 24, door 3, L-007): this season is refused; last season, or no season, is accepted.
+    const s = game(64);
+    s.season = 2;
+    const [now, before, never] = user(s).players;
+    now!.arrivedSeason = 2;
+    before!.arrivedSeason = 1;
+    expect("arrivedSeason" in never!).toBe(false);
+    expect(toggleForSale(s, now!.id)).toEqual({ ok: false, reason: "arrived" });
+    expect(user(ok(toggleForSale(s, before!.id))).forSale).toEqual([before!.id]);
+    expect(user(ok(toggleForSale(s, never!.id))).forSale).toEqual([never!.id]);
+  });
+
+  test("sem proposta por quem chegou", () => {
+    // C25 (AC 25): the whole squad for sale, the most valuable player arrived this season, 40 seeds.
+    let others = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = game(seed);
+      for (const c of clubs(s)) c.finance.cash = 500_000_000;
+      const me = user(s);
+      const newcomer = [...me.players].sort((a, b) => expectedValue(b) - expectedValue(a))[0]!;
+      newcomer.arrivedSeason = s.season;
+      me.forSale = me.players.map((p) => p.id);
+      closeRoundMarket(s, mix32(s.rngState, seed), 2);
+      expect(s.market.offers.filter((o) => o.playerId === newcomer.id), `seed ${seed}`).toEqual([]);
+      others += s.market.offers.length;
+    }
+    // The others still get bids: the draw did run.
+    expect(others).toBeGreaterThan(100);
+  });
+
+  test("propostas cabem no comprador", () => {
+    // C27 (AC 26): the 12 most valuable for sale, 40 seeds; buyers with little cash or nearly full.
+    let multi = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = game(seed);
+      const me = user(s);
+      const top12 = [...me.players].sort((a, b) => expectedValue(b) - expectedValue(a)).slice(0, 12);
+      me.forSale = top12.map((p) => p.id);
+      const dearest = expectedValue(top12[0]!);
+      clubs(s).forEach((c, i) => {
+        if (c.id === me.id) return;
+        c.finance.cash = Math.round(dearest * (1 + (i % 3)));
+        if (i % 4 === 0) pad(c, 29);
+      });
+      closeRoundMarket(s, mix32(s.rngState, seed), 2);
+      const byBuyer = new Map<string, { sum: number; n: number }>();
+      for (const o of s.market.offers) {
+        const b = byBuyer.get(o.buyerId) ?? { sum: 0, n: 0 };
+        byBuyer.set(o.buyerId, { sum: b.sum + o.amount, n: b.n + 1 });
+      }
+      for (const [id, { sum, n }] of byBuyer) {
+        const buyer = clubById(s, id);
+        expect(sum, `seed ${seed} ${id}`).toBeLessThanOrEqual(buyer.finance.cash);
+        expect(buyer.players.length + n, `seed ${seed} ${id}`).toBeLessThanOrEqual(30);
+        if (n > 1) multi++;
+      }
+    }
+    // Some buyers bid for more than one player, so the sums were really tested.
+    expect(multi).toBeGreaterThan(0);
+  });
+
+  test("comprador desistiu", () => {
+    // C28 (AC 27): a buyer whose cash fell under the offer, and a buyer with 30 players.
+    const cases: [string, (buyer: Club) => void][] = [
+      ["sem caixa", (b) => (b.finance.cash = 799_999)],
+      ["com 30", (b) => pad(b, 30)],
+    ];
+    for (const [name, prepare] of cases) {
+      const s = game(65);
+      const me = user(s);
+      const buyer = clubs(s)[3]!;
+      buyer.finance.cash = 50_000_000;
+      prepare(buyer);
+      s.market.offers = [
+        { id: "o1-1", buyerId: buyer.id, playerId: me.players[20]!.id, amount: 800_000 },
+        { id: "o1-2", buyerId: clubs(s)[4]!.id, playerId: me.players[19]!.id, amount: 600_000 },
+      ];
+      const r = acceptOffer(s, "o1-1");
+      expect(r.ok, name).toBe(false);
+      if (r.ok) continue;
+      expect(r.reason, name).toBe("buyer_gone");
+      expect(r.state!.market.offers.map((o) => o.id), name).toEqual(["o1-2"]);
+      expect(user(r.state!).players.map((p) => p.id), name).toContain(me.players[20]!.id);
+      expect(user(r.state!).finance.cash, name).toBe(me.finance.cash);
+    }
+  });
+
+  test("titular pela força no preço", () => {
+    // C29 (AC 28, L-007): a DF rated 74 among the 11 strongest, healthy, injured and tired.
+    const s = game(66);
+    const seller = clubs(s)[7]!;
+    seller.players.forEach((p) => Object.assign(p, { rating: 60, age: 25, injuryRounds: 0, suspendedRounds: 0, fitness: 100 }));
+    seller.players.filter((p) => p.position !== "DF").slice(0, 10).forEach((p) => (p.rating = 80));
+    const df = seller.players.find((p) => p.position === "DF")!;
+    df.rating = 74;
+    const outside = seller.players.find((p) => p.rating === 60)!;
+    const starterPrice = Math.round(valueOf(74, 25) * 1.5);
+    const states: [string, Partial<Player>][] = [
+      ["saudável", {}],
+      ["lesionado", { injuryRounds: 1 }],
+      ["cansado", { fitness: 55 }],
+    ];
+    for (const [name, change] of states) {
+      const copy = JSON.parse(JSON.stringify(seller)) as Club;
+      const probe = copy.players.find((p) => p.id === df.id)!;
+      Object.assign(probe, change);
+      expect(askingPrice(copy, probe), name).toBe(starterPrice);
+    }
+    expect(askingPrice(seller, outside)).toBe(valueOf(60, 25));
   });
 });

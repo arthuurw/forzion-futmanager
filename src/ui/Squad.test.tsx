@@ -184,6 +184,20 @@ describe("tela Elenco", () => {
     await vi.waitFor(() => expect(userClub(useGame.getState().game!)!.forSale).toEqual([]));
   });
 
+  test("marcar à venda recusa quem chegou na temporada", async () => {
+    // Correcoes-validacao AC 24: the Squad screen, where the box is, shows the refusal too.
+    const user = userEvent.setup();
+    const game = seededGame(4, 2);
+    const player = userClub(game)!.players[7]!;
+    player.arrivedSeason = game.season;
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<Squad />);
+    await user.click(screen.getByRole("checkbox", { name: `À venda: ${player.name}` }));
+    expect(await screen.findByText("Chegou nesta temporada: só pode ser vendido na próxima")).toBeInTheDocument();
+    expect(userClub(useGame.getState().game!)!.forSale).toEqual([]);
+    expect(screen.getByRole("checkbox", { name: `À venda: ${player.name}` })).not.toBeChecked();
+  });
+
   test("marcar à venda só com mercado aberto", () => {
     useGame.setState({ phase: "squad", game: seededGame(4, 2, 5), hasSave: true });
     render(<Squad />);

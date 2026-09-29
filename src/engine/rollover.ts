@@ -40,6 +40,8 @@ const AI_JUNIOR_BELOW_MEAN = 8;
 const AI_JUNIOR_SPREAD = 4;
 /** AC 20. */
 const FREE_AGENTS_TARGET = 40;
+/** Correcoes-validacao AC 29: after the turn, only this many free agents stay, the strongest. */
+const FREE_AGENTS_MAX = 80;
 const NEW_FREE_AGENT_AGE = { min: 19, max: 31 } as const;
 const NEW_FREE_AGENT_RATING = { min: 45, max: 70 } as const;
 
@@ -248,6 +250,15 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
     const next = ageOneSeason(rng, p);
     return next ? [next] : [];
   });
+
+  // Correcoes-validacao AC 29: the list keeps the strongest 80, ties by id, in its own order.
+  const kept = new Set(
+    [...state.market.freeAgents]
+      .sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id))
+      .slice(0, FREE_AGENTS_MAX)
+      .map((p) => p.id),
+  );
+  state.market.freeAgents = state.market.freeAgents.filter((p) => kept.has(p.id));
 
   const taken = takenNames(state);
   for (const league of state.leagues) {

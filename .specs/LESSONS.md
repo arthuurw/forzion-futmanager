@@ -162,6 +162,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C13 / src/engine/continental.test.ts:223,229 (verification.md observation 2) (tests)
 - last seen: 2026-09-28T21:52:34Z
 
+### L-026 - After a UI action that saves before changing state, wait for the post-save state (waitFor or a findBy of the new screen) before asserting, or the proof passes only in suite order.
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `ui` · harmful: 0
+- features: carreira-dinamica
+- evidence: C11 / src/store.test.ts:896 (ui)
+- last seen: 2026-09-30T21:02:39Z
+
+### L-027 - A new panel on an existing screen needs the layout check to put that panel on screen and measure it, not only the screen as first reached.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `layout` · harmful: 0
+- features: carreira-dinamica
+- evidence: C20 / scripts/layout-check.mjs:334 (layout)
+- last seen: 2026-09-30T21:02:39Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

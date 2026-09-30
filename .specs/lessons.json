@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 26,
+  "next_id": 28,
   "lessons": [
     {
       "id": "L-001",
@@ -466,6 +466,42 @@
       ],
       "created": "2026-09-28T21:52:34Z",
       "last_seen": "2026-09-28T21:52:34Z"
+    },
+    {
+      "id": "L-026",
+      "key": "gate_fail::after a ui action that saves before changing state wait for the post save state waitfor or a findby of the new screen before asserting or the proof passes only in suite order",
+      "text": "After a UI action that saves before changing state, wait for the post-save state (waitFor or a findBy of the new screen) before asserting, or the proof passes only in suite order.",
+      "signal": "gate_fail",
+      "scope": "ui",
+      "status": "candidate",
+      "features": [
+        "carreira-dinamica"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C11 / src/store.test.ts:896 (ui)"
+      ],
+      "created": "2026-09-30T21:02:39Z",
+      "last_seen": "2026-09-30T21:02:39Z"
+    },
+    {
+      "id": "L-027",
+      "key": "ac_gap::a new panel on an existing screen needs the layout check to put that panel on screen and measure it not only the screen as first reached",
+      "text": "A new panel on an existing screen needs the layout check to put that panel on screen and measure it, not only the screen as first reached.",
+      "signal": "ac_gap",
+      "scope": "layout",
+      "status": "candidate",
+      "features": [
+        "carreira-dinamica"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C20 / scripts/layout-check.mjs:334 (layout)"
+      ],
+      "created": "2026-09-30T21:02:39Z",
+      "last_seen": "2026-09-30T21:02:39Z"
     }
   ]
 }

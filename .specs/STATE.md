@@ -31,10 +31,10 @@
 
 ## Handoff
 
-**Feature**: treino-evolucao verificada (PASS round 1, 18/18, 61a48fe..fa478af, profile light); antes, parada-obrigatoria verificada e publicada (deploy verde de 61a48fe)
-**Where**: publicado em `main` (deploy do Actions verde de f75576d); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
+**Feature**: carreira-dinamica verificada (PASS round 2, 20/20, 2c5ab03..24b0b88, profile light); round 1 deu FAIL (C11 e C15 afirmavam antes do save; C20 não media o painel de proposta), corrigido em 24b0b88
+**Where**: commits locais em `main`, ainda não publicados (push/deploy aguardam o autor)
 **In progress**: nada
-**Next step**: escolher a próxima feature (candidatas: carreira dinâmica, empréstimo de jogadores, vários saves). Pontos fracos não bloqueantes do Verifier de treino-evolucao: C6 não prova o `delete ratingLog` em livres e juniores separadamente nem a faixa 34+ explicitamente; C17 abre o save em memória, não por `loadGame`; C18 com a mediana de caixa da IA em 18,82× (limite 20×). De parada-obrigatoria: C5 sem prova de vermelho na store, aviso «Goleiro expulso: {nome}.» sem check.
+**Next step**: publicar (push em `main` dispara o deploy do Actions) quando o autor autorizar; depois escolher a próxima feature (candidatas: empréstimo de jogadores, vários saves). Pontos fracos não bloqueantes do Verifier: C13, C16 e C17 montam o esperado com `reputationOffers` (fórmula fixada por C12); a Rodada com o aviso da diretoria não é medida pelo layout (o Elenco com aviso e painel é); o `--fail-normal` do selftest do layout não rodou de novo (morto por falta de memória; as execuções quebrada e normal passaram). Fora da feature: `Market.test.tsx` «oferta inválida» estoura 30 s sob carga, já na base 2c5ab03. Reputação: a demissão no meio só pesa na temporada em que acontece (AC 1 aprovado assim)
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

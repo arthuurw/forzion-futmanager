@@ -151,3 +151,19 @@ describe("save importado íntegro (correcoes-validacao)", () => {
     expect(decodeSaveFile(encodeSaveFile(game, ISO))).toEqual({ kind: "ok", state: game });
   });
 });
+
+describe("carreira no arquivo (carreira-dinamica)", () => {
+  test("proposta pendente no arquivo", () => {
+    // C19 (AC 26): an offer naming a club that does not exist, or the user's own, is refused.
+    const game = withClub();
+    const other = game.leagues[1]!.clubs[0]!.id;
+    const withJob = (clubIds: string[]) => envelope({ ...game, pendingJob: { reason: "offer", clubIds } });
+    expect(decodeSaveFile(withJob(["no-such-club"])).kind).toBe("malformed");
+    expect(decodeSaveFile(withJob([other, game.userClubId!])).kind).toBe("malformed");
+    const ok = decodeSaveFile(withJob([other]));
+    expect(ok.kind).toBe("ok");
+    if (ok.kind === "ok") expect(ok.state.pendingJob).toEqual({ reason: "offer", clubIds: [other] });
+    expect("pendingJob" in game).toBe(false);
+    expect(decodeSaveFile(envelope(game)).kind).toBe("ok");
+  });
+});

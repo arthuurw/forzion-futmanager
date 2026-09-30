@@ -1,5 +1,6 @@
 import { DIVISION_LABEL, combinedVerdict, divisionAt, divisionOf, jobOffers, verdictFor } from "./board";
 import { nextDate } from "./calendar";
+import { boardAfterRound, dropOffer, reputationOffers } from "./career";
 import { cupChampion, cupReached, cupRunnerUp, finishCupDate, startCupDate } from "./cup";
 import { applyRound } from "./condition";
 import { closeRoundFinances, positionsBeforeRound, prizeFor } from "./finance";
@@ -62,6 +63,8 @@ export function isSeasonOver(league: League): boolean {
 export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcome {
   const live = runToEnd(liveInput);
   const state = JSON.parse(JSON.stringify(input)) as GameState;
+  // Carreira-dinamica AC 19: playing the next date turns the offer down.
+  dropOffer(state);
   const shown = userLeague(state);
   const results: RoundOutcome["results"] = [];
   let roundNumber = live.roundNumber;
@@ -95,7 +98,8 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
   rng.next();
   state.rngState = rng.getState();
 
-  return { state, roundNumber, userEvents: userMatch(live)?.events ?? [], results };
+  // Carreira-dinamica AC 3-5, AC 17: the board looks at the table once the round is closed.
+  return { state: boardAfterRound(state, shown.currentRound), roundNumber, userEvents: userMatch(live)?.events ?? [], results };
 }
 
 /** One date with no decisions, league round or cup phase (copa-nacional door 4). */
@@ -180,7 +184,10 @@ export interface SeasonReview {
     cupGoal: number;
     verdict: Verdict;
   } | null;
-  /** AC 34: clubs offering a job; empty unless the user was fired. */
+  /**
+   * AC 34: clubs offering a job when the user was fired; carreira-dinamica AC 20: the offers of
+   * better clubs when the goal was met. Empty otherwise.
+   */
   jobOffers: string[];
 }
 
@@ -225,5 +232,6 @@ export function seasonReview(state: GameState): SeasonReview {
       verdict: combinedVerdict(leagueVerdict, state.cupGoal, cups[0]?.userReached ?? null),
     };
   }
-  return { season: state.season, divisions, cups, user, jobOffers: user?.verdict === "fired" ? jobOffers(state) : [] };
+  const offers = !user ? [] : user.verdict === "fired" ? jobOffers(state) : user.verdict === "met" ? reputationOffers(state, state.leagues[user.divisionIndex]!.rounds.length) : [];
+  return { season: state.season, divisions, cups, user, jobOffers: offers };
 }

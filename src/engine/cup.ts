@@ -288,6 +288,8 @@ export function finishCupDate(input: GameState, liveInput: LiveRound): RoundOutc
   if (!liveInput.cup) throw new Error("not a cup date");
   const live = runToEnd(liveInput);
   const state = JSON.parse(JSON.stringify(input)) as GameState;
+  // Carreira-dinamica AC 19: playing the next date turns the offer down.
+  if (state.pendingJob?.reason === "offer") delete state.pendingJob;
   const { cupIndex, phase: k } = liveInput.cup;
   const cup = state.cups[cupIndex]!;
   if (cup.currentPhase !== k) throw new Error("cup phase already played");

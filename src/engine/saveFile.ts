@@ -62,8 +62,16 @@ function hasGameShape(state: unknown): state is GameState {
   if (!leagues.every(isLeague)) return false;
   const userClubId = state.userClubId;
   if (typeof userClubId !== "string") return false;
-  const user = (leagues as { clubs: Record<string, unknown>[] }[]).flatMap((l) => l.clubs).find((c) => c.id === userClubId);
-  return user !== undefined && isObject(user.lineup);
+  const clubs = (leagues as { clubs: Record<string, unknown>[] }[]).flatMap((l) => l.clubs);
+  const user = clubs.find((c) => c.id === userClubId);
+  return user !== undefined && isObject(user.lineup) && hasJobShape(state.pendingJob, new Set(clubs.map((c) => c.id as string)), userClubId);
+}
+
+/** Carreira-dinamica AC 26: a pending offer names other clubs of the game, or is absent. */
+function hasJobShape(job: unknown, clubIds: ReadonlySet<string>, userClubId: string): boolean {
+  if (job === undefined) return true;
+  if (!isObject(job) || (job.reason !== "fired" && job.reason !== "offer") || !Array.isArray(job.clubIds)) return false;
+  return job.clubIds.every((id) => typeof id === "string" && id !== userClubId && clubIds.has(id));
 }
 
 /** Reads an exported file: the envelope, then `migrateSave`, then the shape of the game. */

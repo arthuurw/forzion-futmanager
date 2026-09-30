@@ -23,7 +23,7 @@ Lições aplicadas:
 
 ### S1 - Reputação do técnico · 3 files · 30 KB · ~8k
 
-**C1** - `managerReputation(state)` (AC 1), tabela:
+**C1** - ✓ `managerReputation(state)` (AC 1), tabela:
 - `history` vazio e sem `career` → 50;
 - um «met» → 56; um «missed» → 47; um «fired» → 42;
 - «met» com título da Série A (`tier` 0) → 64; «met» com título da Série B (`tier` 1) → 60;
@@ -40,7 +40,7 @@ Proof: `npx vitest run src/ui/History.test.tsx -t "reputação e carreira"`
 
 ### S2 - A diretoria avisa e demite · 6 files · 90 KB · ~23k
 
-**C3** - `boardAfterRound(state, n)` numa liga de 38 rodadas (AC 3, AC 4), tabela sobre a janela e as zonas:
+**C3** - ✓ `boardAfterRound(state, n)` numa liga de 38 rodadas (AC 3, AC 4), tabela sobre a janela e as zonas:
 - na zona (meta 8, posição 13), `boardWarnings` 1: rodada 9 → 0; rodada 10 → 2; rodada 34 → 2; rodada 35 → 0;
 - fora da zona (meta 8, posição 12), `boardWarnings` 2, rodada 12 → 0;
 - zona de rebaixamento (Série A, meta 16, posição 17), rodada 12, `boardWarnings` 0 → 1;
@@ -48,10 +48,10 @@ Proof: `npx vitest run src/ui/History.test.tsx -t "reputação e carreira"`
 - `boardWarnings` ausente conta como 0.
 Proof: `npx vitest run src/engine/career.test.ts -t "avisos da diretoria: tabela"`
 
-**C4** - Com `boardWarnings` 3 e a quarta rodada na zona, `boardAfterRound` grava `pendingJob = { reason: "fired", clubIds }`, com `clubIds` = os 3 clubes logo abaixo do usuário em `strengthRanking` de todos os clubes, e `boardWarnings` volta a 0 (AC 5).
+**C4** - ✓ Com `boardWarnings` 3 e a quarta rodada na zona, `boardAfterRound` grava `pendingJob = { reason: "fired", clubIds }`, com `clubIds` = os 3 clubes logo abaixo do usuário em `strengthRanking` de todos os clubes, e `boardWarnings` volta a 0 (AC 5).
 Proof: `npx vitest run src/engine/career.test.ts -t "quarta rodada demite"`
 
-**C5** - Pelo `finishRound` (L-003): um save na rodada 13 com `boardGoal` 1, `boardWarnings` 3 e o usuário fora dos 5 primeiros depois da rodada fecha com `pendingJob.reason` «fired». `finishCupDate` de uma data de copa mantém o `boardWarnings` de antes (2 → 2) (AC 5, AC 9).
+**C5** - ✓ Pelo `finishRound` (L-003): um save na rodada 13 com `boardGoal` 1, `boardWarnings` 3 e o usuário fora dos 5 primeiros depois da rodada fecha com `pendingJob.reason` «fired». `finishCupDate` de uma data de copa mantém o `boardWarnings` de antes (2 → 2) (AC 5, AC 9).
 Proof: `npx vitest run src/engine/career.test.ts -t "finishRound checa a diretoria"`
 
 **C6** - As telas Rodada e Elenco mostram, com `boardWarnings` 1, 2 e 3, «Aviso da diretoria (1/3): a campanha está abaixo do aceitável.» (e 2/3, 3/3). Com 0 e com o campo ausente, não mostram aviso (AC 6).
@@ -66,7 +66,7 @@ Proof: `npx vitest run src/store.test.ts -t "demitido trava o calendário"`
 
 ### S3 - Trocar de clube no meio · 4 files · 80 KB · ~20k
 
-**C9** - `takeJob(state, clubId)` com `clubId` em `pendingJob.clubIds`, depois da rodada 13 da temporada 2 (AC 10-13):
+**C9** - ✓ `takeJob(state, clubId)` com `clubId` em `pendingJob.clubIds`, depois da rodada 13 da temporada 2 (AC 10-13):
 - `userClubId` = `clubId`, `pendingJob` ausente, `boardWarnings` 0;
 - `career` termina em `{ season: 2, round: 13, fromId: <antigo>, toId: clubId, reason: "fired" }`;
 - clube antigo: `lineup` null, sem `training`, `forSale` `[]`; `market.offers` `[]`;
@@ -75,7 +75,7 @@ Proof: `npx vitest run src/store.test.ts -t "demitido trava o calendário"`
 - `cupGoal` −1.
 Proof: `npx vitest run src/engine/career.test.ts -t "assumir no meio da temporada"`
 
-**C10** - `takeJob` com um id fora de `pendingJob.clubIds`, com o id do próprio clube e sem `pendingJob` devolve `{ ok: false }` e o estado igual (AC 14).
+**C10** - ✓ `takeJob` com um id fora de `pendingJob.clubIds`, com o id do próprio clube e sem `pendingJob` devolve `{ ok: false }` e o estado igual (AC 14).
 Proof: `npx vitest run src/engine/career.test.ts -t "assumir clube fora da lista"`
 
 **C11** - Pela store: «Assumir» grava o save com o `userClubId` novo (lido de volta por `loadGame`) e abre o Elenco com o nome do clube novo (AC 10, AC 15).
@@ -83,7 +83,7 @@ Proof: `npx vitest run src/store.test.ts -t "assumir grava e abre o elenco"`
 
 ### S4 - Propostas de clubes melhores · 7 files · 120 KB · ~30k
 
-**C12** - `reputationOffers(state, round)` num jogo de 80 clubes, com o usuário no 30º em força (AC 16):
+**C12** - ✓ `reputationOffers(state, round)` num jogo de 80 clubes, com o usuário no 30º em força (AC 16):
 - reputação 90 → teto 8: 2 ids distintos, ambos entre o 8º e o 15º do ranking; nenhum é o 16º nem o 7º;
 - o resultado é o do sorteio com `createRng(mix32(mix32(rngState, 0xca), season * 64 + round))` escrito no teste, e o `rngState` do estado não muda;
 - reputação 50 → teto 40, sem candidato → `[]`;
@@ -91,7 +91,7 @@ Proof: `npx vitest run src/store.test.ts -t "assumir grava e abre o elenco"`
 - com 1 candidato só (usuário no 9º, reputação 90) → 1 id.
 Proof: `npx vitest run src/engine/career.test.ts -t "propostas por reputação"`
 
-**C13** - Pelo `finishRound` (L-003), numa liga de 38 rodadas (AC 17):
+**C13** - ✓ Pelo `finishRound` (L-003), numa liga de 38 rodadas (AC 17):
 - rodada 19 fechando com posição ≤ meta e reputação 90 → `pendingJob = { reason: "offer", clubIds: reputationOffers(estado, 19) }`;
 - rodadas 18 e 20 → sem proposta;
 - posição > meta → sem proposta;
@@ -99,14 +99,14 @@ Proof: `npx vitest run src/engine/career.test.ts -t "propostas por reputação"`
 - `pendingJob` fired já presente → fica igual.
 Proof: `npx vitest run src/engine/career.test.ts -t "proposta na rodada do meio"`
 
-**C14** - Uma data de liga e uma de copa que fecham com `pendingJob` offer apagam o campo, e `userClubId` não muda (AC 19).
+**C14** - ✓ Uma data de liga e uma de copa que fecham com `pendingJob` offer apagam o campo, e `userClubId` não muda (AC 19).
 Proof: `npx vitest run src/engine/career.test.ts -t "jogar recusa a proposta"`
 
 **C15** - Nas telas Rodada e Elenco, com `pendingJob` offer de 2 clubes, aparece o painel «Proposta de emprego» com 2 botões «Aceitar» e um «Recusar». «Recusar» grava o save sem `pendingJob` e mantém o clube. «Aceitar» no segundo grava o `userClubId` dele e abre o Elenco dele (AC 18, AC 19).
 Proof: `npx vitest run src/ui/Round.test.tsx -t "proposta de emprego"`
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "proposta de emprego"`
 
-**C16** - Virada (AC 20-22):
+**C16** - ✓ Virada (AC 20-22):
 - `seasonReview` com «met» e reputação 90 devolve `jobOffers` = `reputationOffers(estado, 38)`; com «missed» → `[]`; com «fired» → os 3 de `jobOffers` de board;
 - `nextSeason` com uma proposta de «met» assume o clube depois da virada e anota `{ season, round: 38, fromId, toId, reason: "offer" }`;
 - sem proposta, mantém o clube e não anota;
@@ -127,7 +127,7 @@ Proof: `npx vitest run src/ui/History.test.tsx -t "reputação e carreira"`
 
 ### S6 - Saves de antes e layout · 4 files · 40 KB · ~10k
 
-**C19** - Save antigo e importação (AC 25, AC 26):
+**C19** - ✓ Save antigo e importação (AC 25, AC 26):
 - um jogo v8 sem `boardWarnings`, `pendingJob` e `career` joga as 38 rodadas e vira a temporada sem erro;
 - `decodeSaveFile` recusa como «malformed» um save com `pendingJob.clubIds` contendo um id inexistente ou o `userClubId`;
 - aceita um com `clubIds` válidos, e um sem `pendingJob`.

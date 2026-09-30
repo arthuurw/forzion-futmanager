@@ -4,6 +4,7 @@
  * Everything is drawn from the rollover's own Rng (door 3).
  */
 import { userBoardGoal, userCupGoal } from "./board";
+import { leaveClub } from "./career";
 import { NATIONAL_CUP_ID, continentalFromTables, countryLookup, newContinentalCup, newCup } from "./cup";
 import { salaryFor } from "./finance";
 import { generateJuniors, generateSchedule, makePlayer, takenNames } from "./generate";
@@ -155,7 +156,10 @@ function forgetDeparted(club: Club): void {
 export function nextSeason(input: GameState, jobClubId?: string): { state: GameState; report: RolloverReport } {
   const review = seasonReview(input);
   const fired = review.user?.verdict === "fired";
-  if (fired && (!jobClubId || !review.jobOffers.includes(jobClubId))) throw new Error("a fired manager must pick one of the job offers");
+  if (fired && !jobClubId) throw new Error("a fired manager must pick one of the job offers");
+  // Carreira-dinamica AC 21: a met goal may bring offers too; any pick must be one of them.
+  if (jobClubId && !review.jobOffers.includes(jobClubId)) throw new Error("the club picked is not one of the job offers");
+  const moved = !!jobClubId && !!input.userClubId;
   const state = JSON.parse(JSON.stringify(input)) as GameState;
   const season = input.season + 1;
   const rng = createRng(mix32(input.rngState, ROLLOVER_SALT + input.season));
@@ -197,14 +201,17 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   }
 
   // AC 35: a fired manager takes the club they picked; the old one is the AI's now.
-  if (fired && jobClubId) {
+  // Carreira-dinamica AC 21, AC 22: so does one who took an offer, and the move is recorded.
+  if (moved) {
     const old = allClubs(state).find((c) => c.id === input.userClubId);
-    if (old) old.lineup = null;
+    if (old) leaveClub(old);
+    const rounds = state.leagues[review.user!.divisionIndex]!.rounds.length;
+    state.career = [...(state.career ?? []), { season: input.season, round: rounds, fromId: input.userClubId!, toId: jobClubId!, reason: fired ? "fired" : "offer" }];
   }
   // Paises AC 30: after a sacking both clubs go through the turn as AI clubs (renewals and the
   // academy); the manager takes the new club only after it.
-  const userId = fired && jobClubId ? jobClubId : state.userClubId;
-  const managed = fired ? null : userId;
+  const userId = moved ? jobClubId! : state.userClubId;
+  const managed = moved ? null : userId;
   // Treino-evolucao AC 17: «Antes» is the rating at the start of the season, before its log.
   const seasonStart = (p: Player) => p.rating - (p.ratingLog ?? []).reduce((sum, step) => sum + step.delta, 0);
   const userBefore = new Map((allClubs(state).find((c) => c.id === userId)?.players ?? []).map((p) => [p.id, seasonStart(p)]));
@@ -269,8 +276,8 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
   }
 
   const user = allClubs(state).find((c) => c.id === userId);
-  if (user) user.lineup = autoLineup(user, (!fired && user.lineup?.formation) || AI_FORMATION);
-  if (user && !fired && input.leagues.length) {
+  if (user) user.lineup = autoLineup(user, (!moved && user.lineup?.formation) || AI_FORMATION);
+  if (user && !moved && input.leagues.length) {
     const before = allClubs(input).find((c) => c.id === userId)?.lineup;
     if (before && user.lineup) user.lineup = { ...user.lineup, posture: before.posture };
   }
@@ -284,6 +291,9 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
 
   state.season = season;
   state.boardGoal = userBoardGoal(state);
+  // Carreira-dinamica: the board starts the season patient.
+  state.boardWarnings = 0;
+  delete state.pendingJob;
   const advance = createRng(input.rngState);
   advance.next();
   state.rngState = advance.getState();

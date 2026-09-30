@@ -317,6 +317,30 @@ export interface GameState {
    * and gone once it closes. Present when the game opens = the date is played to its end first.
    */
   pendingLive?: true;
+  /**
+   * Door 1 (carreira-dinamica): consecutive league rounds in the board's firing zone, counted from
+   * round 10 to the fourth-last; absent = 0.
+   */
+  boardWarnings?: number;
+  /** Door 1 (carreira-dinamica): job offers waiting for an answer; `fired` must be answered. */
+  pendingJob?: PendingJob;
+  /** Door 1 (carreira-dinamica): the manager's club changes, oldest first, never rewritten; absent = none. */
+  career?: CareerMove[];
+}
+
+/** Door 1 (carreira-dinamica): offers the user must (`fired`) or may (`offer`) take. Never the user's club. */
+export interface PendingJob {
+  reason: "fired" | "offer";
+  clubIds: string[];
+}
+
+/** Door 1 (carreira-dinamica): `round` is the league round that had just closed; at the turn, the league's number of rounds. */
+export interface CareerMove {
+  season: number;
+  round: number;
+  fromId: string;
+  toId: string;
+  reason: "fired" | "offer";
 }
 
 export type MatchEventType =

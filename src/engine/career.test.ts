@@ -216,6 +216,13 @@ describe("trocar de clube no meio da temporada (carreira-dinamica)", () => {
     const fifth = takeJob(s, table[4]!);
     if (!fifth.ok) throw new Error("refused");
     expect(fifth.state.boardGoal).toBe(12);
+
+    // AC 10: an offer taken mid-season is recorded with its own reason.
+    const offered = copy(s);
+    offered.pendingJob = { reason: "offer", clubIds: [table[4]!] };
+    const moved = takeJob(offered, table[4]!);
+    if (!moved.ok) throw new Error("refused");
+    expect(moved.state.career).toEqual([{ season: 2, round: 13, fromId: table[10], toId: table[4], reason: "offer" }]);
   });
 
   test("assumir clube fora da lista", () => {

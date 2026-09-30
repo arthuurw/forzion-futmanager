@@ -160,7 +160,7 @@ Proof: `npm run check:layout`
 | doors (2) | door 1 C9, C16, C19 · door 2 C12 | - |
 
 - Nenhum check afirma mais do que o caso que a prova exercita.
-- C20 mede a tela `job` duas vezes: quando a seed a alcança no meio da temporada (a seed 1 alcança) e sempre no fim, por um save com `pendingJob` fired gravado no IndexedDB e reaberto por «Continuar»; a tela `job` entrou na lista de telas obrigatórias do script (15).
+- C20 mede a tela `job` uma vez, na primeira em que aparece: no meio da temporada quando a seed a alcança (a seed 1 alcança), senão pelo save com `pendingJob` fired gravado no IndexedDB e reaberto por «Continuar», que garante a aparição. Depois do Verifier (round 1): o painel de proposta, quando aparece na volta da temporada, é medido na Rodada (`roundOffer`) e recusado por «Recusar»; e um save com `pendingJob` offer e `boardWarnings` 3 reabre o Elenco com o painel e o aviso na tela, medido sempre (`squadOffer`). O script exige 16 telas.
 
 ## Superseded checks of earlier features
 

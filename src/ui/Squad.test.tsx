@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { playDate } from "../engine/season";
@@ -567,7 +567,8 @@ describe("carreira no Elenco (carreira-dinamica)", () => {
     const dialog = screen.getByRole("dialog", { name: "Proposta de emprego" });
     expect(within(dialog).getAllByRole("button", { name: /^Aceitar/ })).toHaveLength(2);
     await user.click(within(dialog).getByRole("button", { name: "Recusar" }));
-    expect(screen.queryByRole("dialog", { name: "Proposta de emprego" })).not.toBeInTheDocument();
+    // The panel goes once the save is written: wait for it.
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Proposta de emprego" })).not.toBeInTheDocument());
     let saved = ((await loadGame()) as { state: GameState }).state;
     expect(saved.pendingJob).toBeUndefined();
     expect(saved.userClubId).toBe(me);
@@ -577,8 +578,8 @@ describe("carreira no Elenco (carreira-dinamica)", () => {
     useGame.setState({ phase: "squad", game, hasSave: true });
     render(<App />);
     await user.click(screen.getAllByRole("button", { name: /^Aceitar/ })[1]!);
+    expect(await screen.findByRole("heading", { name: b!.name })).toBeInTheDocument();
     saved = ((await loadGame()) as { state: GameState }).state;
     expect(saved.userClubId).toBe(b!.id);
-    expect(await screen.findByRole("heading", { name: b!.name })).toBeInTheDocument();
   });
 });

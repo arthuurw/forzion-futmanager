@@ -5,7 +5,7 @@ import type { GameState, MatchEvent } from "./engine/types";
 import { TAB_LOCK, useGame, userClub, type GameStore } from "./store";
 import { Home } from "./ui/Home";
 import { makeMatch, matchSeed, roundSnapshot, runToEnd, sideFor, startRound, step, userMatch, type LiveRound } from "./engine/live";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { Banner } from "./ui/Banner";
 import userEvent from "@testing-library/user-event";
@@ -893,7 +893,8 @@ describe("carreira na store (carreira-dinamica)", () => {
     render(createElement(App));
     const user = userEvent.setup();
     await user.click(screen.getAllByRole("button", { name: "Assumir" })[1]!);
-    expect(useGame.getState().phase).toBe("squad");
+    // The phase changes once the save is written (AC 15 of the core): wait for it.
+    await waitFor(() => expect(useGame.getState().phase).toBe("squad"));
     const saved = ((await loadGame()) as { state: GameState }).state;
     expect(saved.userClubId).toBe(others[1]);
     expect(saved.pendingJob).toBeUndefined();

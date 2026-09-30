@@ -162,8 +162,8 @@ function problems(screen, m) {
 const fmt = (r) => `${Math.round(r.left)},${Math.round(r.top)}-${Math.round(r.right)},${Math.round(r.bottom)}`;
 
 /** The seed of the game in the page's save, read back from IndexedDB. */
-/** Carreira-dinamica C20: the saved game's manager is fired, with 3 other clubs as offers. */
-const FIRE_IN_SAVE = `new Promise((resolve) => {
+/** Carreira-dinamica C20: writes `pendingJob` (3 other clubs) and `boardWarnings` into the saved game. */
+const jobInSave = (reason, warnings) => `new Promise((resolve) => {
   const open = indexedDB.open("forzion-futmanager");
   open.onerror = () => resolve(false);
   open.onsuccess = () => {
@@ -174,7 +174,8 @@ const FIRE_IN_SAVE = `new Promise((resolve) => {
     get.onsuccess = () => {
       const s = get.result;
       const ids = s.leagues.flatMap((l) => l.clubs.map((c) => c.id)).filter((id) => id !== s.userClubId).slice(0, 3);
-      s.pendingJob = { reason: "fired", clubIds: ids };
+      s.pendingJob = { reason: "${reason}", clubIds: ids };
+      s.boardWarnings = ${warnings};
       store.put(s, "slot-1");
     };
     tx.oncomplete = () => { db.close(); resolve(true); };
@@ -332,6 +333,12 @@ async function run({ build, inject, seed }) {
         continue;
       }
       if (state === "round" && !measured.has("round")) await measure("round");
+      // Carreira-dinamica C20: an offer of a better club is measured once on the round and turned down.
+      if (await js("!!document.querySelector('[role=dialog][aria-label=\"Proposta de emprego\"]')")) {
+        if (state === "round" && !measured.has("roundOffer")) await measure("roundOffer");
+        await click("Recusar");
+        await wait("proposta recusada", "!document.querySelector('[role=dialog][aria-label=\"Proposta de emprego\"]')");
+      }
       if (state === "round" && !(await js("__lc.enabled('Jogar rodada')"))) {
         await click("Escalação");
         await wait("elenco", "__lc.enabled('Mercado')");
@@ -360,7 +367,7 @@ async function run({ build, inject, seed }) {
     await click("Próxima temporada");
     await wait("nova temporada", "__lc.h1() === 'Nova temporada'", 30000);
     await measure("newSeason");
-    if (!(await js(FIRE_IN_SAVE))) throw new Error("save not fired");
+    if (!(await js(jobInSave("fired", 0)))) throw new Error("save not fired");
 
     // Lancamento AC 27: reloaded with a save, the title menu has its 5 buttons; then «Sobre».
     await page.send("Page.navigate", { url: base });
@@ -379,6 +386,17 @@ async function run({ build, inject, seed }) {
     if (!measured.has("job")) await measure("job");
     await click("Assumir");
     await wait("elenco do clube novo", "__lc.enabled('Mercado')");
+    // Carreira-dinamica C20: the squad with an offer panel and the board's warning, both on screen at once.
+    if (!(await js(jobInSave("offer", 3)))) throw new Error("save without offer");
+    await page.send("Page.navigate", { url: base });
+    await wait("página recarregada", "document.readyState === 'complete' && !!window.__lc === false");
+    await js(PAGE_HELPERS);
+    await wait("tela inicial com save", "__lc.enabled('Continuar')");
+    await click("Continuar");
+    await wait("elenco com proposta", "__lc.enabled('Recusar') && document.body.textContent.includes('Aviso da diretoria (3/3)')");
+    await measure("squadOffer");
+    await click("Recusar");
+    await wait("proposta recusada", "!document.querySelector('[role=dialog][aria-label=\"Proposta de emprego\"]')");
   } catch (e) {
     console.log(`ERRO ${e.message}`);
     failures.push("erro");
@@ -399,7 +417,7 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -418,7 +436,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 15 telas cabem em 400 × 700 px");
+  console.log("layout: as 16 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

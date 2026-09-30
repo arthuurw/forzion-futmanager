@@ -277,7 +277,7 @@ describe("propostas na virada (carreira-dinamica)", () => {
       return { game, me, offers: reputationOffers(game, 38) };
     };
     const { game, me, offers } = setup();
-    expect(offers.length).toBeGreaterThan(0);
+    expect(offers).toHaveLength(2);
     const user = userEvent.setup();
     useGame.setState({ phase: "end", game, hasSave: true });
     const { unmount } = render(<App />);

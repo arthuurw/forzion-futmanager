@@ -56,6 +56,7 @@ export const REFUSAL_TEXT: Record<SubRefusal, string> = {
   sent_off: "Jogador expulso não pode ser substituído",
   returning: "Jogador que saiu não pode voltar",
   not_on_bench: "Escolha um reserva disponível",
+  not_vacant: "Escolha a vaga de quem sai ou a de um expulso",
   no_match: "Seu time não joga nesta rodada",
 };
 
@@ -173,7 +174,8 @@ export interface GameStore {
   resume(): void;
   setSpeed(speed: Speed): void;
   skipToEnd(): Promise<void>;
-  substitute(slot: number, inId: string): void;
+  /** Posicao-na-substituicao: `target` is where the player coming on plays; the slot of who leaves by default. */
+  substitute(slot: number, inId: string, target?: number): void;
   changeLiveFormation(formation: FormationName): void;
   changeLivePosture(posture: Posture): void;
   goToMarket(): void;
@@ -605,9 +607,9 @@ export const useGame = create<GameStore>()((set, get) => {
       await finishLive().catch((e: unknown) => get().crash(e));
     },
 
-    substitute(slot, inId) {
+    substitute(slot, inId, target) {
       decide((live, clubId) => {
-        const r = substitute(live, clubId, slot, inId);
+        const r = substitute(live, clubId, slot, inId, target);
         return r.ok ? r.live : { refused: r.reason };
       });
     },

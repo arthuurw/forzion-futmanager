@@ -19,7 +19,7 @@ Lições aplicadas: L-003 (pela store e pela tela), L-005 (recusas em tabela), L
 
 ### S1 - Quem entra pode ocupar a vaga do expulso · 5 files · 90 KB · ~23k
 
-**C1** - `substitute(live, clubId, slot, inId, target)` com um zagueiro expulso na vaga 2 de um 4-4-2, saindo o atacante da vaga 9 e entrando um zagueiro do banco com `target` 2:
+**C1** - ✓ `substitute(live, clubId, slot, inId, target)` com um zagueiro expulso na vaga 2 de um 4-4-2, saindo o atacante da vaga 9 e entrando um zagueiro do banco com `target` 2:
 - `slots[2]` = quem entra; `slots[9]` = null;
 - `vacancy[9]` = `{ why: "red", playerId: <expulso> }`, e `vacancy[2]` fica ausente;
 - `subsUsed` sobe 1; `subbedOff` contém o atacante; o banco perde quem entrou;
@@ -27,10 +27,10 @@ Lições aplicadas: L-003 (pela store e pela tela), L-005 (recusas em tabela), L
 - 10 jogadores em campo antes e depois.
 Proof: `npx vitest run src/engine/live.test.ts -t "entra na vaga do expulso"`
 
-**C2** - Sem `target`, ou com `target` igual a `slot`, `substitute` põe quem entra na vaga de quem sai, como antes (o mesmo estado nos dois casos, `slots[9]` = quem entra, vaga 2 ainda vazia com a marca vermelha).
+**C2** - ✓ Sem `target`, ou com `target` igual a `slot`, `substitute` põe quem entra na vaga de quem sai, como antes (o mesmo estado nos dois casos, `slots[9]` = quem entra, vaga 2 ainda vazia com a marca vermelha).
 Proof: `npx vitest run src/engine/live.test.ts -t "posição padrão é a de quem sai"`
 
-**C3** - Recusas, com o `live` devolvido igual, em tabela:
+**C3** - ✓ Recusas, com o `live` devolvido igual, em tabela:
 - `target` numa vaga ocupada → `not_vacant`;
 - `target` numa vaga vazia por lesão → `not_vacant`;
 - `target` fora do time (−1 e 11) → `not_vacant`;
@@ -39,20 +39,20 @@ Proof: `npx vitest run src/engine/live.test.ts -t "posição padrão é a de que
 - quem já saiu → `returning`, como antes.
 Proof: `npx vitest run src/engine/live.test.ts -t "posição na substituição: recusas"`
 
-**C4** - A store repassa a posição: `useGame.getState().substitute(9, <zagueiro>, 2)` com o relógio parado deixa o zagueiro na vaga 2 do `live`. Uma recusa `not_vacant` mostra «Escolha a vaga de quem sai ou a de um expulso».
+**C4** - ✓ A store repassa a posição: `useGame.getState().substitute(9, <zagueiro>, 2)` com o relógio parado deixa o zagueiro na vaga 2 do `live`. Uma recusa `not_vacant` mostra «Escolha a vaga de quem sai ou a de um expulso».
 Proof: `npx vitest run src/store.test.ts -t "substituição com posição"`
 
-**C5** - Na tela ao vivo, parada depois de um zagueiro expulso (o caso do print):
+**C5** - ✓ Na tela ao vivo, parada depois de um zagueiro expulso (o caso do print):
 - aparece o campo «Posição» com 2 opções, na ordem «no lugar de <atacante> (ATA)» e «na vaga de <expulso> (ZAG, expulso)»;
 - escolhendo Sai = o atacante, Entra = o zagueiro e Posição = a vaga do expulso, «Substituir» deixa em «Em campo» a linha ZAG com o zagueiro, sem «fora de posição»;
 - a linha ATA mostra «<expulso> (expulso)»;
 - aparece «Substituições: 1/5».
 Proof: `npx vitest run src/ui/Live.test.tsx -t "substituição na vaga do expulso"`
 
-**C6** - Sem expulsão no time, a tela ao vivo parada não mostra o campo «Posição».
+**C6** - ✓ Sem expulsão no time, a tela ao vivo parada não mostra o campo «Posição».
 Proof: `npx vitest run src/ui/Live.test.tsx -t "sem expulso não há posição"`
 
-**C7** - `npm run check:layout` sai 0 com as 16 telas (AD-010). O campo «Posição» só aparece com um expulso, então a tela `live` medida não o mostra. A linha de decisões continua a mesma quando não há expulso.
+**C7** - ✓ `npm run check:layout` sai 0 com as 16 telas (AD-010). O campo «Posição» só aparece com um expulso, então a tela `live` medida não o mostra. A linha de decisões continua a mesma quando não há expulso.
 Proof: `npm run check:layout`
 
 ## Coverage
@@ -82,3 +82,4 @@ Proof: `npm run check:layout`
 
 - S1 ≈ `live.ts` 30 KB + `store.ts` 28 KB + `Live.tsx` 16 KB + testes (`live.test.ts` 34 KB, `Live.test.tsx` ~30 KB, trecho de `store.test.ts`) ≈ 150 KB / 4 ≈ 38k, abaixo do budget de 150k - one builder
 - Mechanism: one builder
+- **Boundary:** C1-C7 fechados no commit da mudança; `npx vitest run` 607/607 em duas rodadas seguidas (uma rodada anterior, com a máquina sem memória, falhou em 4 testes, entre eles C5, que passou isolado 4 de 4); `npm run check:layout` 16 telas

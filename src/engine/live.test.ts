@@ -806,3 +806,84 @@ describe("treino na partida (treino-evolucao)", () => {
     expect(found).toBe(true);
   });
 });
+
+describe("posição na substituição (posicao-na-substituicao)", () => {
+  /** Minute 10 of a 4-4-2 with the defender of slot 2 sent off; 10 on the pitch. */
+  function redAt2() {
+    const state = game(2);
+    const live = stepTo(startRound(state), 10);
+    const side = userSide(live);
+    expect(side.formation).toBe("4-4-2");
+    expect(side.slots.filter(Boolean)).toHaveLength(11);
+    expect(side.slotPos[2]).toBe("DF");
+    expect(side.slotPos[9]).toBe("FW");
+    const expelled = side.slots[2]!;
+    side.slots[2] = null;
+    side.vacancy[2] = { why: "red", playerId: expelled };
+    side.sentOff.push(expelled);
+    const defender = side.bench.find((id) => live.players[id]!.position === "DF")!;
+    expect(defender).toBeDefined();
+    return { state, live, expelled, defender, striker: side.slots[9]! };
+  }
+
+  test("entra na vaga do expulso", () => {
+    // C1: the defender coming on takes the red card's slot; the hole moves to the striker's slot.
+    const { state, live, expelled, defender, striker } = redAt2();
+    const after = userSide(ok(substitute(live, state.userClubId!, 9, defender, 2)));
+    expect(after.slots[2]).toBe(defender);
+    expect(after.slots[9]).toBeNull();
+    expect(after.vacancy[9]).toEqual({ why: "red", playerId: expelled });
+    expect(after.vacancy[2]).toBeUndefined();
+    expect(after.subsUsed).toBe(userSide(live).subsUsed + 1);
+    expect(after.subbedOff).toContain(striker);
+    expect(after.bench).not.toContain(defender);
+    expect(userMatch(ok(substitute(live, state.userClubId!, 9, defender, 2)))!.events.at(-1)).toMatchObject({
+      type: "substitution",
+      playerId: striker,
+      playerInId: defender,
+    });
+    expect(after.slots.filter(Boolean)).toHaveLength(10);
+  });
+
+  test("posição padrão é a de quem sai", () => {
+    // C2: without a target, or with the slot of who leaves, nothing changes from before.
+    const { state, live, expelled, defender } = redAt2();
+    const plain = ok(substitute(live, state.userClubId!, 9, defender));
+    const same = ok(substitute(live, state.userClubId!, 9, defender, 9));
+    expect(same).toEqual(plain);
+    const side = userSide(plain);
+    expect(side.slots[9]).toBe(defender);
+    expect(side.slots[2]).toBeNull();
+    expect(side.vacancy[2]).toEqual({ why: "red", playerId: expelled });
+  });
+
+  test("posição na substituição: recusas", () => {
+    // C3 (L-005, L-007): every refusal returns the reason and leaves the round as it was.
+    const { state, live, defender } = redAt2();
+    const me = state.userClubId!;
+    const injured = structuredClone(live);
+    const injuredSide = userSide(injured);
+    const hurt = injuredSide.slots[6]!;
+    injuredSide.slots[6] = null;
+    injuredSide.vacancy[6] = { why: "injury", playerId: hurt };
+    const full = structuredClone(live);
+    const fullSide = userSide(full);
+    fullSide.subsUsed = MAX_SUBS;
+    const back = structuredClone(live);
+    userSide(back).subbedOff.push(defender);
+    const rows: [string, LiveRound, number, string, number, string][] = [
+      ["vaga ocupada", live, 9, defender, 5, "not_vacant"],
+      ["vaga de lesão", injured, 9, defender, 6, "not_vacant"],
+      ["fora do time (-1)", live, 9, defender, -1, "not_vacant"],
+      ["fora do time (11)", live, 9, defender, 11, "not_vacant"],
+      ["sai o expulso", live, 2, defender, 2, "sent_off"],
+      ["limite", full, 9, defender, 2, "limit"],
+      ["quem já saiu", back, 9, defender, 2, "returning"],
+    ];
+    for (const [name, round, slot, inId, target, reason] of rows) {
+      const before = structuredClone(round);
+      expect(substitute(round, me, slot, inId, target), name).toEqual({ ok: false, reason });
+      expect(round, name).toEqual(before);
+    }
+  });
+});

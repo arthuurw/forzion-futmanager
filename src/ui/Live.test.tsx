@@ -697,3 +697,53 @@ describe("parada obrigatória (parada-obrigatoria)", () => {
     expect(screen.getByRole("tab", { name: "Seu time" })).toHaveAttribute("aria-selected", "true");
   });
 });
+
+describe("posição na substituição (posicao-na-substituicao)", () => {
+  /** The live screen paused at minute 10 of round 1; with `red`, the defender of slot 2 was sent off. */
+  function paused(red: boolean) {
+    const game = seededGame(4);
+    for (const p of game.leagues[0]!.clubs[0]!.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+    let live = startRound(game);
+    while (live.minute < 10) live = step(live);
+    const side = userSideOf(live);
+    expect(side.slots.filter(Boolean)).toHaveLength(11);
+    const expelled = side.slots[2]!;
+    if (red) {
+      side.slots[2] = null;
+      side.vacancy[2] = { why: "red", playerId: expelled };
+      side.sentOff.push(expelled);
+    }
+    useGame.setState({ phase: "live", game, hasSave: true, live, clock: "paused", liveStop: null });
+    render(<Live />);
+    const name = (id: string) => live.players[id]!.name;
+    const defender = side.bench.find((id) => live.players[id]!.position === "DF")!;
+    return { expelled: name(expelled), striker: name(side.slots[9]!), defender, defenderName: name(defender) };
+  }
+
+  test("substituição na vaga do expulso", async () => {
+    // C5 (L-008): the case of the author's print; the defender plays in defence, not out of position.
+    const user = userEvent.setup();
+    const { expelled, striker, defender, defenderName } = paused(true);
+    const team = screen.getByRole("tabpanel", { name: "Seu time" });
+    await user.selectOptions(within(team).getByLabelText("Sai"), "9");
+    const posicao = within(team).getByLabelText("Posição") as HTMLSelectElement;
+    expect([...posicao.options].map((o) => o.textContent)).toEqual([`no lugar de ${striker} (ATA)`, `na vaga de ${expelled} (ZAG, expulso)`]);
+    await user.selectOptions(within(team).getByLabelText("Entra"), defender);
+    await user.selectOptions(posicao, "2");
+    await user.click(within(team).getByRole("button", { name: "Substituir" }));
+    const rows = within(within(team).getByRole("table", { name: "Em campo" })).getAllByRole("row");
+    expect(rows[2]!.textContent).toContain("ZAG");
+    expect(rows[2]!.textContent).toContain(defenderName);
+    expect(rows[2]!.textContent).not.toContain("fora de posição");
+    expect(rows[9]!.textContent).toBe(`ATA${expelled} (expulso)`);
+    expect(within(team).getByText("Substituições: 1/5")).toBeInTheDocument();
+  });
+
+  test("sem expulso não há posição", () => {
+    // C6: without a red card the «Posição» field is not there.
+    paused(false);
+    const team = screen.getByRole("tabpanel", { name: "Seu time" });
+    expect(within(team).getByLabelText("Sai")).toBeInTheDocument();
+    expect(within(team).queryByLabelText("Posição")).not.toBeInTheDocument();
+  });
+});

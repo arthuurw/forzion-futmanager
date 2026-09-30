@@ -46,6 +46,8 @@ export function Live() {
   const [tab, setTab] = useState<LiveTab>("match");
   const [outSlot, setOutSlot] = useState(0);
   const [inId, setInId] = useState("");
+  // Posicao-na-substituicao: where the player coming on plays; null = the slot of who leaves.
+  const [target, setTarget] = useState<number | null>(null);
   const [flash, setFlash] = useState<Record<string, true>>({});
   const scores = useRef<Record<string, string>>({});
   const flashTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -161,6 +163,13 @@ export function Live() {
   const player = (id: string) => live.players[id]!;
   const benchOptions = side.bench.map((id) => player(id));
   const chosenIn = side.bench.includes(inId) ? inId : (side.bench[0] ?? "");
+  // Posicao-na-substituicao C5, C6: the empty slots of players sent off, and who is in a slot.
+  const redSlots = side.slots.flatMap((id, slot) => (!id && side.vacancy[slot]?.why === "red" ? [slot] : []));
+  const chosenTarget = target !== null && redSlots.includes(target) ? target : outSlot;
+  const slotName = (slot: number) => {
+    const id = side.slots[slot] ?? side.vacancy[slot]?.playerId;
+    return id ? player(id).name : "Vaga";
+  };
   const forced = forcedVacancy(live);
   // Parada-obrigatoria C10: after a red card nothing forces, and going on is a decision too.
   const goOn = liveStop?.some((e) => e.type === "red") && !forced ? `Seguir com ${side.slots.filter(Boolean).length}` : "Continuar";
@@ -310,7 +319,15 @@ export function Live() {
               </div>
             )}
             <div className="decision-row">
-              <select aria-label="Sai" disabled={!stopped} value={outSlot} onChange={(e) => setOutSlot(Number(e.target.value))}>
+              <select
+                aria-label="Sai"
+                disabled={!stopped}
+                value={outSlot}
+                onChange={(e) => {
+                  setOutSlot(Number(e.target.value));
+                  setTarget(null);
+                }}
+              >
                 {side.slots.map((id, slot) => {
                   const v = side.vacancy[slot];
                   const label = id ? player(id).name : v ? `${player(v.playerId).name} (${v.why === "red" ? "expulso" : "lesionado"})` : "Vaga";
@@ -328,10 +345,26 @@ export function Live() {
                   </option>
                 ))}
               </select>
-              <button disabled={!stopped || !chosenIn} onClick={() => substitute(outSlot, chosenIn)}>
+              <button disabled={!stopped || !chosenIn} onClick={() => substitute(outSlot, chosenIn, chosenTarget)}>
                 Substituir
               </button>
             </div>
+            {redSlots.length > 0 && (
+              <div className="decision-row">
+                <select aria-label="Posição" disabled={!stopped} value={chosenTarget} onChange={(e) => setTarget(Number(e.target.value))}>
+                  <option value={outSlot}>
+                    no lugar de {slotName(outSlot)} ({POSITION_LABEL[side.slotPos[outSlot]!]})
+                  </option>
+                  {redSlots
+                    .filter((slot) => slot !== outSlot)
+                    .map((slot) => (
+                      <option key={slot} value={slot}>
+                        na vaga de {slotName(slot)} ({POSITION_LABEL[side.slotPos[slot]!]}, expulso)
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
             <div className="decision-row">
               <select aria-label="Formação" disabled={!stopped} value={side.formation ?? ""} onChange={(e) => changeLiveFormation(e.target.value as FormationName)}>
                 {FORMATION_NAMES.map((f) => (

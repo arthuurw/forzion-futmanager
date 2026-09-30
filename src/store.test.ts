@@ -902,3 +902,27 @@ describe("carreira na store (carreira-dinamica)", () => {
     expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
   });
 });
+
+describe("posição na substituição (posicao-na-substituicao)", () => {
+  test("substituição com posição", () => {
+    // C4 (L-003, L-008): the store passes the position on, and a refusal shows its line.
+    const game = seededGame(4);
+    let live = startRound(game);
+    while (live.minute < 10) live = step(live);
+    const side = userSideOf(live);
+    const expelled = side.slots[2]!;
+    side.slots[2] = null;
+    side.vacancy[2] = { why: "red", playerId: expelled };
+    side.sentOff.push(expelled);
+    const defender = side.bench.find((id) => live.players[id]!.position === "DF")!;
+    useGame.setState({ phase: "live", game, hasSave: true, live, clock: "paused", finishing: false, liveStop: null });
+    useGame.getState().substitute(9, defender, 5);
+    expect(useGame.getState().liveMessage).toBe("Escolha a vaga de quem sai ou a de um expulso");
+    expect(useGame.getState().live).toBe(live);
+    useGame.getState().substitute(9, defender, 2);
+    const after = userSideOf(useGame.getState().live!);
+    expect(after.slots[2]).toBe(defender);
+    expect(after.slots[9]).toBeNull();
+    expect(useGame.getState().liveMessage).toBeNull();
+  });
+});

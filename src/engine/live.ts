@@ -645,11 +645,15 @@ export function forcedVacancy(live: LiveRound): { slot: number; why: Vacancy } |
 
 // ---------- the user's decisions ----------
 
-export type SubRefusal = "limit" | "sent_off" | "returning" | "not_on_bench" | "no_match";
+export type SubRefusal = "limit" | "sent_off" | "returning" | "not_on_bench" | "no_match" | "not_vacant";
 export type Decision<T> = { ok: true; live: T } | { ok: false; reason: SubRefusal };
 
-/** Puts `inId` into `slot` of the user's side. Applies from the next minute. */
-export function substitute(input: LiveRound, clubId: string, slot: number, inId: string): Decision<LiveRound> {
+/**
+ * Takes the player of `slot` off and brings `inId` on, in `target`: the same slot by default, or
+ * the empty slot of a player sent off (posicao-na-substituicao), which then moves to `slot`.
+ * Applies from the next minute.
+ */
+export function substitute(input: LiveRound, clubId: string, slot: number, inId: string, target = slot): Decision<LiveRound> {
   const live = clone(input);
   const m = live.matches.find((x) => sideOf(x, clubId));
   const side = m ? sideOf(m, clubId) : null;
@@ -658,6 +662,17 @@ export function substitute(input: LiveRound, clubId: string, slot: number, inId:
   if (side.vacancy[slot]?.why === "red") return { ok: false, reason: "sent_off" };
   if (side.subbedOff.includes(inId)) return { ok: false, reason: "returning" };
   if (!side.bench.includes(inId)) return { ok: false, reason: "not_on_bench" };
+  if (target !== slot) {
+    // Posicao-na-substituicao C1, C3: only a red card's empty slot takes the player coming on.
+    const outId = side.slots[slot];
+    if (!outId || side.slots[target] !== null || side.vacancy[target]?.why !== "red") return { ok: false, reason: "not_vacant" };
+    side.vacancy[slot] = side.vacancy[target]!;
+    delete side.vacancy[target];
+    side.slots[slot] = null;
+    side.slots[target] = outId;
+    bringOn(m, side, target, inId, live.minute, live.players);
+    return { ok: true, live };
+  }
   // Parada-obrigatoria C3: with the goal empty after a red card, a keeper brought on for an
   // outfield player goes in goal, and the outfield slot is the one left empty.
   const goal = side.slots.findIndex((id, i) => !id && side.slotPos[i] === "GK" && side.vacancy[i]?.why === "red");

@@ -9,7 +9,7 @@ Depois de uma expulsão, a vaga do expulso fica presa ao setor dele. A substitui
 
 Com esta mudança, a substituição ganha o campo «Posição». O padrão é a vaga de quem sai. A outra opção é a vaga de um expulso: quem entra ocupa essa vaga, e o buraco passa para a vaga de quem saiu. O time continua com 10, e a substituição conta como qualquer outra. Ninguém entra direto na vaga de um expulso sem que alguém saia.
 
-7 checks in 1 slice · 0 one-way doors · 0 open
+10 checks in 2 slices · 0 one-way doors · 0 open
 
 Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`); layout `npm run check:layout`.
 
@@ -55,6 +55,17 @@ Proof: `npx vitest run src/ui/Live.test.tsx -t "sem expulso não há posição"`
 **C7** - ✓ `npm run check:layout` sai 0 com as 16 telas (AD-010). O campo «Posição» só aparece com um expulso, então a tela `live` medida não o mostra. A linha de decisões continua a mesma quando não há expulso.
 Proof: `npm run check:layout`
 
+### S2 - A posição escolhida sobrevive à troca de formação · achado do Verifier (round 1)
+
+**C8** - Depois de `substitute(live, clubId, 9, <zagueiro>, 2)` com o zagueiro da vaga 2 expulso, `changeFormation` para 4-4-2, 4-5-1, 4-3-3 e 3-5-2 (tabela) deixa a vaga vazia na última vaga FW da formação, com a marca do expulso. Os 4 zagueiros ficam em vagas DF no 4-4-2, no 4-5-1 e no 4-3-3. No 3-5-2, que só tem 3 vagas DF, ficam 3 zagueiros na zaga. No 4-5-1, a única vaga FW é a vazia, e o atacante que sobrou joga no meio.
+Proof: `npx vitest run src/engine/live.test.ts -t "formação depois da troca mantém a posição"`
+
+**C9** - Com «Sai» numa vaga vazia (a do expulso), o campo «Posição» só oferece «no lugar de <expulso> (ZAG)», sem a vaga de expulso nenhum.
+Proof: `npx vitest run src/ui/Live.test.tsx -t "posição sem quem sai"`
+
+**C10** - Com o goleiro expulso e um goleiro escolhido em «Entra» para um jogador de linha, o campo «Posição» já vem em «na vaga de <goleiro expulso> (GOL, expulso)». «Substituir» põe o goleiro reserva no gol, como a regra da parada obrigatória já fazia.
+Proof: `npx vitest run src/ui/Live.test.tsx -t "goleiro reserva vai para o gol"`
+
 ## Coverage
 
 | Set (size) | Member -> proof | Unproven |
@@ -63,8 +74,17 @@ Proof: `npm run check:layout`
 | recusas (6) | ocupada C3 · lesão C3 · fora do time C3 · sai o expulso C3 · limite C3 · quem já saiu C3 | - |
 | opções do campo «Posição» (2) | de quem sai C5 · do expulso C5 | - |
 | presença do campo (2) | com expulso C5 · sem expulso C6 | - |
+| formação depois da troca (4) | C8, table-driven over all 4 | - |
+| opções com «Sai» vazio (1) | C9 | - |
+| goleiro que entra (1) | C10 | - |
 
 - C7 não mede a tela ao vivo com o campo «Posição» visível, porque o layout não consegue forçar uma expulsão. O campo fica numa linha de decisões própria, abaixo de «Sai» e «Entra», com um select só. A tela `live` continua medida sem ele.
+
+## Amended after verification
+
+| Check | What changes | Why |
+| --- | --- | --- |
+| C1 (Verifier round 1) | a vaga movida guarda também o setor de onde ela veio: `vacancy[9]` = `{ why: "red", playerId: <expulso>, pos: "FW" }` | sem o setor, `changeFormation` devolvia o buraco para a zaga (C8); a asserção fica mais estrita, não mais frouxa |
 
 ## Swept
 
@@ -75,7 +95,7 @@ Proof: `npm run check:layout`
 - concurrency: existing - decisões só com o relógio parado (`decide` na store)
 - data lifecycle: n/a - o `live` não é gravado (AD-019)
 - dependency failure: n/a - nada externo
-- state transitions: C1, C2
+- state transitions: C1, C2, C8
 - observability: n/a - jogo offline sem telemetria
 
 ## Handoff

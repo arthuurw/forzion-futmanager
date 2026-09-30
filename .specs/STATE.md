@@ -32,9 +32,9 @@
 ## Handoff
 
 **Feature**: carreira-dinamica verificada (PASS round 2, 20/20, 2c5ab03..24b0b88, profile light); round 1 deu FAIL (C11 e C15 afirmavam antes do save; C20 não media o painel de proposta), corrigido em 24b0b88
-**Where**: commits locais em `main`, ainda não publicados (push/deploy aguardam o autor)
+**Where**: publicado em `main` (deploy do Actions verde de 185290e); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
 **In progress**: nada
-**Next step**: publicar (push em `main` dispara o deploy do Actions) quando o autor autorizar; depois escolher a próxima feature (candidatas: empréstimo de jogadores, vários saves). Pontos fracos não bloqueantes do Verifier: C13, C16 e C17 montam o esperado com `reputationOffers` (fórmula fixada por C12); a Rodada com o aviso da diretoria não é medida pelo layout (o Elenco com aviso e painel é); o `--fail-normal` do selftest do layout não rodou de novo (morto por falta de memória; as execuções quebrada e normal passaram). Fora da feature: `Market.test.tsx` «oferta inválida» estoura 30 s sob carga, já na base 2c5ab03. Reputação: a demissão no meio só pesa na temporada em que acontece (AC 1 aprovado assim)
+**Next step**: escolher a próxima feature (candidatas: empréstimo de jogadores, vários saves). Pontos fracos não bloqueantes do Verifier: C13, C16 e C17 montam o esperado com `reputationOffers` (fórmula fixada por C12); a Rodada com o aviso da diretoria não é medida pelo layout (o Elenco com aviso e painel é); o `--fail-normal` do selftest do layout não rodou de novo (morto por falta de memória; as execuções quebrada e normal passaram). Fora da feature: `Market.test.tsx` «oferta inválida» estoura 30 s sob carga, já na base 2c5ab03. Reputação: a demissão no meio só pesa na temporada em que acontece (AC 1 aprovado assim)
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

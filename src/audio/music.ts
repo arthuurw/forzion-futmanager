@@ -18,6 +18,8 @@ export const PHASE_CONTEXT: Record<Phase, MusicContext> = {
   round: "gestao",
   history: "gestao",
   cup: "gestao",
+  // Carreira-dinamica: the sacking is still the office.
+  job: "gestao",
   end: "fimDeTemporada",
   newSeason: "fimDeTemporada",
   live: "none",

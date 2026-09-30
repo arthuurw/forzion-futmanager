@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { DIVISION_LABEL } from "../engine/board";
+import { managerReputation } from "../engine/career";
 import { findAnyClub, topScorers, userLeague } from "../engine/season";
 import { CONTINENTAL_CUP_ID } from "../engine/cup";
-import type { DivisionRecord, SeasonRecord } from "../engine/types";
+import type { CareerMove, DivisionRecord, SeasonRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
-type HistoryTab = "scorers" | "stats" | "champions";
+type HistoryTab = "scorers" | "stats" | "champions" | "career";
 
 /** Copa-continental AC 21: null for a season closed before the continental cup existed. */
 function continentalChampion(r: SeasonRecord): string | null {
@@ -19,7 +20,16 @@ function scorerText(d: DivisionRecord | undefined): string {
   return s ? `${s.name} (${s.clubName}) · ${s.goals} gols` : "—";
 }
 
-/** AC 39, AC 40: the season's scorers, the squad's numbers and the champions of every season. */
+/** Carreira-dinamica AC 23: one line per club change. */
+function moveText(m: CareerMove, name: (id: string) => string): string {
+  const what = m.reason === "fired" ? `demitido do ${name(m.fromId)}, assumiu o ${name(m.toId)}` : `trocou o ${name(m.fromId)} pelo ${name(m.toId)}`;
+  return `Temporada ${m.season}, rodada ${m.round}: ${what}`;
+}
+
+/**
+ * AC 39, AC 40: the season's scorers, the squad's numbers and the champions of every season;
+ * carreira-dinamica AC 2, AC 23, AC 24: the manager's reputation and club changes.
+ */
 export function History() {
   const game = useGame((s) => s.game);
   const goToSquad = useGame((s) => s.goToSquad);
@@ -54,6 +64,7 @@ export function History() {
             { id: "scorers", label: "Artilharia" },
             { id: "stats", label: "Estatísticas" },
             { id: "champions", label: "Campeões" },
+            { id: "career", label: "Carreira" },
           ]}
         />
       </div>
@@ -181,8 +192,23 @@ export function History() {
             )}
           </section>
         )}
+        {tab === "career" && (
+          <section aria-label="Carreira" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
+            <h2 className="title-bar">Carreira</h2>
+            {(game.career ?? []).length === 0 ? (
+              <p className="empty">Nenhuma troca de clube ainda.</p>
+            ) : (
+              <ol className="fill career-list">
+                {game.career!.map((m, i) => (
+                  <li key={i}>{moveText(m, clubName)}</li>
+                ))}
+              </ol>
+            )}
+          </section>
+        )}
       </div>
       <div className="action-bar">
+        <span className="goal">Reputação: {managerReputation(game)}/100</span>
         <button onClick={goToSquad}>Voltar ao elenco</button>
       </div>
     </div>

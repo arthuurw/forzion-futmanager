@@ -162,6 +162,26 @@ function problems(screen, m) {
 const fmt = (r) => `${Math.round(r.left)},${Math.round(r.top)}-${Math.round(r.right)},${Math.round(r.bottom)}`;
 
 /** The seed of the game in the page's save, read back from IndexedDB. */
+/** Carreira-dinamica C20: the saved game's manager is fired, with 3 other clubs as offers. */
+const FIRE_IN_SAVE = `new Promise((resolve) => {
+  const open = indexedDB.open("forzion-futmanager");
+  open.onerror = () => resolve(false);
+  open.onsuccess = () => {
+    const db = open.result;
+    const tx = db.transaction("saves", "readwrite");
+    const store = tx.objectStore("saves");
+    const get = store.get("slot-1");
+    get.onsuccess = () => {
+      const s = get.result;
+      const ids = s.leagues.flatMap((l) => l.clubs.map((c) => c.id)).filter((id) => id !== s.userClubId).slice(0, 3);
+      s.pendingJob = { reason: "fired", clubIds: ids };
+      store.put(s, "slot-1");
+    };
+    tx.oncomplete = () => { db.close(); resolve(true); };
+    tx.onerror = () => { db.close(); resolve(false); };
+  };
+})`;
+
 const SAVED_SEED = `new Promise((resolve) => {
   const open = indexedDB.open("forzion-futmanager");
   open.onerror = () => resolve(null);
@@ -295,9 +315,16 @@ async function run({ build, inject, seed }) {
       if (steps > 300) throw new Error("a temporada não terminou em 300 passos");
       const state = await wait(
         "próxima tela",
-        `__lc.has('Pular para o fim') ? 'live' : __lc.h1().startsWith('Fim da temporada') ? 'end' : __lc.has('Escalação') ? 'round' : __lc.has('Mercado') ? 'squad' : false`,
+        `__lc.h1() === 'Demitido' ? 'job' : __lc.has('Pular para o fim') ? 'live' : __lc.h1().startsWith('Fim da temporada') ? 'end' : __lc.has('Escalação') ? 'round' : __lc.has('Mercado') ? 'squad' : false`,
       );
       if (state === "end") break;
+      // Carreira-dinamica C20: a sacking mid-season is measured and answered with the first offer.
+      if (state === "job") {
+        if (!measured.has("job")) await measure("job");
+        await click("Assumir");
+        await wait("elenco do clube novo", "__lc.enabled('Mercado')");
+        continue;
+      }
       if (state === "live") {
         if (!measured.has("live")) await measure("live");
         await click("Pular para o fim");
@@ -333,6 +360,7 @@ async function run({ build, inject, seed }) {
     await click("Próxima temporada");
     await wait("nova temporada", "__lc.h1() === 'Nova temporada'", 30000);
     await measure("newSeason");
+    if (!(await js(FIRE_IN_SAVE))) throw new Error("save not fired");
 
     // Lancamento AC 27: reloaded with a save, the title menu has its 5 buttons; then «Sobre».
     await page.send("Page.navigate", { url: base });
@@ -343,6 +371,14 @@ async function run({ build, inject, seed }) {
     await click("Sobre");
     await wait("sobre", "__lc.has('Voltar') && document.querySelector('.about') !== null");
     await measure("about");
+    // Carreira-dinamica C20: the fired save opens on «Demitido»; «Assumir» leads to the new squad.
+    await click("Voltar");
+    await wait("tela inicial com save", "__lc.enabled('Continuar')");
+    await click("Continuar");
+    await wait("demitido", "__lc.h1() === 'Demitido'");
+    if (!measured.has("job")) await measure("job");
+    await click("Assumir");
+    await wait("elenco do clube novo", "__lc.enabled('Mercado')");
   } catch (e) {
     console.log(`ERRO ${e.message}`);
     failures.push("erro");
@@ -363,7 +399,7 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -382,7 +418,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 14 telas cabem em 400 × 700 px");
+  console.log("layout: as 15 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

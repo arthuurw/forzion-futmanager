@@ -60,7 +60,8 @@ describe("música (audio S1, S3)", () => {
   });
 
   test("contexto de cada tela", () => {
-    // C15: the 12 phases; lancamento C31 adds the 13th, «Sobre», on the title music.
+    // C15: the 12 phases; lancamento C31 adds the 13th, «Sobre», on the title music; carreira-dinamica
+    // adds the 14th, «Demitido», on the management music.
     const table: [Phase, string][] = [
       ["home", "abertura"],
       ["chooseClub", "abertura"],
@@ -71,6 +72,7 @@ describe("música (audio S1, S3)", () => {
       ["round", "gestao"],
       ["history", "gestao"],
       ["cup", "gestao"],
+      ["job", "gestao"],
       ["end", "fimDeTemporada"],
       ["newSeason", "fimDeTemporada"],
       ["loading", "none"],

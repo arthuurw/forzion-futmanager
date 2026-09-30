@@ -5,6 +5,7 @@ import { validateLineup } from "../engine/lineup";
 import { gameNarrationContext, narrate } from "../engine/narration";
 import { findAnyClub, userLeague } from "../engine/season";
 import { useGame, userClub } from "../store";
+import { BoardWarning, OfferPanel } from "./Career";
 import { cupPhaseTitle, nextDateLabel, scoreText } from "./Cup";
 import { Flag } from "./Flag";
 import { missingStartersText } from "./lineupText";
@@ -135,9 +136,12 @@ export function Round() {
         )}
       </div>
 
+      <OfferPanel />
+
       <div className="action-bar">
         <span className="matchday">{nextDateLabel(game, league.rounds.length, league.currentRound)}</span>
         <button onClick={goToSquad}>Escalação</button>
+        <BoardWarning />
         {!validation.ok && !over && (
           <p role="status" className="missing">
             {missingStartersText(validation.missing)}

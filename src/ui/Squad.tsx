@@ -6,6 +6,7 @@ import { formationSlots, isAvailableFor, validateLineup } from "../engine/lineup
 import { userLeague } from "../engine/season";
 import { FORMATION_NAMES, POSITIONS, POSTURES, TRAININGS, type FormationName, type Position, type Posture, type RatingStep, type Training } from "../engine/types";
 import { useGame, userClub } from "../store";
+import { BoardWarning, OfferPanel } from "./Career";
 import { FitnessBar, MoraleArrow, StatusBadge } from "./Condition";
 import { nextDateLabel } from "./Cup";
 import { formatMoney } from "./money";
@@ -334,6 +335,8 @@ export function Squad() {
         </div>
       )}
 
+      <OfferPanel />
+
       <div className="action-bar">
         <span className="matchday">{nextDateLabel(game, league.rounds.length, league.currentRound)}</span>
         <span className="goal">Meta: {goalLabel(divisionAt(game.leagues, divisionOf(game, club.id)), game.boardGoal)}</span>
@@ -342,6 +345,7 @@ export function Squad() {
         <button onClick={goToFinance}>Finanças</button>
         <button onClick={goToHistory}>Histórico</button>
         <button onClick={goToCup}>Copa</button>
+        <BoardWarning />
         {message && (
           <p role="status" className="missing">
             {message}

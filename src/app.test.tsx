@@ -265,6 +265,8 @@ describe("duas divisões e várias temporadas", () => {
   test("recarregar no fim mostra o mesmo resumo", async () => {
     const user = userEvent.setup();
     const game = seededGame(24, 3, 38);
+    // Carreira-dinamica (fixture only): the engine played on past a sacking the store would have stopped at.
+    delete game.pendingJob;
     await saveGame(game);
     resetStore();
     render(<App />);

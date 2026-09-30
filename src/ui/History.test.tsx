@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import type { GameState, SeasonRecord } from "../engine/types";
@@ -27,7 +27,8 @@ describe("tela Histórico", () => {
   test("artilharia top 10", async () => {
     const game = seededGame(36, 0, 8);
     const user = await openHistory(game);
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Artilharia", "Estatísticas", "Campeões"]);
+    // Carreira-dinamica (Superseded checks): the fourth tab, «Carreira».
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Artilharia", "Estatísticas", "Campeões", "Carreira"]);
     // Written out (L-004): the Série A's scorers, goals descending, then name.
     const expected = game.leagues[0]!.clubs
       .flatMap((c) => c.players.map((p) => ({ name: p.name, club: c.name, goals: p.seasonGoals })))
@@ -234,5 +235,49 @@ describe("continental no histórico (copa-continental)", () => {
     const bySeason = new Map(cellsOf(table).map((r) => [r[0], r[col]]));
     expect(bySeason.get("2")).toBe(a.clubs[5]!.name);
     expect(bySeason.get("1")).toBe("-");
+  });
+});
+
+describe("carreira no Histórico (carreira-dinamica)", () => {
+  test("reputação e carreira", async () => {
+    // C2, C18: 3 met and a Série A title = 76; the club changes oldest first; the empty line.
+    const game = seededGame(4);
+    const [me, x, y, z] = game.leagues[0]!.clubs.map((c) => c.id);
+    const name = (id: string) => game.leagues[0]!.clubs.find((c) => c.id === id)!.name;
+    const record = (season: number, title: boolean): SeasonRecord => ({
+      season,
+      userClubId: me!,
+      userLeagueId: game.leagues[0]!.id,
+      userPosition: title ? 1 : 3,
+      verdict: "met",
+      prize: 0,
+      divisions: game.leagues.map((l) => ({ leagueId: l.id, championId: title && l === game.leagues[0] ? me! : l.clubs[5]!.id, promotedIds: [], relegatedIds: [], topScorer: null })),
+      cups: [],
+    });
+    const empty = structuredClone(game);
+    game.history = [record(1, false), record(2, true), record(3, false)];
+    game.season = 4;
+    game.career = [
+      { season: 2, round: 13, fromId: x!, toId: y!, reason: "fired" },
+      { season: 3, round: 38, fromId: y!, toId: z!, reason: "offer" },
+    ];
+    const user = await openHistory(game);
+    expect(screen.getByText("Reputação: 76/100")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Carreira" }));
+    const lines = within(screen.getByRole("region", { name: "Carreira" })).getAllByRole("listitem").map((li) => li.textContent);
+    expect(lines).toEqual([
+      `Temporada 2, rodada 13: demitido do ${name(x!)}, assumiu o ${name(y!)}`,
+      `Temporada 3, rodada 38: trocou o ${name(y!)} pelo ${name(z!)}`,
+    ]);
+
+    for (const career of [[], undefined]) {
+      cleanup();
+      resetAll();
+      const without = structuredClone(empty);
+      if (career) without.career = career;
+      const again = await openHistory(without);
+      await again.click(screen.getByRole("tab", { name: "Carreira" }));
+      expect(within(screen.getByRole("region", { name: "Carreira" })).getByText("Nenhuma troca de clube ainda.")).toBeInTheDocument();
+    }
   });
 });

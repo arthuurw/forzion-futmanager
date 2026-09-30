@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AI_FORMATION, autoLineup } from "../engine/lineup";
 import { playRound } from "../engine/season";
+import { reputationOffers } from "../engine/career";
 import { computeTable } from "../engine/table";
 import { zeroAiSurplus } from "../engine/test-fixtures";
 import type { Club, GameState } from "../engine/types";
@@ -246,5 +247,57 @@ describe("campanha por copa (copa-continental)", () => {
       view.unmount();
       resetAll();
     }
+  }, 60_000);
+});
+
+describe("propostas na virada (carreira-dinamica)", () => {
+  test("propostas com a meta cumprida", async () => {
+    // C17: a met goal with reputation 90 lists the offers; none picked keeps the club, one picked moves.
+    const setup = () => {
+      const game = endedSeason();
+      const ranking = game.leagues.flatMap((l) => l.clubs).sort((a, b) => best11(b) - best11(a) || a.id.localeCompare(b.id));
+      const me = ranking[29]!;
+      game.userClubId = me.id;
+      me.lineup = autoLineup(me, AI_FORMATION);
+      game.boardGoal = 20;
+      game.cupGoal = -1;
+      delete game.pendingJob;
+      const other = game.leagues[0]!.clubs[1]!.id;
+      // 50 + 5 x 6 (met) + 4 (Série B title) + 6 (national cup) = 90.
+      game.history = [1, 2, 3, 4, 5].map((season) => ({
+        season,
+        userClubId: "me",
+        userLeagueId: game.leagues[season === 2 ? 1 : 0]!.id,
+        userPosition: 1,
+        verdict: "met" as const,
+        prize: 0,
+        divisions: game.leagues.map((l, i) => ({ leagueId: l.id, championId: season === 2 && i === 1 ? "me" : l.clubs[0]!.id, promotedIds: [], relegatedIds: [], topScorer: null })),
+        cups: season === 4 ? [{ cupId: "cup-nat", championId: "me", runnerUpId: other, userReached: 6 }] : [],
+      }));
+      return { game, me, offers: reputationOffers(game, 38) };
+    };
+    const { game, me, offers } = setup();
+    expect(offers.length).toBeGreaterThan(0);
+    const user = userEvent.setup();
+    useGame.setState({ phase: "end", game, hasSave: true });
+    const { unmount } = render(<App />);
+    expect(screen.getByText("Meta cumprida")).toBeInTheDocument();
+    const clubs = game.leagues.flatMap((l) => l.clubs);
+    const buttons = within(screen.getByRole("region", { name: "Propostas de emprego" })).getAllByRole("button");
+    expect(buttons.map((b) => b.textContent!.split(" · ")[0])).toEqual(offers.map((id) => clubs.find((c) => c.id === id)!.name));
+    expect(screen.getByRole("button", { name: "Próxima temporada" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Próxima temporada" }));
+    expect(await screen.findByRole("heading", { name: "Nova temporada" })).toBeInTheDocument();
+    expect(useGame.getState().game!.userClubId).toBe(me.id);
+    unmount();
+
+    resetAll();
+    const again = setup();
+    useGame.setState({ phase: "end", game: again.game, hasSave: true });
+    render(<App />);
+    await user.click(within(screen.getByRole("region", { name: "Propostas de emprego" })).getAllByRole("button")[0]!);
+    await user.click(screen.getByRole("button", { name: "Próxima temporada" }));
+    expect(await screen.findByRole("heading", { name: "Nova temporada" })).toBeInTheDocument();
+    expect(useGame.getState().game!.userClubId).toBe(again.offers[0]);
   }, 60_000);
 });

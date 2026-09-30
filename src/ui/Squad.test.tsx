@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { playDate } from "../engine/season";
 import { POSITIONS, type GameState } from "../engine/types";
+import { loadGame } from "../persistence/save";
 import { useGame, userClub } from "../store";
 import { Squad } from "./Squad";
 import { preliminaryWithCupSuspended, resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
@@ -537,5 +538,47 @@ describe("treino no elenco (treino-evolucao)", () => {
       expect(within(row(p.name)).queryByLabelText(/na rodada/), p.name).toBeNull();
       expect(within(row(p.name)).getAllByRole("cell")[3]!.textContent, p.name).toBe(String(p.rating));
     }
+  });
+});
+
+describe("carreira no Elenco (carreira-dinamica)", () => {
+  test("aviso da diretoria", () => {
+    // C6: 1 to 3 show the warning; 0 and absent show nothing.
+    for (const warnings of [1, 2, 3, 0, undefined]) {
+      const game = seededGame(4, 2);
+      if (warnings !== undefined) game.boardWarnings = warnings;
+      useGame.setState({ phase: "squad", game });
+      const { unmount } = render(<Squad />);
+      if (warnings) expect(screen.getByText(`Aviso da diretoria (${warnings}/3): a campanha está abaixo do aceitável.`)).toBeInTheDocument();
+      else expect(screen.queryByText(/Aviso da diretoria/)).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  test("proposta de emprego", async () => {
+    // C15: two «Aceitar» and one «Recusar»; turning down keeps the club, accepting opens the new one.
+    const game = seededGame(4, 2);
+    const [a, b] = game.leagues[1]!.clubs;
+    game.pendingJob = { reason: "offer", clubIds: [a!.id, b!.id] };
+    const me = game.userClubId;
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+    const dialog = screen.getByRole("dialog", { name: "Proposta de emprego" });
+    expect(within(dialog).getAllByRole("button", { name: /^Aceitar/ })).toHaveLength(2);
+    await user.click(within(dialog).getByRole("button", { name: "Recusar" }));
+    expect(screen.queryByRole("dialog", { name: "Proposta de emprego" })).not.toBeInTheDocument();
+    let saved = ((await loadGame()) as { state: GameState }).state;
+    expect(saved.pendingJob).toBeUndefined();
+    expect(saved.userClubId).toBe(me);
+    unmount();
+
+    resetAll();
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    await user.click(screen.getAllByRole("button", { name: /^Aceitar/ })[1]!);
+    saved = ((await loadGame()) as { state: GameState }).state;
+    expect(saved.userClubId).toBe(b!.id);
+    expect(await screen.findByRole("heading", { name: b!.name })).toBeInTheDocument();
   });
 });

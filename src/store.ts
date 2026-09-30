@@ -19,6 +19,7 @@ import * as finance from "./engine/finance";
 import * as market from "./engine/market";
 import { userBoardGoal, userCupGoal } from "./engine/board";
 import { nextCompetition, nextDate } from "./engine/calendar";
+import { takeJob } from "./engine/career";
 import { finishCupDate, startCupDate } from "./engine/cup";
 import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
@@ -40,7 +41,8 @@ export type Phase =
   | "newSeason"
   | "history"
   | "cup"
-  | "about";
+  | "about"
+  | "job";
 export type SaveStatus = "ok" | "failed" | "unavailable";
 export type LastRound = Omit<RoundOutcome, "state">;
 export type Clock = "running" | "paused" | "halftime";
@@ -190,6 +192,10 @@ export interface GameStore {
   repayLoan(amount: number): Promise<boolean>;
   /** AC 26. */
   renewContract(playerId: string): Promise<boolean>;
+  /** Carreira-dinamica AC 10, AC 15: takes one of the pending offers, saves, then opens the new club's squad. */
+  takeJob(clubId: string): Promise<boolean>;
+  /** Carreira-dinamica AC 19: turns the pending offer down and saves. */
+  declineJob(): Promise<void>;
   /** «Próxima temporada» (AC 10-15, 35): saves the new season, then shows «Nova temporada». */
   nextSeason(jobClubId?: string): Promise<void>;
   goToHistory(): void;
@@ -255,9 +261,16 @@ function tabLocks(): LockManager | undefined {
   }
 }
 
-/** The screen «Continuar» opens for this game. */
+/** The screen «Continuar» opens for this game; carreira-dinamica AC 8: a fired user picks a club first. */
 function openingPhase(game: GameState): Phase {
+  if (game.pendingJob?.reason === "fired") return "job";
   return isSeasonOver(userLeague(game)) ? "end" : "squad";
+}
+
+/** The screen after a date closes: the sacking (carreira-dinamica AC 7), the season's end, or the results. */
+function afterDatePhase(game: GameState): Phase {
+  if (game.pendingJob?.reason === "fired") return "job";
+  return isSeasonOver(userLeague(game)) ? "end" : "round";
 }
 
 /** Returns a new state with the user's club replaced by `edit(club)`. */
@@ -392,7 +405,7 @@ export const useGame = create<GameStore>()((set, get) => {
     const { state, ...lastRound } = live.cup ? finishCupDate(game, live) : finishRound(game, live);
     set({ game: state, lastRound, hasSave: true, incompatibleVersion: null, live: null });
     await persist(state, set, get);
-    set({ phase: isSeasonOver(userLeague(state)) ? "end" : "round" });
+    set({ phase: afterDatePhase(state) });
   }
 
   /** Reads the slot. A read that fails is `loadFailed`, not «no save» (correcoes-validacao AC 1). */
@@ -419,7 +432,7 @@ export const useGame = create<GameStore>()((set, get) => {
     const { state, ...lastRound } = live.cup ? finishCupDate(game, live) : finishRound(game, live);
     set({ game: state, lastRound });
     await persist(state, set, get);
-    set({ phase: isSeasonOver(userLeague(state)) ? "end" : "round", live: null, finishing: false });
+    set({ phase: afterDatePhase(state), live: null, finishing: false });
   }
 
   /** Applies a decision to the user's side, only while the clock is stopped. */
@@ -535,7 +548,8 @@ export const useGame = create<GameStore>()((set, get) => {
 
     async playRound() {
       const { game, finishing } = get();
-      if (!game || finishing) return;
+      // Carreira-dinamica AC 8: a fired user plays nothing until a club is picked.
+      if (!game || finishing || game.pendingJob?.reason === "fired") return;
       const date = nextDate(game);
       if (date.kind === "over") return;
       // Door 1 (correcoes-validacao): the state from before the date is saved with the mark, queued
@@ -626,6 +640,27 @@ export const useGame = create<GameStore>()((set, get) => {
     takeLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.takeLoan(f, amount))),
     repayLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.repayLoan(f, amount))),
     renewContract: (playerId) => commit((g) => market.renewContract(g, playerId)),
+
+    async takeJob(clubId) {
+      const { game, saving } = get();
+      if (!game || saving) return false;
+      const r = takeJob(game, clubId);
+      if (!r.ok) return false;
+      set({ saving: true });
+      await persist(r.state, set, get);
+      set({ game: r.state, saving: false, phase: "squad", lastRound: null, marketMessage: null });
+      return true;
+    },
+
+    async declineJob() {
+      const { game, saving } = get();
+      if (!game || saving || game.pendingJob?.reason !== "offer") return;
+      const { pendingJob, ...next } = game;
+      void pendingJob;
+      set({ saving: true });
+      await persist(next, set, get);
+      set({ game: next, saving: false });
+    },
 
     async nextSeason(jobClubId) {
       const { game, saving } = get();

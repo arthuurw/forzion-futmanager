@@ -35,7 +35,7 @@ Lições aplicadas:
 - 5 «fired» e 2 `fired` da temporada atual em `career` → 0 (piso, 50 − 40 − 16); 5 «met», cada um com a liga da Série A e a continental → 100 (teto, 50 + 5 × 24).
 Proof: `npx vitest run src/engine/career.test.ts -t "reputação: tabela"`
 
-**C2** - A História de um save com 3 «met» e um título da Série A mostra «Reputação: 76/100» (AC 2).
+**C2** - ✓ A História de um save com 3 «met» e um título da Série A mostra «Reputação: 76/100» (AC 2).
 Proof: `npx vitest run src/ui/History.test.tsx -t "reputação e carreira"`
 
 ### S2 - A diretoria avisa e demite · 6 files · 90 KB · ~23k
@@ -54,14 +54,14 @@ Proof: `npx vitest run src/engine/career.test.ts -t "quarta rodada demite"`
 **C5** - ✓ Pelo `finishRound` (L-003): um save na rodada 13 com `boardGoal` 1, `boardWarnings` 3 e o usuário fora dos 5 primeiros depois da rodada fecha com `pendingJob.reason` «fired». `finishCupDate` de uma data de copa mantém o `boardWarnings` de antes (2 → 2) (AC 5, AC 9).
 Proof: `npx vitest run src/engine/career.test.ts -t "finishRound checa a diretoria"`
 
-**C6** - As telas Rodada e Elenco mostram, com `boardWarnings` 1, 2 e 3, «Aviso da diretoria (1/3): a campanha está abaixo do aceitável.» (e 2/3, 3/3). Com 0 e com o campo ausente, não mostram aviso (AC 6).
+**C6** - ✓ As telas Rodada e Elenco mostram, com `boardWarnings` 1, 2 e 3, «Aviso da diretoria (1/3): a campanha está abaixo do aceitável.» (e 2/3, 3/3). Com 0 e com o campo ausente, não mostram aviso (AC 6).
 Proof: `npx vitest run src/ui/Round.test.tsx -t "aviso da diretoria"`
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "aviso da diretoria"`
 
-**C7** - Pela store: jogar a rodada que demite abre a fase `"job"`. A tela mostra o título «Demitido», «Você foi demitido do <clube> na rodada 13.», «Reputação: N/100» e 3 botões «Assumir», um por clube, com «<nome> · <divisão> · força <x.x>» (AC 2, AC 7).
+**C7** - ✓ Pela store: jogar a rodada que demite abre a fase `"job"`. A tela mostra o título «Demitido», «Você foi demitido do <clube> na rodada 13.», «Reputação: N/100» e 3 botões «Assumir», um por clube, com «<nome> · <divisão> · força <x.x>» (AC 2, AC 7).
 Proof: `npx vitest run src/ui/Job.test.tsx -t "tela demitido"`
 
-**C8** - Com `pendingJob` fired: `playRound` não muda o jogo nem a fase, e um save reaberto com a marca vai de «Continuar» para a tela «Demitido» (AC 8).
+**C8** - ✓ Com `pendingJob` fired: `playRound` não muda o jogo nem a fase, e um save reaberto com a marca vai de «Continuar» para a tela «Demitido» (AC 8).
 Proof: `npx vitest run src/store.test.ts -t "demitido trava o calendário"`
 
 ### S3 - Trocar de clube no meio · 4 files · 80 KB · ~20k
@@ -78,7 +78,7 @@ Proof: `npx vitest run src/engine/career.test.ts -t "assumir no meio da temporad
 **C10** - ✓ `takeJob` com um id fora de `pendingJob.clubIds`, com o id do próprio clube e sem `pendingJob` devolve `{ ok: false }` e o estado igual (AC 14).
 Proof: `npx vitest run src/engine/career.test.ts -t "assumir clube fora da lista"`
 
-**C11** - Pela store: «Assumir» grava o save com o `userClubId` novo (lido de volta por `loadGame`) e abre o Elenco com o nome do clube novo (AC 10, AC 15).
+**C11** - ✓ Pela store: «Assumir» grava o save com o `userClubId` novo (lido de volta por `loadGame`) e abre o Elenco com o nome do clube novo (AC 10, AC 15).
 Proof: `npx vitest run src/store.test.ts -t "assumir grava e abre o elenco"`
 
 ### S4 - Propostas de clubes melhores · 7 files · 120 KB · ~30k
@@ -102,7 +102,7 @@ Proof: `npx vitest run src/engine/career.test.ts -t "proposta na rodada do meio"
 **C14** - ✓ Uma data de liga e uma de copa que fecham com `pendingJob` offer apagam o campo, e `userClubId` não muda (AC 19).
 Proof: `npx vitest run src/engine/career.test.ts -t "jogar recusa a proposta"`
 
-**C15** - Nas telas Rodada e Elenco, com `pendingJob` offer de 2 clubes, aparece o painel «Proposta de emprego» com 2 botões «Aceitar» e um «Recusar». «Recusar» grava o save sem `pendingJob` e mantém o clube. «Aceitar» no segundo grava o `userClubId` dele e abre o Elenco dele (AC 18, AC 19).
+**C15** - ✓ Nas telas Rodada e Elenco, com `pendingJob` offer de 2 clubes, aparece o painel «Proposta de emprego» com 2 botões «Aceitar» e um «Recusar». «Recusar» grava o save sem `pendingJob` e mantém o clube. «Aceitar» no segundo grava o `userClubId` dele e abre o Elenco dele (AC 18, AC 19).
 Proof: `npx vitest run src/ui/Round.test.tsx -t "proposta de emprego"`
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "proposta de emprego"`
 
@@ -114,12 +114,12 @@ Proof: `npx vitest run src/ui/Squad.test.tsx -t "proposta de emprego"`
 - um id fora da lista lança erro, como hoje na demissão.
 Proof: `npx vitest run src/engine/career.test.ts -t "propostas da virada"`
 
-**C17** - O Fim da temporada com «met» e 2 propostas mostra «Propostas de emprego» com os 2 clubes, e «Próxima temporada» fica habilitado sem seleção. Sem seleção, a virada mantém o clube. Selecionando o primeiro, a virada abre a «Nova temporada» com ele (AC 20, AC 21).
+**C17** - ✓ O Fim da temporada com «met» e 2 propostas mostra «Propostas de emprego» com os 2 clubes, e «Próxima temporada» fica habilitado sem seleção. Sem seleção, a virada mantém o clube. Selecionando o primeiro, a virada abre a «Nova temporada» com ele (AC 20, AC 21).
 Proof: `npx vitest run src/ui/End.test.tsx -t "propostas com a meta cumprida"`
 
 ### S5 - Carreira na História · 2 files · 20 KB · ~5k
 
-**C18** - A História lista «Carreira», mais antiga primeiro (AC 23, AC 24):
+**C18** - ✓ A História lista «Carreira», mais antiga primeiro (AC 23, AC 24):
 - «Temporada 2, rodada 13: demitido do <X>, assumiu o <Y>» (fired);
 - «Temporada 3, rodada 38: trocou o <Y> pelo <Z>» (offer);
 - com `career` vazio e com ele ausente: «Nenhuma troca de clube ainda.».
@@ -134,7 +134,7 @@ Proof: `npx vitest run src/ui/History.test.tsx -t "reputação e carreira"`
 Proof: `npx vitest run src/engine/career.test.ts -t "save antigo sem os campos"`
 Proof: `npx vitest run src/engine/saveFile.test.ts -t "proposta pendente no arquivo"`
 
-**C20** - `npm run check:layout` sai 0: a temporada inteira é jogada. A tela «Demitido», quando aparece, é medida como `job` e segue por «Assumir». O painel de proposta, quando aparece, segue por «Recusar». Nenhuma tela medida rola (AD-010).
+**C20** - ✓ `npm run check:layout` sai 0: a temporada inteira é jogada. A tela «Demitido», quando aparece, é medida como `job` e segue por «Assumir». O painel de proposta, quando aparece, segue por «Recusar». Nenhuma tela medida rola (AD-010).
 Proof: `npm run check:layout`
 
 ## Coverage
@@ -160,15 +160,17 @@ Proof: `npm run check:layout`
 | doors (2) | door 1 C9, C16, C19 · door 2 C12 | - |
 
 - Nenhum check afirma mais do que o caso que a prova exercita.
-- C20 mede a tela `job` só quando a seed a alcança; a forma da tela é provada por C7.
+- C20 mede a tela `job` duas vezes: quando a seed a alcança no meio da temporada (a seed 1 alcança) e sempre no fim, por um save com `pendingJob` fired gravado no IndexedDB e reaberto por «Continuar»; a tela `job` entrou na lista de telas obrigatórias do script (15).
 
 ## Superseded checks of earlier features
 
 | Check | What changes | Now proven by |
 | --- | --- | --- |
 | multiplas-temporadas / paises (`SeasonReview.jobOffers` = `[]` sem demissão) | com «met» e reputação que alcança um clube mais forte, `jobOffers` traz as propostas por reputação; «missed» continua `[]` e «fired» continua com as 3 de board | C16 |
+| multiplas-temporadas (`History.test.tsx` «artilharia top 10», abas do Histórico) - _achado na build_ | as abas passam de 3 para 4 com «Carreira» (AC 23, AC 24); as 3 antigas não mudam | C18 |
+| audio C15 / lancamento C31 (`music.test.ts` «contexto de cada tela», 13 fases) - _achado na build_ | a fase nova `job` (tela «Demitido») entra na tabela com a música de gestão; nenhuma linha antiga muda | `music.test.ts` «contexto de cada tela» |
 
-Regra para os outros testes existentes: um teste antigo que joga uma temporada com usuário pode ter a **fixture** ajustada (ex.: `boardGoal` alto para não demitir), sem mudar valor esperado. Mudar um valor esperado fora da linha acima ganha linha nova nesta tabela, marcada _achado na build_, antes do código que a fecha.
+Regra para os outros testes existentes: um teste antigo que joga uma temporada com usuário pode ter a **fixture** ajustada (ex.: `boardGoal` alto para não demitir), sem mudar valor esperado. Aplicada em `app.test.tsx` «recarregar no fim mostra o mesmo resumo» e `Home.test.tsx` «importar sem save grava e abre o jogo»: a temporada jogada pela engine passava de uma demissão que a store teria travado, e a fixture apaga o `pendingJob` (_achado na build_). Mudar um valor esperado fora da linha acima ganha linha nova nesta tabela, marcada _achado na build_, antes do código que a fecha.
 
 ## Swept
 
@@ -185,3 +187,7 @@ Regra para os outros testes existentes: um teste antigo que joga uma temporada c
 ## Handoff
 
 - S1-S6 ≈ 363 KB dos arquivos tocados (`wc -c`) + ~30 KB novos (`career.ts`, `career.test.ts`, `Job.tsx`, `Job.test.tsx`) ≈ 393 KB / 4 ≈ 98k, abaixo do budget de 150k - one builder
+- Mechanism: one builder
+- **Boundary:** C1-C20 fechados; engine em b24b163, telas e layout no commit seguinte
+- **Settled mid-build:** a aba «Carreira» é a 4ª do Histórico, e a reputação fica na barra de ações dele; o painel de proposta usa o padrão `confirm inline` (AD-010); a fase nova `job` toca a música de gestão
+- **Abandoned:** nada

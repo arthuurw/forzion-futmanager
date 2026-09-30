@@ -2290,6 +2290,19 @@ table.compact tbody td {
   margin: 0;
 }
 
+/* Carreira-dinamica: each offer's club line with its «Aceitar». */
+.job-offer .job-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.career-list {
+  margin: 0;
+  padding-left: 1.4em;
+  line-height: 1.6;
+}
+
 .cash {
   font-family: var(--font-display);
   font-weight: 800;

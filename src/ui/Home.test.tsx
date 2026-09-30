@@ -145,6 +145,8 @@ describe("exportar e importar (lancamento)", () => {
     resetAll();
     let over = seededGame(4, 2);
     while (over.leagues[0]!.currentRound < over.leagues[0]!.rounds.length) over = playRound(over).state;
+    // Carreira-dinamica (fixture only): the engine played on past a sacking the store would have stopped at.
+    delete over.pendingJob;
     useGame.setState({ phase: "home", hasSave: false, game: null });
     render(<Home />);
     await user.upload(input(), saveFileOf(encodeSaveFile(over, ISO)));

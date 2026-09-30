@@ -8,7 +8,10 @@ import { formatMoney } from "./money";
 import { NewGameButton } from "./NewGameButton";
 import { DivisionTable } from "./Table";
 
-/** AC 9, AC 34: the season's summary, the board's verdict and, when fired, the job offers. */
+/**
+ * AC 9, AC 34: the season's summary, the board's verdict and, when fired, the job offers.
+ * Carreira-dinamica AC 20: a met goal may bring offers too, optional.
+ */
 export function End() {
   const game = useGame((s) => s.game);
   const nextSeason = useGame((s) => s.nextSeason);
@@ -19,6 +22,7 @@ export function End() {
   const name = (id: string) => findAnyClub(game, id).name;
   const [a, b] = review.divisions;
   const fired = review.user?.verdict === "fired";
+  const offers = review.jobOffers;
 
   return (
     <div className="screen">
@@ -75,15 +79,15 @@ export function End() {
               <p className={`verdict-text v-${review.user.verdict}`}>{VERDICT_TEXT[review.user.verdict]}</p>
             </div>
           )}
-          {fired && (
+          {offers.length > 0 && (
             <section aria-label="Propostas de emprego" className="job-offers">
               <h2>Propostas de emprego</h2>
               <ul>
-                {review.jobOffers.map((id) => {
+                {offers.map((id) => {
                   const club = findAnyClub(game, id);
                   return (
                     <li key={id}>
-                      <button aria-pressed={job === id} className={job === id ? "selected" : undefined} onClick={() => setJob(id)}>
+                      <button aria-pressed={job === id} className={job === id ? "selected" : undefined} onClick={() => setJob(!fired && job === id ? null : id)}>
                         {club.name} · {DIVISION_LABEL[divisionOf(game, id)]} · força {bestElevenMean(club).toFixed(1)}
                       </button>
                     </li>

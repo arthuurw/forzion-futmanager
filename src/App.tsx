@@ -10,6 +10,7 @@ import { End } from "./ui/End";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { Finance } from "./ui/Finance";
 import { History } from "./ui/History";
+import { Job } from "./ui/Job";
 import { Home } from "./ui/Home";
 import { Live } from "./ui/Live";
 import { Market } from "./ui/Market";
@@ -82,6 +83,7 @@ function Screens() {
         {phase === "newSeason" && <NewSeason />}
         {phase === "history" && <History />}
         {phase === "cup" && <Cup />}
+        {phase === "job" && <Job />}
       </div>
     </main>
   );

@@ -859,3 +859,45 @@ describe("treino (treino-evolucao)", () => {
     expect(select.selectedOptions[0]!.textContent).toBe("Forte");
   });
 });
+
+describe("carreira na store (carreira-dinamica)", () => {
+  const firedGame = () => {
+    const game = seededGame(4);
+    const others = game.leagues[1]!.clubs.slice(0, 3).map((c) => c.id);
+    game.pendingJob = { reason: "fired", clubIds: others };
+    return { game, others };
+  };
+
+  test("demitido trava o calendário", async () => {
+    // C8: nothing is played while a club must be picked, and «Continuar» opens «Demitido».
+    const { game } = firedGame();
+    await saveGame(game);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    await useGame.getState().playRound();
+    expect(useGame.getState().game).toBe(game);
+    expect(useGame.getState().phase).toBe("squad");
+    expect(useGame.getState().live).toBeNull();
+    resetStore();
+    await useGame.getState().init();
+    useGame.getState().continueGame();
+    expect(useGame.getState().phase).toBe("job");
+    render(createElement(App));
+    expect(screen.getByRole("heading", { name: "Demitido" })).toBeInTheDocument();
+  });
+
+  test("assumir grava e abre o elenco", async () => {
+    // C11 (L-003): «Assumir» saves the new club and opens its squad.
+    const { game, others } = firedGame();
+    await saveGame(game);
+    useGame.setState({ phase: "job", game, hasSave: true });
+    render(createElement(App));
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("button", { name: "Assumir" })[1]!);
+    expect(useGame.getState().phase).toBe("squad");
+    const saved = ((await loadGame()) as { state: GameState }).state;
+    expect(saved.userClubId).toBe(others[1]);
+    expect(saved.pendingJob).toBeUndefined();
+    const name = game.leagues[1]!.clubs[1]!.name;
+    expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
+  });
+});

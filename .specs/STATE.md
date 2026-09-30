@@ -31,9 +31,9 @@
 ## Handoff
 
 **Feature**: treino-evolucao verificada (PASS round 1, 18/18, 61a48fe..fa478af, profile light); antes, parada-obrigatoria verificada e publicada (deploy verde de 61a48fe)
-**Where**: treino-evolucao em commits locais em `main`, ainda não publicados; o site no ar tem parada-obrigatoria
+**Where**: publicado em `main` (deploy do Actions verde de f75576d); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
 **In progress**: nada
-**Next step**: push para `main` quando o autor autorizar. Pontos fracos não bloqueantes do Verifier de treino-evolucao: C6 não prova o `delete ratingLog` em livres e juniores separadamente nem a faixa 34+ explicitamente; C17 abre o save em memória, não por `loadGame`; C18 com a mediana de caixa da IA em 18,82× (limite 20×). De parada-obrigatoria: C5 sem prova de vermelho na store, aviso «Goleiro expulso: {nome}.» sem check.
+**Next step**: escolher a próxima feature (candidatas: carreira dinâmica, empréstimo de jogadores, vários saves). Pontos fracos não bloqueantes do Verifier de treino-evolucao: C6 não prova o `delete ratingLog` em livres e juniores separadamente nem a faixa 34+ explicitamente; C17 abre o save em memória, não por `loadGame`; C18 com a mediana de caixa da IA em 18,82× (limite 20×). De parada-obrigatoria: C5 sem prova de vermelho na store, aviso «Goleiro expulso: {nome}.» sem check.
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

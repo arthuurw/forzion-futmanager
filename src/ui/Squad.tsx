@@ -80,6 +80,7 @@ export function Squad() {
   const goToFinance = useGame((s) => s.goToFinance);
   const goToHistory = useGame((s) => s.goToHistory);
   const goToCup = useGame((s) => s.goToCup);
+  const goHome = useGame((s) => s.goHome);
   const renewContract = useGame((s) => s.renewContract);
   const message = useGame((s) => s.marketMessage);
   // Correcoes-validacao AC 48: wide screens hide «Campo» (the pitch is always there), so they start on «Elenco».
@@ -345,6 +346,8 @@ export function Squad() {
         <button onClick={goToFinance}>Finanças</button>
         <button onClick={goToHistory}>Histórico</button>
         <button onClick={goToCup}>Copa</button>
+        {/* Menu-no-elenco C1: back to the title menu, where «Continuar» opens this game again. */}
+        <button onClick={goHome}>Menu principal</button>
         <BoardWarning />
         {message && (
           <p role="status" className="missing">

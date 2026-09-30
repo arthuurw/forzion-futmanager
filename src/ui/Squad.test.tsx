@@ -583,3 +583,22 @@ describe("carreira no Elenco (carreira-dinamica)", () => {
     expect(saved.userClubId).toBe(b!.id);
   });
 });
+
+describe("menu principal (menu-no-elenco)", () => {
+  test("menu principal pelo elenco", async () => {
+    // C1 (L-003, L-008): out to the title menu and back to the same game.
+    const user = userEvent.setup();
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Menu principal" }));
+    expect(useGame.getState().phase).toBe("home");
+    const continuar = await screen.findByRole("button", { name: "Continuar" });
+    expect(continuar).toBeEnabled();
+    await user.click(continuar);
+    expect(await screen.findByRole("heading", { name: club.name })).toBeInTheDocument();
+    expect(useGame.getState().phase).toBe("squad");
+    expect(useGame.getState().game).toEqual(game);
+  });
+});

@@ -15,10 +15,10 @@ Lições aplicadas: L-003 (pela tela inteira, `App`), L-008 (texto exato do bot�
 
 ### S1 - Menu principal a partir do Elenco · 2 files · 45 KB · ~11k
 
-**C1** - No Elenco, o botão «Menu principal» abre a tela inicial com «Continuar» habilitado. «Continuar» volta ao Elenco do mesmo clube (título com o nome dele), com o jogo igual ao de antes.
+**C1** - ✓ No Elenco, o botão «Menu principal» abre a tela inicial com «Continuar» habilitado. «Continuar» volta ao Elenco do mesmo clube (título com o nome dele), com o jogo igual ao de antes.
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "menu principal pelo elenco"`
 
-**C2** - `npm run check:layout` sai 0 com as 16 telas; o Elenco (`squad` e `squadOffer`) continua sem rolagem com o botão novo (AD-010).
+**C2** - ✓ `npm run check:layout` sai 0 com as 16 telas; o Elenco (`squad` e `squadOffer`) continua sem rolagem com o botão novo (AD-010).
 Proof: `npm run check:layout`
 
 ## Coverage
@@ -43,3 +43,4 @@ Proof: `npm run check:layout`
 
 - S1 ≈ `Squad.tsx` 16 KB + `Squad.test.tsx` 29 KB ≈ 45 KB / 4 ≈ 11k - one builder
 - Mechanism: one builder
+- **Boundary:** C1-C2 fechados; `npx vitest run` 608/608, `npm run check:layout` 16 telas

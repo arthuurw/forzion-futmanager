@@ -116,7 +116,8 @@ const PAGE_HELPERS = `window.__lc = {
     const title = [".title-screen .logo-big", ".title-screen .tagline", ".title-screen .menu button"].flatMap((s) =>
       [...document.querySelectorAll(s)].map((el) => ({ name: s.split(" ").pop() + (el.tagName === "BUTTON" ? " «" + el.textContent.trim() + "»" : ""), ...__lc.rect(el) })),
     );
-    return { scrollHeight: doc.scrollHeight, scrollWidth: doc.scrollWidth, toggles, group: group ? __lc.rect(group) : null, title };
+    const posicao = document.querySelector("select[aria-label='Posição']");
+    return { scrollHeight: doc.scrollHeight, scrollWidth: doc.scrollWidth, toggles, group: group ? __lc.rect(group) : null, title, posicao: posicao ? __lc.rect(posicao) : null };
   },
   inject() {
     const el = document.createElement("div");
@@ -151,6 +152,11 @@ function problems(screen, m) {
     const t = m.toggles.find((x) => x.name === name);
     if (!t) out.push(`sem o botão «${name}»`);
     else if (!within(t)) out.push(`«${name}» fora da janela (${fmt(t)})`);
+  }
+  // Ajustes-substituicao C5: the field shown after the user's red card is on screen too.
+  if (screen === "liveRed") {
+    if (!m.posicao) out.push("sem o campo «Posição»");
+    else if (!within(m.posicao)) out.push(`«Posição» fora da janela (${fmt(m.posicao)})`);
   }
   if (screen === "home" || screen === "homeSave") {
     if (m.title.length < 3) out.push("título, subtítulo ou menu não encontrados");
@@ -262,7 +268,7 @@ async function run({ build, inject, seed }) {
       await wait(`animações de ${screen}`, "__lc.settled()", ANIMATION_TIMEOUT_MS);
       const m = await js("__lc.measure()");
       const bad = problems(screen, m);
-      const toggles = m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ");
+      const toggles = m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ") + (m.posicao ? ` · Posição ${fmt(m.posicao)}` : "");
       console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth} · ${toggles}${bad.length ? ` · ${bad.join("; ")}` : ""}`);
       if (bad.length) failures.push(screen);
       measured.add(screen);
@@ -328,8 +334,28 @@ async function run({ build, inject, seed }) {
       }
       if (state === "live") {
         if (!measured.has("live")) await measure("live");
-        await click("Pular para o fim");
-        await wait("resultado", "!__lc.has('Pular para o fim')");
+        // Ajustes-substituicao C5: until the user's first red card, the match runs at 4x; the stop
+        // it causes shows «Posição», measured once. Halftime goes on; an injury stop is skipped.
+        if (!measured.has("liveRed")) {
+          await click("4x");
+          for (;;) {
+            const moment = await wait(
+              "lance da partida",
+              `document.querySelector("select[aria-label='Posição']") && !__lc.has('Pausar') ? 'red' : !__lc.has('Pular para o fim') ? 'over' : document.querySelector("[role=status][aria-label='Parada']") ? 'stop' : __lc.enabled('Continuar') ? 'half' : false`,
+              60000,
+            );
+            if (moment === "red") await measure("liveRed");
+            if (moment === "half") {
+              await click("Continuar");
+              continue;
+            }
+            break;
+          }
+        }
+        if (await js("__lc.has('Pular para o fim')")) {
+          await click("Pular para o fim");
+          await wait("resultado", "!__lc.has('Pular para o fim')");
+        }
         continue;
       }
       if (state === "round" && !measured.has("round")) await measure("round");
@@ -417,7 +443,7 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -436,7 +462,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 16 telas cabem em 400 × 700 px");
+  console.log("layout: as 17 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

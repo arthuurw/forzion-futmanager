@@ -534,7 +534,8 @@ describe("partida coerente (correcoes-validacao)", () => {
     expect(side.slots).not.toContain("a1");
     expect(side.slots.filter(Boolean)).toHaveLength(10);
     expect(side.subsUsed).toBe(1);
-    expect(side.vacancy[1]).toEqual({ why: "red", playerId: "a0" });
+    // Ajustes-substituicao C4: the hole also keeps the sector of the slot it moved to.
+    expect(side.vacancy[1]).toEqual({ why: "red", playerId: "a0", pos: "DF" });
     expect(replaced.m.events.filter((e) => e.type === "substitution")).toEqual([
       { minute: 20, type: "substitution", clubId: "ai", playerId: "a1", playerInId: "benchGk" },
     ]);
@@ -674,7 +675,8 @@ describe("parada obrigatória (parada-obrigatoria)", () => {
     const s = userSide(after);
     expect(s.slots[gk]).toBe(keeper);
     expect(s.slots[outSlot]).toBeNull();
-    expect(s.vacancy[outSlot]).toEqual({ why: "red", playerId: expelled });
+    // Ajustes-substituicao C3: the hole also keeps the sector of the slot it moved to.
+    expect(s.vacancy[outSlot]).toEqual({ why: "red", playerId: expelled, pos: "DF" });
     expect(s.vacancy[gk]).toBeUndefined();
     expect(s.subbedOff).toContain(outId);
     expect(s.subsUsed).toBe(1);
@@ -911,5 +913,56 @@ describe("posição na substituição (posicao-na-substituicao)", () => {
     const fiveOne = userSide(changeFormation(subbed, me, "4-5-1"));
     const striker = fiveOne.slots.find((id) => id && subbed.players[id]!.position === "FW")!;
     expect(fiveOne.slotPos[fiveOne.slots.indexOf(striker)]).toBe("MF");
+  });
+});
+
+describe("ajustes da substituição (ajustes-substituicao)", () => {
+  /** Minute 10 of round 1 with the user's keeper sent off; everyone else available. */
+  function keeperOff() {
+    const state = game(2);
+    for (const p of state.leagues[0]!.clubs[0]!.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+    const live = stepTo(startRound(state), 10);
+    const side = userSide(live);
+    expect(side.formation).toBe("4-4-2");
+    const goal = side.slotPos.indexOf("GK");
+    const keeper = side.slots[goal]!;
+    side.slots[goal] = null;
+    side.vacancy[goal] = { why: "red", playerId: keeper };
+    side.sentOff.push(keeper);
+    const reserve = side.bench.find((id) => live.players[id]!.position === "GK")!;
+    expect(reserve).toBeDefined();
+    return { state, live, keeper, reserve };
+  }
+
+  test("regra do goleiro grava o setor", () => {
+    // C3 (L-005, L-018, L-028): the hole keeps the sector of the slot left, not the keeper's.
+    const { state, live, keeper, reserve } = keeperOff();
+    const me = state.userClubId!;
+    expect(userSide(live).slotPos[2]).toBe("DF");
+    const subbed = ok(substitute(live, me, 2, reserve));
+    expect(userSide(subbed).vacancy[2]).toEqual({ why: "red", playerId: keeper, pos: "DF" });
+    for (const formation of ["4-4-2", "4-5-1", "4-3-3", "3-5-2"] as FormationName[]) {
+      const side = userSide(changeFormation(subbed, me, formation));
+      expect(side.slots[side.slotPos.indexOf("GK")], formation).toBe(reserve);
+      const holes = side.slots.flatMap((id, i) => (id ? [] : [i]));
+      expect(holes, formation).toHaveLength(1);
+      expect(side.slotPos[holes[0]!], formation).toBe("DF");
+      expect(side.vacancy[holes[0]!], formation).toMatchObject({ why: "red", playerId: keeper });
+      expect(side.slots.filter(Boolean), formation).toHaveLength(10);
+    }
+  });
+
+  test("preenchimento do gol grava o setor", () => {
+    // C4 (L-018): the automatic keeper rule records the sector of the outfield slot that was left.
+    const { live, keeper } = keeperOff();
+    const side = userSide(runToEnd(live, { fillUserVacancies: true }));
+    const inGoal = side.slots[side.slotPos.indexOf("GK")]!;
+    expect(live.players[inGoal]!.position).toBe("GK");
+    expect(userSide(live).bench).toContain(inGoal);
+    const left = Object.entries(side.vacancy).filter(([, v]) => v.playerId === keeper);
+    expect(left).toHaveLength(1);
+    const [slot, v] = left[0]!;
+    expect(side.slotPos[Number(slot)]).not.toBe("GK");
+    expect(v).toEqual({ why: "red", playerId: keeper, pos: side.slotPos[Number(slot)] });
   });
 });

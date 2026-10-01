@@ -170,8 +170,9 @@ export function Live() {
   const targets = side.slots[outSlot] ? redSlots.filter((slot) => slot !== outSlot) : [];
   const goal = targets.find((slot) => side.slotPos[slot] === "GK");
   const keeperIn = !!chosenIn && player(chosenIn).position === "GK" && side.slotPos[outSlot] !== "GK";
-  const defaultTarget = keeperIn && goal !== undefined ? goal : outSlot;
-  const chosenTarget = target !== null && targets.includes(target) ? target : defaultTarget;
+  // Ajustes-substituicao C2: that keeper goes in goal anyway, so «no lugar de» is not offered then.
+  const options = keeperIn && goal !== undefined ? [goal, ...targets.filter((slot) => slot !== goal)] : [outSlot, ...targets];
+  const chosenTarget = target !== null && options.includes(target) ? target : options[0]!;
   const slotName = (slot: number) => {
     const id = side.slots[slot] ?? side.vacancy[slot]?.playerId;
     return id ? player(id).name : "Vaga";
@@ -358,12 +359,11 @@ export function Live() {
             {redSlots.length > 0 && (
               <div className="decision-row">
                 <select aria-label="Posição" disabled={!stopped} value={chosenTarget} onChange={(e) => setTarget(Number(e.target.value))}>
-                  <option value={outSlot}>
-                    no lugar de {slotName(outSlot)} ({POSITION_LABEL[side.slotPos[outSlot]!]})
-                  </option>
-                  {targets.map((slot) => (
+                  {options.map((slot) => (
                     <option key={slot} value={slot}>
-                      na vaga de {slotName(slot)} ({POSITION_LABEL[side.slotPos[slot]!]}, expulso)
+                      {slot === outSlot
+                        ? `no lugar de ${slotName(slot)} (${POSITION_LABEL[side.slotPos[slot]!]})`
+                        : `na vaga de ${slotName(slot)} (${POSITION_LABEL[side.slotPos[slot]!]}, expulso)`}
                     </option>
                   ))}
                 </select>

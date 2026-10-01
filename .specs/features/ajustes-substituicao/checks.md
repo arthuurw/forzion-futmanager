@@ -49,6 +49,13 @@ Proof: `npm run check:layout`
 
 - O terceiro movimento do buraco vermelho, a troca para a vaga do expulso, já grava o setor e é provado por posicao-na-substituicao (C1, C8).
 
+## Superseded
+
+| Old assertion | New | Why |
+| --- | --- | --- |
+| correcoes-validacao «IA repõe goleiro expulso» (`src/engine/live.test.ts`): `vacancy[1]` = `{ why: "red", playerId: "a0" }` | `{ why: "red", playerId: "a0", pos: "DF" }` | C4: o buraco movido grava o setor; a asserção fica mais estrita |
+| parada-obrigatoria C3 «goleiro expulso: reserva entra no gol»: `vacancy[outSlot]` = `{ why: "red", playerId: <expulso> }` | `{ why: "red", playerId: <expulso>, pos: "DF" }` | C3: idem |
+
 ## Swept
 
 - validation: existing - recusas de posicao-na-substituicao C3

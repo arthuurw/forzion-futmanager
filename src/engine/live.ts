@@ -289,7 +289,8 @@ function aiSubstitutions(m: LiveMatch, side: LiveSide, minute: number, players: 
       .filter((o) => o.pos !== "GK")
       .sort((a, b) => ownSlotRating(side, a, players) - ownSlotRating(side, b, players) || a.id.localeCompare(b.id))[0];
     if (!keeper || !off) return;
-    side.vacancy[off.slot] = side.vacancy[slot]!;
+    // Ajustes-substituicao C4: the hole keeps the sector of the slot it moved to.
+    side.vacancy[off.slot] = { ...side.vacancy[slot]!, pos: side.slotPos[off.slot] as Position };
     delete side.vacancy[slot];
     side.slots[off.slot] = null;
     side.slots[slot] = off.id;
@@ -683,7 +684,8 @@ export function substitute(input: LiveRound, clubId: string, slot: number, inId:
   const goal = side.slots.findIndex((id, i) => !id && side.slotPos[i] === "GK" && side.vacancy[i]?.why === "red");
   const outId = side.slots[slot];
   if (goal >= 0 && outId && side.slotPos[slot] !== "GK" && live.players[inId]?.position === "GK") {
-    side.vacancy[slot] = side.vacancy[goal]!;
+    // Ajustes-substituicao C3: the hole keeps the sector of the slot it moved to.
+    side.vacancy[slot] = { ...side.vacancy[goal]!, pos: side.slotPos[slot] as Position };
     delete side.vacancy[goal];
     side.slots[slot] = null;
     side.slots[goal] = outId;

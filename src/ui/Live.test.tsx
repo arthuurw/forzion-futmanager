@@ -787,3 +787,58 @@ describe("posição na substituição (posicao-na-substituicao)", () => {
     expect(after.subbedOff).toContain(leaving);
   });
 });
+
+describe("ajustes da substituição (ajustes-substituicao)", () => {
+  /** The live screen paused at minute 10 of round 1, with the user's `slots` emptied for `why`. */
+  function pausedWith(stops: [number | "GK", "injury" | "red"][]) {
+    const game = seededGame(4);
+    for (const p of game.leagues[0]!.clubs[0]!.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+    let live = startRound(game);
+    while (live.minute < 10) live = step(live);
+    const side = userSideOf(live);
+    expect(side.formation).toBe("4-4-2");
+    const names: string[] = [];
+    for (const [at, why] of stops) {
+      const slot = at === "GK" ? side.slotPos.indexOf("GK") : at;
+      const id = side.slots[slot]!;
+      side.slots[slot] = null;
+      side.vacancy[slot] = { why, playerId: id };
+      if (why === "red") side.sentOff.push(id);
+      names.push(live.players[id]!.name);
+    }
+    useGame.setState({ phase: "live", game, hasSave: true, live, clock: "paused", liveStop: null });
+    render(<Live />);
+    const reserve = side.bench.find((id) => live.players[id]!.position === "GK")!;
+    return { names, reserve, team: screen.getByRole("tabpanel", { name: "Seu time" }) };
+  }
+
+  test("posição com sai lesionado", async () => {
+    // C1 (L-029): «Sai» on an injury's empty slot while a red card's slot is elsewhere.
+    const user = userEvent.setup();
+    const {
+      names: [, injured],
+      team,
+    } = pausedWith([
+      [2, "red"],
+      [5, "injury"],
+    ]);
+    await user.selectOptions(within(team).getByLabelText("Sai"), "5");
+    const posicao = within(team).getByLabelText("Posição") as HTMLSelectElement;
+    expect([...posicao.options].map((o) => o.textContent)).toEqual([`no lugar de ${injured} (MEI)`]);
+  });
+
+  test("goleiro reserva só no gol", async () => {
+    // C2: a keeper coming on for an outfield player is offered the goal only, already chosen.
+    const user = userEvent.setup();
+    const {
+      names: [keeper],
+      reserve,
+      team,
+    } = pausedWith([["GK", "red"]]);
+    await user.selectOptions(within(team).getByLabelText("Sai"), "2");
+    await user.selectOptions(within(team).getByLabelText("Entra"), reserve);
+    const posicao = within(team).getByLabelText("Posição") as HTMLSelectElement;
+    expect([...posicao.options].map((o) => o.textContent)).toEqual([`na vaga de ${keeper} (GOL, expulso)`]);
+    expect(posicao.selectedOptions[0]!.textContent).toBe(`na vaga de ${keeper} (GOL, expulso)`);
+  });
+});

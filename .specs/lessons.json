@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 28,
+  "next_id": 30,
   "lessons": [
     {
       "id": "L-001",
@@ -502,6 +502,42 @@
       ],
       "created": "2026-09-30T21:02:39Z",
       "last_seen": "2026-09-30T21:02:39Z"
+    },
+    {
+      "id": "L-028",
+      "key": "ac_gap::when a change moves state to a new place add a check that a later operation which rebuilds that state keeps it there",
+      "text": "When a change moves state to a new place, add a check that a later operation which rebuilds that state keeps it there.",
+      "signal": "ac_gap",
+      "scope": "state",
+      "status": "candidate",
+      "features": [
+        "posicao-na-substituicao"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "verification round 1 Finding 1 / src/engine/live.ts:709 (state)"
+      ],
+      "created": "2026-10-01T17:21:39Z",
+      "last_seen": "2026-10-01T17:21:39Z"
+    },
+    {
+      "id": "L-029",
+      "key": "spec_precision_gap::when a check is added to prove the fix of a verifier finding build its fixture on the exact case the finding named so the proof fails on the pre fix code",
+      "text": "When a check is added to prove the fix of a Verifier finding, build its fixture on the exact case the finding named, so the proof fails on the pre-fix code.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "posicao-na-substituicao"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "C9 / src/ui/Live.test.tsx:758 (checks)"
+      ],
+      "created": "2026-10-01T17:21:39Z",
+      "last_seen": "2026-10-01T17:21:39Z"
     }
   ]
 }

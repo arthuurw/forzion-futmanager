@@ -174,6 +174,18 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C20 / scripts/layout-check.mjs:334 (layout)
 - last seen: 2026-09-30T21:02:39Z
 
+### L-028 - When a change moves state to a new place, add a check that a later operation which rebuilds that state keeps it there.
+- signal: `ac_gap` · recurrence: 1 feature(s) · scope: `state` · harmful: 0
+- features: posicao-na-substituicao
+- evidence: verification round 1 Finding 1 / src/engine/live.ts:709 (state)
+- last seen: 2026-10-01T17:21:39Z
+
+### L-029 - When a check is added to prove the fix of a Verifier finding, build its fixture on the exact case the finding named, so the proof fails on the pre-fix code.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: posicao-na-substituicao
+- evidence: C9 / src/ui/Live.test.tsx:758 (checks)
+- last seen: 2026-10-01T17:21:39Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

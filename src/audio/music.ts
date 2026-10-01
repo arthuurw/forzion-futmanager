@@ -12,6 +12,8 @@ export const PHASE_CONTEXT: Record<Phase, MusicContext> = {
   home: "abertura",
   chooseClub: "abertura",
   about: "abertura",
+  // Varios-saves: «Jogos salvos» is part of the title screens.
+  saves: "abertura",
   squad: "gestao",
   market: "gestao",
   finance: "gestao",

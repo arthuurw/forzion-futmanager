@@ -66,6 +66,8 @@ describe("música (audio S1, S3)", () => {
       ["home", "abertura"],
       ["chooseClub", "abertura"],
       ["about", "abertura"],
+      // Varios-saves (Superseded checks): «Jogos salvos» on the title music, like «Sobre».
+      ["saves", "abertura"],
       ["squad", "gestao"],
       ["market", "gestao"],
       ["finance", "gestao"],

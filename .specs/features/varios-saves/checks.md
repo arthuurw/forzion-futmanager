@@ -125,6 +125,18 @@ Proof: `npm run check:layout`
 
 - C24 é a única prova sem seletor de teste; o script já é a prova de layout das features anteriores (AD-010)
 
+## Superseded
+
+| Old check or assertion | New | Why |
+| --- | --- | --- |
+| nucleo-liga-partida C10 («Novo jogo» com save pede «Isso apaga o jogo salvo») | C17 e C21: sem confirmação quando há espaço vazio; a pergunta fica para a leitura que falhou. O teste «novo jogo sobre save pede confirmação» passa a abrir com a leitura falhando | AC 18, AC 22 |
+| lancamento C6 (importar sobre save pede «Isso substitui o jogo salvo»; também sobre save incompatível) | C19 e C21: a importação vai para o espaço vazio sem pergunta; «importar sobre save pede confirmação» vira «falha de leitura importa no Jogo 1», e «importar sobre save incompatível pede confirmação» vira «importar com save incompatível usa outro espaço» (o incompatível fica no Jogo 1, o jogo vai para o Jogo 2) | AC 20, AC 22 |
+| lancamento C7 «cancelar a importação mantém o save» | o mesmo teste, com a confirmação aberta pela leitura que falhou | AC 22 |
+| correcoes-validacao C5 «abrir o importado falha antes de gravar» | a falha ao abrir acontece na própria importação (sem `confirmImport`), e o Jogo 2 continua vazio | AC 20 |
+| correcoes-validacao C54 «foco na confirmação» (`Home.test.tsx`) | o mesmo foco, com a confirmação aberta por `loadFailed` | AC 22 |
+| copa-nacional C61 «save de versão 6 incompatível» | o menu ganha «Jogos salvos»: o save incompatível ocupa o espaço dele (C9) | AC 8 |
+| audio C15 «contexto de cada tela» | a fase `saves` entra na tabela com a música do título, como «Sobre» | a tela nova é do título |
+
 ## Swept
 
 - validation: C3 - documento de versão não suportada vira linha incompatível; C23 - arquivo recusado não grava

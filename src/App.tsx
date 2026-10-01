@@ -17,6 +17,7 @@ import { Market } from "./ui/Market";
 import { NewSeason } from "./ui/NewSeason";
 import { OtherTab } from "./ui/OtherTab";
 import { Round } from "./ui/Round";
+import { Saves } from "./ui/Saves";
 import { Squad } from "./ui/Squad";
 
 export function App() {
@@ -41,7 +42,8 @@ function Screens() {
   }, [phase]);
 
   const onHome = phase === "loading" || phase === "home";
-  const onTitle = onHome || phase === "about";
+  // Varios-saves: «Jogos salvos» is a title screen, like «Sobre».
+  const onTitle = onHome || phase === "about" || phase === "saves";
 
   // Door 2 (correcoes-validacao): another tab holds the game.
   if (otherTab)
@@ -73,6 +75,7 @@ function Screens() {
       <div className="stage" key={onHome ? "title" : phase}>
         {onHome && <Home />}
         {phase === "about" && <About />}
+        {phase === "saves" && <Saves />}
         {phase === "chooseClub" && <ChooseClub />}
         {phase === "squad" && <Squad />}
         {phase === "market" && <Market />}

@@ -25,7 +25,7 @@ import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
 import type { Club, Finance, FormationName, GameState, MatchEvent, Posture, Training } from "./engine/types";
 import { decodeSaveFile } from "./engine/saveFile";
-import { isStorageAvailable, loadGame, saveGame, type LoadResult } from "./persistence/save";
+import { SLOT_COUNT, deleteGame, isStorageAvailable, listSaves, loadGame, saveGame, type LoadResult, type SlotEntry } from "./persistence/save";
 import { formatMoney } from "./ui/money";
 
 export type Phase =
@@ -42,8 +42,43 @@ export type Phase =
   | "history"
   | "cup"
   | "about"
-  | "job";
+  | "job"
+  | "saves";
 export type SaveStatus = "ok" | "failed" | "unavailable";
+/** Varios-saves: what «Jogos salvos» shows of one slot. */
+export type SlotView =
+  | { slot: number; kind: "empty" }
+  | { slot: number; kind: "ok"; club: string; league: string; season: number; savedAt: number }
+  | { slot: number; kind: "incompatible"; version: unknown };
+
+/** Varios-saves AC 19, AC 21. */
+export const SAVES_TEXT = {
+  fullNew: "Os 3 espaços estão ocupados. Apague um jogo para começar outro.",
+  fullImport: "Os 3 espaços estão ocupados. Apague um jogo para importar outro.",
+};
+
+const emptySlots = (): SlotView[] => Array.from({ length: SLOT_COUNT }, (_, i) => ({ slot: i + 1, kind: "empty" }));
+
+function okView(slot: number, game: GameState, savedAt: number): SlotView {
+  const id = game.userClubId;
+  const league = id ? game.leagues.find((l) => l.clubs.some((c) => c.id === id)) : undefined;
+  const club = league?.clubs.find((c) => c.id === id);
+  return { slot, kind: "ok", club: club?.name ?? "Sem clube", league: league?.name ?? "", season: game.season, savedAt };
+}
+
+const slotView = (entry: SlotEntry): SlotView => (entry.kind === "ok" ? okView(entry.slot, entry.state, entry.savedAt) : entry);
+
+/** Varios-saves AC 4, AC 5: the readable game saved last (a tie goes to the lowest), else the first empty slot. */
+export function activeSlotOf(slots: SlotView[]): number {
+  let best: { slot: number; savedAt: number } | null = null;
+  for (const s of slots) if (s.kind === "ok" && (!best || s.savedAt > best.savedAt)) best = s;
+  return best?.slot ?? slots.find((s) => s.kind === "empty")?.slot ?? 1;
+}
+
+const incompatibleOf = (slots: SlotView[]): unknown => {
+  const found = slots.find((s) => s.kind === "incompatible");
+  return found?.kind === "incompatible" ? found.version : null;
+};
 export type LastRound = Omit<RoundOutcome, "state">;
 export type Clock = "running" | "paused" | "halftime";
 export type Speed = 1 | 2 | 4;
@@ -102,8 +137,14 @@ export function refusalText(reason: Refusal, amount = 0): string {
 export interface GameStore {
   phase: Phase;
   game: GameState | null;
-  /** A valid save exists in storage. */
+  /** Varios-saves: the active slot holds a readable game. */
   hasSave: boolean;
+  /** Varios-saves: the 3 slots as last read or written. */
+  slots: SlotView[];
+  /** Varios-saves: the slot the game in memory is written to. */
+  activeSlot: number;
+  /** Varios-saves AC 19, AC 21: why «Jogos salvos» opened instead of a new or imported game. */
+  savesNotice: string | null;
   /** Correcoes-validacao AC 1: the last read of the save failed, which is not «no save». */
   loadFailed: boolean;
   /** Correcoes-validacao AC 6: «Continuar» found a save that does not open. */
@@ -116,7 +157,7 @@ export interface GameStore {
   pendingCommit: GameState | null;
   /** The last write asked for: writes go one after the other, so the slot ends with the last game. */
   writeQueue: Promise<unknown>;
-  /** Set when storage holds a document with an unsupported schemaVersion. */
+  /** Set when a slot holds a document with an unsupported schemaVersion. */
   incompatibleVersion: unknown;
   saveStatus: SaveStatus;
   lastRound: LastRound | null;
@@ -206,7 +247,16 @@ export interface GameStore {
   goToSquad(): void;
   goHome(): void;
   goToAbout(): void;
-  /** Reads an exported file's text; a valid game over an existing save waits for `confirmImport`. */
+  /** Varios-saves AC 9: the «Jogos salvos» screen. */
+  goToSaves(): void;
+  /** Varios-saves AC 13: makes `slot` active and opens its game. */
+  openSlot(slot: number): Promise<void>;
+  /** Varios-saves AC 15, AC 16: removes the game of `slot`. */
+  deleteSlot(slot: number): Promise<void>;
+  /**
+   * Reads an exported file's text; a valid game goes to the first empty slot (varios-saves AC 20),
+   * or waits for `confirmImport` after a failed read (AC 22).
+   */
   importFile(text: string): Promise<void>;
   confirmImport(): Promise<void>;
   cancelImport(): void;
@@ -240,11 +290,14 @@ async function persist(game: GameState, set: Set, get: Get): Promise<void> {
   }
   // Door 2: a tab without the lock never writes.
   if (get().otherTab) return;
-  const write = get().writeQueue.then(() => saveGame(game));
+  // Varios-saves AC 2: the slot active when the write was asked for.
+  const slot = get().activeSlot;
+  const write = get().writeQueue.then(() => saveGame(game, slot));
   set({ writeQueue: write.catch(() => undefined) });
   try {
     await write;
-    set({ saveStatus: "ok", hasSave: true, incompatibleVersion: null, loadFailed: false });
+    const slots = get().slots.map((s) => (s.slot === slot ? okView(slot, game, Date.now()) : s));
+    set({ saveStatus: "ok", hasSave: true, slots, incompatibleVersion: incompatibleOf(slots), loadFailed: false });
   } catch {
     set({ saveStatus: "failed" });
     return;
@@ -344,7 +397,8 @@ export const useGame = create<GameStore>()((set, get) => {
    * Lancamento AC 6 and AC 14: the imported game is written to the slot and opens even if the
    * write fails. Correcoes-validacao AC 5: it opens first; one that does not open is not written.
    */
-  async function openImported(game: GameState): Promise<void> {
+  /** Varios-saves AC 20: the imported game goes to `slot`, which becomes the active one. */
+  async function openImported(game: GameState, slot = get().activeSlot): Promise<void> {
     let phase: Phase;
     try {
       phase = openingPhase(game);
@@ -352,7 +406,7 @@ export const useGame = create<GameStore>()((set, get) => {
       set({ importMessage: IMPORT_TEXT.malformed, pendingImport: null });
       return;
     }
-    set({ game, pendingImport: null, importMessage: null, lastRound: null, live: null, rolloverReport: null });
+    set({ activeSlot: slot, game, pendingImport: null, importMessage: null, lastRound: null, live: null, rolloverReport: null });
     await persist(game, set, get);
     set({ phase });
   }
@@ -399,31 +453,36 @@ export const useGame = create<GameStore>()((set, get) => {
     void pendingLive;
     const date = nextDate(game);
     if (date.kind === "over") {
-      set({ phase: "home", game, hasSave: true, incompatibleVersion: null });
+      set({ phase: "home", game, hasSave: true });
       return;
     }
     // AD-022: nobody decides for the user any more, so the user's holes are filled by the AI's rule.
     const live = runToEnd(date.kind === "league" ? startRound(game) : startCupDate(game), { fillUserVacancies: true });
     const { state, ...lastRound } = live.cup ? finishCupDate(game, live) : finishRound(game, live);
-    set({ game: state, lastRound, hasSave: true, incompatibleVersion: null, live: null });
+    set({ game: state, lastRound, hasSave: true, live: null });
     await persist(state, set, get);
     set({ phase: afterDatePhase(state) });
   }
 
-  /** Reads the slot. A read that fails is `loadFailed`, not «no save» (correcoes-validacao AC 1). */
-  async function readSlot(): Promise<void> {
-    let r: LoadResult;
+  /**
+   * Reads the slots and opens the active one (varios-saves AC 4-6). A read that fails is
+   * `loadFailed`, not «no save» (correcoes-validacao AC 1); then slot 1 is the one written.
+   */
+  async function readSlots(): Promise<void> {
+    let entries: SlotEntry[];
     try {
-      r = await loadGame();
+      entries = await listSaves();
     } catch {
-      set({ phase: "home", game: null, hasSave: false, saveStatus: "failed", loadFailed: true });
+      set({ phase: "home", game: null, hasSave: false, saveStatus: "failed", loadFailed: true, slots: emptySlots(), activeSlot: 1 });
       return;
     }
-    set({ loadFailed: false });
-    if (r.kind === "ok" && r.state.pendingLive) await closePendingLive(r.state);
-    else if (r.kind === "ok") set({ phase: "home", game: r.state, hasSave: true, incompatibleVersion: null });
-    else if (r.kind === "incompatible") set({ phase: "home", game: null, hasSave: false, incompatibleVersion: r.version });
-    else set({ phase: "home", game: null, hasSave: false, incompatibleVersion: null });
+    const slots = entries.map(slotView);
+    const activeSlot = activeSlotOf(slots);
+    set({ loadFailed: false, slots, activeSlot, incompatibleVersion: incompatibleOf(slots) });
+    const entry = entries[activeSlot - 1];
+    if (entry?.kind === "ok" && entry.state.pendingLive) await closePendingLive(entry.state);
+    else if (entry?.kind === "ok") set({ phase: "home", game: entry.state, hasSave: true });
+    else set({ phase: "home", game: null, hasSave: false });
   }
 
   /** Closes the live round at 90': results, condition, save, then the results screen. */
@@ -450,6 +509,9 @@ export const useGame = create<GameStore>()((set, get) => {
     phase: "loading",
     game: null,
     hasSave: false,
+    slots: emptySlots(),
+    activeSlot: 1,
+    savesNotice: null,
     loadFailed: false,
     openFailed: false,
     otherTab: false,
@@ -492,24 +554,31 @@ export const useGame = create<GameStore>()((set, get) => {
         set({ phase: "home", otherTab: true, booting: false });
         return;
       }
-      await readSlot();
+      await readSlots();
       set({ booting: false });
     },
 
     async retryLoad() {
       set({ phase: "loading", loadFailed: false });
-      await readSlot();
+      await readSlots();
     },
 
     async useThisTab() {
       if (!(await holdTabLock(true))) return;
       set({ phase: "loading", otherTab: false, game: null, live: null, lastRound: null, finishing: false, saving: false, pendingCommit: null, pendingImport: null });
-      await readSlot();
+      await readSlots();
       if (get().phase === "home" && get().hasSave) get().continueGame();
     },
 
     newGame(seed = randomSeed()) {
-      set({ game: generateNewGame(seed), phase: "chooseClub", lastRound: null, live: null });
+      // Varios-saves AC 18, AC 19: the first empty slot; after a failed read, slot 1 (AC 22).
+      let activeSlot = get().activeSlot;
+      if (!get().loadFailed) {
+        const free = get().slots.find((s) => s.kind === "empty");
+        if (!free) return set({ phase: "saves", savesNotice: SAVES_TEXT.fullNew });
+        activeSlot = free.slot;
+      }
+      set({ activeSlot, hasSave: false, game: generateNewGame(seed), phase: "chooseClub", lastRound: null, live: null });
     },
 
     async chooseClub(clubId) {
@@ -684,6 +753,13 @@ export const useGame = create<GameStore>()((set, get) => {
     continueGame() {
       const game = get().game;
       if (!game) return;
+      // Varios-saves AC 13: a slot opened with a pending live date plays it first (AD-019).
+      if (game.pendingLive) {
+        void closePendingLive(game).then(() => {
+          if (get().phase === "home" && get().game && !get().game!.pendingLive) get().continueGame();
+        });
+        return;
+      }
       // Correcoes-validacao AC 6: a save that does not open says so instead of ignoring the tap.
       let phase: Phase;
       try {
@@ -700,11 +776,53 @@ export const useGame = create<GameStore>()((set, get) => {
     },
 
     goHome() {
-      set({ phase: "home" });
+      set({ phase: "home", savesNotice: null });
     },
 
     goToAbout() {
       set({ phase: "about" });
+    },
+
+    goToSaves() {
+      set({ phase: "saves", savesNotice: null });
+    },
+
+    async openSlot(slot) {
+      let r: LoadResult;
+      try {
+        r = await loadGame(slot);
+      } catch {
+        set({ openFailed: true });
+        return;
+      }
+      if (r.kind !== "ok") return;
+      set({ activeSlot: slot, game: r.state, hasSave: true, lastRound: null, live: null, rolloverReport: null, openFailed: false });
+      get().continueGame();
+    },
+
+    async deleteSlot(slot) {
+      // After any write still queued, so a pending write cannot bring the game back.
+      const removal = get().writeQueue.then(() => deleteGame(slot));
+      set({ writeQueue: removal.catch(() => undefined) });
+      try {
+        await removal;
+      } catch {
+        set({ saveStatus: "failed" });
+        return;
+      }
+      let entries: SlotEntry[] | null = null;
+      try {
+        entries = await listSaves();
+      } catch {
+        // The slot is gone either way.
+      }
+      const slots = entries ? entries.map(slotView) : get().slots.map((s): SlotView => (s.slot === slot ? { slot, kind: "empty" } : s));
+      set({ slots, incompatibleVersion: incompatibleOf(slots) });
+      if (slot !== get().activeSlot) return;
+      // AC 16: the slot AC 4 would pick among the rest.
+      const activeSlot = activeSlotOf(slots);
+      const entry = entries?.[activeSlot - 1];
+      set({ activeSlot, game: entry?.kind === "ok" ? entry.state : null, hasSave: entry?.kind === "ok", lastRound: null, live: null });
     },
 
     async importFile(text) {
@@ -712,10 +830,12 @@ export const useGame = create<GameStore>()((set, get) => {
       if (r.kind === "invalid_json" || r.kind === "not_a_save") return set({ importMessage: IMPORT_TEXT.invalid, pendingImport: null });
       if (r.kind === "malformed") return set({ importMessage: IMPORT_TEXT.malformed, pendingImport: null });
       if (r.kind === "unsupported_version") return set({ importMessage: IMPORT_TEXT.version(r.version), pendingImport: null });
-      // Correcoes-validacao AC 2: a failed read may hide a save, so it asks too.
-      const { hasSave, incompatibleVersion, loadFailed } = get();
-      if (hasSave || incompatibleVersion !== null || loadFailed) return set({ pendingImport: r.state, importMessage: null });
-      await openImported(r.state);
+      // Correcoes-validacao AC 2: a failed read may hide a save, so it asks (varios-saves AC 22).
+      if (get().loadFailed) return set({ pendingImport: r.state, importMessage: null });
+      // Varios-saves AC 20, AC 21: the first empty slot, never over a game.
+      const free = get().slots.find((s) => s.kind === "empty");
+      if (!free) return set({ phase: "saves", savesNotice: SAVES_TEXT.fullImport, importMessage: null });
+      await openImported(r.state, free.slot);
     },
 
     async confirmImport() {

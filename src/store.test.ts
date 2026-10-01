@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { loadGame, saveGame } from "./persistence/save";
+import { openDB } from "idb";
+import { DB_NAME, DB_VERSION, STORE, loadGame, saveGame, slotKey } from "./persistence/save";
 import { encodeSaveFile } from "./engine/saveFile";
 import type { GameState, MatchEvent } from "./engine/types";
 import { TAB_LOCK, useGame, userClub, type GameStore } from "./store";
 import { Home } from "./ui/Home";
 import { makeMatch, matchSeed, roundSnapshot, runToEnd, sideFor, startRound, step, userMatch, type LiveRound } from "./engine/live";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { Banner } from "./ui/Banner";
 import userEvent from "@testing-library/user-event";
@@ -33,10 +34,10 @@ vi.mock("./persistence/save", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./persistence/save")>();
   return {
     ...actual,
-    saveGame: vi.fn(async (state: Parameters<typeof actual.saveGame>[0]) => {
+    saveGame: vi.fn(async (state: Parameters<typeof actual.saveGame>[0], slot?: number) => {
       if (ctl.gate) await ctl.gate;
       if (ctl.fail) throw new Error("put failed");
-      return actual.saveGame(state);
+      return actual.saveGame(state, slot);
     }),
   };
 });
@@ -508,25 +509,23 @@ describe("o save sobrevive (correcoes-validacao)", () => {
   });
 
   test("abrir o importado falha antes de gravar", async () => {
-    // C5 (AC 5): the file decodes, but opening it throws.
+    // C5 (AC 5): the file decodes, but opening it throws. Varios-saves (Superseded): the game would
+    // go to the empty slot 2 with no confirmation, so the open fails on the import itself.
     const saved = seededGame(7);
     await saveGame(saved);
-    useGame.setState({ phase: "home", hasSave: true, game: saved });
+    await useGame.getState().init();
     render(createElement(Home));
-    await act(async () => {
-      await useGame.getState().importFile(encodeSaveFile(seededGame(9), "2026-09-29T12:00:00.000Z"));
-    });
-    expect(useGame.getState().pendingImport?.seed).toBe(9);
     vi.mocked(saveGame).mockClear();
     ctl.openFails = true;
     await act(async () => {
-      await useGame.getState().confirmImport();
+      await useGame.getState().importFile(encodeSaveFile(seededGame(9), "2026-09-29T12:00:00.000Z"));
     });
     ctl.openFails = false;
     expect(vi.mocked(saveGame)).not.toHaveBeenCalled();
     expect(screen.getByText("Arquivo corrompido: não foi possível ler o jogo")).toBeInTheDocument();
     expect(useGame.getState().phase).toBe("home");
     expect(await slotSeed()).toBe(7);
+    expect(await loadGame(2)).toEqual({ kind: "none" });
   });
 
   test("segunda aba não grava", async () => {
@@ -924,5 +923,112 @@ describe("posição na substituição (posicao-na-substituicao)", () => {
     expect(after.slots[2]).toBe(defender);
     expect(after.slots[9]).toBeNull();
     expect(useGame.getState().liveMessage).toBeNull();
+  });
+});
+
+
+describe("vários espaços (varios-saves)", () => {
+  async function put(slot: number, doc: unknown): Promise<void> {
+    const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+    await db.put(STORE, doc, slotKey(slot));
+    db.close();
+  }
+
+  async function raw(slot: number): Promise<Record<string, unknown> | undefined> {
+    const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+    const doc = (await db.get(STORE, slotKey(slot))) as Record<string, unknown> | undefined;
+    db.close();
+    return doc;
+  }
+
+  const at = (game: GameState, savedAt: number) => ({ ...game, savedAt });
+  const clubName = (game: GameState) => userClub(game)!.name;
+  /** Three games of different clubs, so the screen tells which one opened. */
+  const games = () => [seededGame(7, 0), seededGame(9, 3), seededGame(11, 5)] as const;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("espaço ativo na abertura", async () => {
+    // C5 (L-001, L-005, L-018): the greatest savedAt; a tie goes to the lowest number; no time = 0.
+    const [a, b, c] = games();
+    expect(new Set([clubName(a), clubName(b), clubName(c)]).size).toBe(3);
+    const cases: [string, [number, unknown][], number, GameState][] = [
+      ["1 mais recente", [[1, at(a, 300)], [3, at(c, 200)]], 1, a],
+      ["3 mais recente", [[1, at(a, 100)], [3, at(c, 200)]], 3, c],
+      ["empate fica com o menor", [[2, at(b, 200)], [3, at(c, 200)]], 2, b],
+      ["sem data vale 0", [[1, a], [2, at(b, 1)]], 2, b],
+    ];
+    for (const [name, docs, slot, game] of cases) {
+      cleanup();
+      resetAll();
+      for (const [n, doc] of docs) await put(n, doc);
+      const user = userEvent.setup();
+      render(createElement(App));
+      await user.click(await screen.findByRole("button", { name: "Continuar" }));
+      expect(await screen.findByRole("heading", { name: clubName(game) }), name).toBeInTheDocument();
+      expect(useGame.getState().activeSlot, name).toBe(slot);
+    }
+  });
+
+  test("sem jogo legível usa o menor vazio", async () => {
+    // C6: an unsupported save in slot 1 is kept; the new game goes to slot 2.
+    await put(1, { schemaVersion: 9 });
+    const user = userEvent.setup();
+    render(createElement(App));
+    await user.click(await screen.findByRole("button", { name: "Novo jogo" }));
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+    expect(useGame.getState()).toMatchObject({ phase: "chooseClub", activeSlot: 2 });
+    const clubId = useGame.getState().game!.leagues[0]!.clubs[4]!.id;
+    await act(async () => {
+      await useGame.getState().chooseClub(clubId);
+    });
+    expect((await raw(2))?.userClubId).toBe(clubId);
+    expect(await raw(1)).toEqual({ schemaVersion: 9 });
+  });
+
+  test("data pendente do espaço ativo", async () => {
+    // C7 (AD-019): only the active slot's pending date is played and saved, in that slot.
+    const [a, b] = games();
+    await put(1, at(a, 100));
+    await put(2, { ...at(b, 200), pendingLive: true });
+    const before = await raw(1);
+    render(createElement(App));
+    await waitFor(() => expect(useGame.getState().phase).toBe("round"));
+    await waitFor(async () => expect((await raw(2))?.pendingLive).toBeUndefined());
+    expect((await raw(2))?.leagues).toBeDefined();
+    expect(((await raw(2))!.leagues as GameState["leagues"])[0]!.currentRound).toBe(1);
+    expect(await raw(1)).toEqual(before);
+  });
+
+  test("save de antes abre como Jogo 1", async () => {
+    // C8: a v8 document in "slot-1" with no savedAt, as written before this feature.
+    const [a] = games();
+    await put(1, a);
+    const user = userEvent.setup();
+    render(createElement(App));
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+    expect(await screen.findByRole("heading", { name: clubName(a) })).toBeInTheDocument();
+    expect(useGame.getState().activeSlot).toBe(1);
+    expect(useGame.getState().game!.leagues[0]!.currentRound).toBe(a.leagues[0]!.currentRound);
+  });
+
+  test("gravação só no espaço ativo", async () => {
+    // C10 (L-003): a round played through the store writes slot 2 only.
+    const [a, b] = games();
+    await put(1, at(a, 100));
+    await put(2, at(b, 200));
+    await useGame.getState().init();
+    expect(useGame.getState().activeSlot).toBe(2);
+    const one = await raw(1);
+    vi.spyOn(Date, "now").mockReturnValue(1700000000000);
+    await act(async () => {
+      useGame.getState().continueGame();
+      await useGame.getState().playRound();
+    });
+    expect(await raw(2)).toMatchObject({ savedAt: 1700000000000, pendingLive: true });
+    expect(await raw(1)).toEqual(one);
+    expect(await raw(3)).toBeUndefined();
   });
 });

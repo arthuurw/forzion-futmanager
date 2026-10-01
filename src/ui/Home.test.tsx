@@ -1,16 +1,37 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { openDB } from "idb";
 import { encodeSaveFile } from "../engine/saveFile";
 import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
-import { DB_NAME, DB_VERSION, SLOT, STORE, loadGame, saveGame } from "../persistence/save";
+import { DB_NAME, DB_VERSION, SLOT, STORE, loadGame, saveGame, slotKey } from "../persistence/save";
 import { useGame } from "../store";
+import { App } from "../App";
 import { Home } from "./Home";
 import { captureDownloads, resetAll, saveFileOf, seededGame } from "./test-utils";
 
 const ISO = "2026-09-28T12:00:00.000Z";
+
+async function put(slot: number, doc: unknown): Promise<void> {
+  const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+  await db.put(STORE, doc, slotKey(slot));
+  db.close();
+}
+
+async function raw(slot: number): Promise<unknown> {
+  const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+  const doc: unknown = await db.get(STORE, slotKey(slot));
+  db.close();
+  return doc;
+}
+
+/** `indexedDB.open` throws once, as Safari's «Connection to Indexed Database server lost». */
+function failNextOpen() {
+  vi.spyOn(indexedDB, "open").mockImplementationOnce(() => {
+    throw new DOMException("Connection to Indexed Database server lost", "UnknownError");
+  });
+}
 
 beforeEach(resetAll);
 
@@ -38,10 +59,13 @@ describe("tela Início", () => {
   });
 
   test("novo jogo sobre save pede confirmação", async () => {
+    // Varios-saves (Superseded): with an empty slot nothing is erased, so only a failed read asks (AC 22).
     const user = userEvent.setup();
     const saved = seededGame(3);
     await saveGame(saved);
-    useGame.setState({ phase: "home", hasSave: true, game: saved });
+    failNextOpen();
+    await useGame.getState().init();
+    expect(useGame.getState().loadFailed).toBe(true);
     render(<Home />);
 
     await user.click(screen.getByRole("button", { name: "Novo jogo" }));
@@ -50,7 +74,6 @@ describe("tela Início", () => {
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByText("Isso apaga o jogo salvo. Continuar?")).not.toBeInTheDocument();
     expect(useGame.getState().phase).toBe("home");
-    expect(useGame.getState().game).toBe(saved);
     expect(await loadGame()).toEqual({ kind: "ok", state: saved });
 
     await user.click(screen.getByRole("button", { name: "Novo jogo" }));
@@ -58,6 +81,7 @@ describe("tela Início", () => {
     expect(useGame.getState().phase).toBe("chooseClub");
     expect(useGame.getState().game).not.toBe(saved);
     expect(useGame.getState().game?.userClubId).toBeNull();
+    expect(useGame.getState().activeSlot).toBe(1);
   });
 
   test("save incompatível", () => {
@@ -78,7 +102,8 @@ describe("tela Início", () => {
     await useGame.getState().init();
     render(<Home />);
     expect(screen.getByText("Jogo salvo incompatível (versão 9)")).toBeInTheDocument();
-    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Importar jogo", "Novo jogo", "Sobre"]);
+    // Varios-saves C9 (Superseded): the unsupported save takes its slot, listed in «Jogos salvos».
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["Jogos salvos", "Importar jogo", "Novo jogo", "Sobre"]);
   });
 
 });
@@ -153,12 +178,15 @@ describe("exportar e importar (lancamento)", () => {
     await waitFor(() => expect(useGame.getState().phase).toBe("end"));
   });
 
-  test("importar sobre save pede confirmação", async () => {
+  test("falha de leitura importa no Jogo 1", async () => {
+    // Varios-saves C21 (supersedes «importar sobre save pede confirmação»): only a failed read asks,
+    // and «Sim, substituir» writes slot 1.
     const user = userEvent.setup();
     const saved = seededGame(3);
     await saveGame(saved);
     const incoming = seededGame(5, 1, 2);
-    useGame.setState({ phase: "home", hasSave: true, game: saved });
+    failNextOpen();
+    await useGame.getState().init();
     render(<Home />);
     await user.upload(input(), saveFileOf(encodeSaveFile(incoming, ISO)));
     expect(await screen.findByText("Isso substitui o jogo salvo. Continuar?")).toBeInTheDocument();
@@ -168,20 +196,26 @@ describe("exportar e importar (lancamento)", () => {
     expect(await loadGame()).toEqual({ kind: "ok", state: incoming });
   });
 
-  test("importar sobre save incompatível pede confirmação", async () => {
+  test("importar com save incompatível usa outro espaço", async () => {
+    // Varios-saves (Superseded): the unsupported save keeps slot 1; the game goes to slot 2, unasked.
     const user = userEvent.setup();
-    useGame.setState({ phase: "home", hasSave: false, game: null, incompatibleVersion: 9 });
+    await put(1, { schemaVersion: 9 });
+    await useGame.getState().init();
     render(<Home />);
     await user.upload(input(), saveFileOf(encodeSaveFile(seededGame(5), ISO)));
-    expect(await screen.findByText("Isso substitui o jogo salvo. Continuar?")).toBeInTheDocument();
-    expect(await loadGame()).toEqual({ kind: "none" });
+    await waitFor(() => expect(useGame.getState().phase).toBe("squad"));
+    expect(screen.queryByText("Isso substitui o jogo salvo. Continuar?")).not.toBeInTheDocument();
+    expect(await loadGame(2)).toEqual({ kind: "ok", state: seededGame(5) });
+    expect(await raw(1)).toEqual({ schemaVersion: 9 });
   });
 
   test("cancelar a importação mantém o save", async () => {
+    // Varios-saves (Superseded): the confirmation comes only after a failed read (AC 22).
     const user = userEvent.setup();
     const saved = seededGame(3);
     await saveGame(saved);
-    useGame.setState({ phase: "home", hasSave: true, game: saved });
+    failNextOpen();
+    await useGame.getState().init();
     render(<Home />);
     await user.upload(input(), saveFileOf(encodeSaveFile(seededGame(5), ISO)));
     await user.click(await screen.findByRole("button", { name: "Cancelar" }));
@@ -298,12 +332,66 @@ describe("semente pelo endereço (correcoes-validacao)", () => {
 
 describe("confirmação com foco (correcoes-validacao)", () => {
   test("foco na confirmação", async () => {
-    // C54 (AC 50): «Novo jogo» over a save; the focus lands on «Sim, apagar».
+    // C54 (AC 50): «Novo jogo» over a save; the focus lands on «Sim, apagar». Varios-saves C21
+    // (Superseded): it asks only after a failed read.
     const user = userEvent.setup();
-    useGame.setState({ phase: "home", game: seededGame(2), hasSave: true });
+    useGame.setState({ phase: "home", game: null, hasSave: false, loadFailed: true });
     render(<Home />);
     await user.click(screen.getByRole("button", { name: "Novo jogo" }));
     const dialog = screen.getByRole("alertdialog", { name: "Confirmar novo jogo" });
     expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Sim, apagar" }));
+  });
+});
+
+describe("título com vários espaços (varios-saves)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const input = () => screen.getByLabelText("Arquivo do jogo salvo") as HTMLInputElement;
+  const menu = () => screen.getAllByRole("button").map((b) => b.textContent);
+
+  test("menu com espaços", async () => {
+    // C9 (L-001, L-005): the menu opened from what IndexedDB holds.
+    const cases: [string, [number, unknown][], string[]][] = [
+      ["com jogo", [[2, seededGame(7)]], ["Continuar", "Jogos salvos", "Exportar jogo", "Importar jogo", "Novo jogo", "Sobre"]],
+      ["só incompatível", [[3, { schemaVersion: 9 }]], ["Jogos salvos", "Importar jogo", "Novo jogo", "Sobre"]],
+      ["vazio", [], ["Importar jogo", "Novo jogo", "Sobre"]],
+    ];
+    for (const [name, docs, buttons] of cases) {
+      cleanup();
+      resetAll();
+      for (const [n, doc] of docs) await put(n, doc);
+      await useGame.getState().init();
+      render(<Home />);
+      expect(menu(), name).toEqual(buttons);
+    }
+  });
+
+  test("importar no espaço vazio", async () => {
+    // C19 (L-018): slot 1 holds a game; the file goes to slot 2 and opens, unasked.
+    const user = userEvent.setup();
+    const saved = { ...seededGame(3), savedAt: 100 };
+    await put(1, saved);
+    const incoming = seededGame(5, 1, 2);
+    render(<App />);
+    await screen.findByRole("button", { name: "Continuar" });
+    await user.upload(input(), saveFileOf(encodeSaveFile(incoming, ISO)));
+    expect(await screen.findByRole("heading", { name: incoming.leagues[0]!.clubs[1]!.name })).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(useGame.getState().activeSlot).toBe(2);
+    expect(await loadGame(2)).toEqual({ kind: "ok", state: incoming });
+    expect(await raw(1)).toEqual(saved);
+  });
+
+  test("importar com os espaços cheios", async () => {
+    // C20 (L-008): nothing is written; «Jogos salvos» says why.
+    const user = userEvent.setup();
+    const docs = [{ ...seededGame(3), savedAt: 100 }, { schemaVersion: 9 }, { ...seededGame(4), savedAt: 50 }];
+    for (const [i, doc] of docs.entries()) await put(i + 1, doc);
+    render(<App />);
+    await screen.findByRole("button", { name: "Continuar" });
+    await user.upload(input(), saveFileOf(encodeSaveFile(seededGame(5), ISO)));
+    expect(await screen.findByRole("heading", { name: "Jogos salvos" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Os 3 espaços estão ocupados. Apague um jogo para importar outro.");
+    for (const [i, doc] of docs.entries()) expect(await raw(i + 1)).toEqual(doc);
   });
 });

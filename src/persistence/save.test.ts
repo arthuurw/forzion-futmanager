@@ -7,7 +7,7 @@ import { nextSeason } from "../engine/rollover";
 import { playRound } from "../engine/season";
 import type { GameState } from "../engine/types";
 import { v1Document } from "../engine/test-fixtures";
-import { DB_NAME, DB_VERSION, SLOT, STORE, loadGame, saveGame } from "./save";
+import { DB_NAME, DB_VERSION, SLOT, STORE, deleteGame, listSaves, loadGame, saveGame } from "./save";
 
 function fixture(): GameState {
   const state = newGame(11);
@@ -225,5 +225,76 @@ describe("save com a continental (copa-continental)", () => {
     if (loaded.kind !== "ok") return;
     expect(loaded.state.schemaVersion).toBe(8);
     expect(loaded.state.cups.map((c) => c.id)).toEqual(["cup-nat", "cup-cont"]);
+  });
+});
+
+
+describe("vários espaços (varios-saves)", () => {
+  async function raw(key: string): Promise<unknown> {
+    const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+    const doc: unknown = await db.get(STORE, key);
+    db.close();
+    return doc;
+  }
+
+  async function put(key: string, doc: unknown): Promise<void> {
+    const db = await openDB(DB_NAME, DB_VERSION, { upgrade: (d) => d.createObjectStore(STORE) });
+    await db.put(STORE, doc, key);
+    db.close();
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("grava no espaço com savedAt", async () => {
+    // C1 (door 1, door 2): only "slot-2" changes, and its document carries the time of the write.
+    const first = fixture();
+    await put("slot-1", { ...first, savedAt: 5 });
+    const second = newGame(12);
+    vi.spyOn(Date, "now").mockReturnValue(1700000000000);
+    await saveGame(second, 2);
+    expect(await raw("slot-2")).toEqual({ ...second, savedAt: 1700000000000 });
+    expect(await raw("slot-1")).toEqual({ ...first, savedAt: 5 });
+    expect(await raw("slot-3")).toBeUndefined();
+  });
+
+  test("leitura tira o savedAt", async () => {
+    // C2: the game read back is the game written, without the time; no number = "slot-1".
+    const game = newGame(12);
+    await saveGame(game, 2);
+    const loaded = await loadGame(2);
+    expect(loaded).toEqual({ kind: "ok", state: game });
+    if (loaded.kind === "ok") expect("savedAt" in loaded.state).toBe(false);
+    expect(await loadGame()).toEqual({ kind: "none" });
+    await saveGame(fixture());
+    expect(await loadGame()).toEqual({ kind: "ok", state: fixture() });
+  });
+
+  test("lista dos espaços", async () => {
+    // C3 (L-005): a readable game, an empty key, an unsupported version, and a game with no time.
+    const game = fixture();
+    await put("slot-1", { ...game, savedAt: 100 });
+    await put("slot-3", { schemaVersion: 9 });
+    expect(await listSaves()).toEqual([
+      { slot: 1, kind: "ok", state: game, savedAt: 100 },
+      { slot: 2, kind: "empty" },
+      { slot: 3, kind: "incompatible", version: 9 },
+    ]);
+    await put("slot-2", game);
+    expect((await listSaves())[1]).toEqual({ slot: 2, kind: "ok", state: game, savedAt: 0 });
+  });
+
+  test("apaga um espaço", async () => {
+    // C4.
+    const [a, b, c] = [fixture(), newGame(12), newGame(13)];
+    await saveGame(a, 1);
+    await saveGame(b, 2);
+    await saveGame(c, 3);
+    const [one, three] = [await raw("slot-1"), await raw("slot-3")];
+    await deleteGame(2);
+    expect(await raw("slot-2")).toBeUndefined();
+    expect(await raw("slot-1")).toEqual(one);
+    expect(await raw("slot-3")).toEqual(three);
   });
 });

@@ -11,16 +11,14 @@ function seedParam(): number | undefined {
 }
 
 /**
- * AC 10: starting over on top of an existing save asks first. Correcoes-validacao AC 2: so does a
- * failed read, which may hide one.
+ * Varios-saves AC 18: a new game goes to an empty slot, so it no longer asks. Correcoes-validacao
+ * AC 2 (varios-saves AC 22): a failed read may hide a game in slot 1, so then it still asks.
  */
 export function NewGameButton({ primary = false }: { primary?: boolean }) {
-  const hasSave = useGame((s) => s.hasSave);
-  const incompatibleVersion = useGame((s) => s.incompatibleVersion);
   const loadFailed = useGame((s) => s.loadFailed);
   const newGame = useGame((s) => s.newGame);
   const [confirming, setConfirming] = useState(false);
-  const mustConfirm = hasSave || incompatibleVersion !== null || loadFailed;
+  const mustConfirm = loadFailed;
 
   if (confirming) {
     return (

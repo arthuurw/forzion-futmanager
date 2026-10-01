@@ -29,7 +29,7 @@ Proof: `npx vitest run src/ui/Home.test.tsx -t "Importar jogo aparece com e sem 
 **C5** - Sem save gravado, importar um arquivo válido grava o documento no slot (lido de volta com `loadGame` igual ao `save`) e abre a tela `squad` (temporada em andamento); um save com a liga encerrada abre `end` (AC 6)
 Proof: `npx vitest run src/ui/Home.test.tsx -t "importar sem save grava e abre o jogo"`
 
-**C6** - Com save gravado, importar um arquivo válido mostra «Isso substitui o jogo salvo. Continuar?» e não grava antes de «Sim, substituir»; depois dele o slot tem o importado. Com save incompatível a confirmação também aparece (AC 7)
+**C6** - Com save gravado, importar um arquivo válido mostra «Isso substitui o jogo salvo. Continuar?» e não grava antes de «Sim, substituir»; depois dele o slot tem o importado. Com save incompatível a confirmação também aparece (AC 7) - Superseded por varios-saves C19
 Proof: `npx vitest run src/ui/Home.test.tsx -t "importar sobre save pede confirmação"`
 Proof: `npx vitest run src/ui/Home.test.tsx -t "importar sobre save incompatível pede confirmação"`
 

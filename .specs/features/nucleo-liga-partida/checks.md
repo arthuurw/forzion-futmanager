@@ -40,7 +40,7 @@ Proof: `npx vitest run src/app.test.tsx -t "seleção do clube grava save antes 
 **C9** - A tela «Elenco» lista os 22 jogadores ordenados por posição GK, DF, MF, FW e, dentro da posição, por `rating` decrescente (AC 9)
 Proof: `npx vitest run src/ui/Squad.test.tsx -t "22 jogadores ordenados por posição e força"`
 
-**C10** - «Novo jogo» com save existente mostra «Isso apaga o jogo salvo. Continuar?»; cancelar mantém o save, confirmar sobrescreve (AC 10)
+**C10** - «Novo jogo» com save existente mostra «Isso apaga o jogo salvo. Continuar?»; cancelar mantém o save, confirmar sobrescreve (AC 10) - Superseded por varios-saves C17
 Proof: `npx vitest run src/ui/Home.test.tsx -t "novo jogo sobre save pede confirmação"`
 
 **C11** - Enquanto o save está sendo lido, a tela «Início» mostra «Carregando…» e nenhum botão (AC 11)

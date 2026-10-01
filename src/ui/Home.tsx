@@ -19,6 +19,9 @@ export function Home() {
   const confirmImport = useGame((s) => s.confirmImport);
   const cancelImport = useGame((s) => s.cancelImport);
   const goToAbout = useGame((s) => s.goToAbout);
+  const goToSaves = useGame((s) => s.goToSaves);
+  // Varios-saves AC 8: «Jogos salvos» once any slot holds something.
+  const anySlot = useGame((s) => s.slots.some((slot) => slot.kind !== "empty"));
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
@@ -37,6 +40,7 @@ export function Home() {
         <p className="loading blink">Carregando…</p>
       ) : pendingImport ? (
         <div role="alertdialog" aria-label="Confirmar importação" className="panel confirm">
+          {/* Varios-saves AC 22: only after a failed read, which may hide the game in slot 1. */}
           <p>Isso substitui o jogo salvo. Continuar?</p>
           <button className="primary" autoFocus onClick={() => void confirmImport()}>
             Sim, substituir
@@ -71,6 +75,7 @@ export function Home() {
               Tentar de novo
             </button>
           )}
+          {anySlot && <button onClick={goToSaves}>Jogos salvos</button>}
           {canExport(game) && <button onClick={() => downloadSave(game)}>Exportar jogo</button>}
           <button onClick={() => fileInput.current?.click()}>Importar jogo</button>
           <input

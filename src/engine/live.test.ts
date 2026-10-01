@@ -832,7 +832,8 @@ describe("posição na substituição (posicao-na-substituicao)", () => {
     const after = userSide(ok(substitute(live, state.userClubId!, 9, defender, 2)));
     expect(after.slots[2]).toBe(defender);
     expect(after.slots[9]).toBeNull();
-    expect(after.vacancy[9]).toEqual({ why: "red", playerId: expelled });
+    // Amended after verification: the hole also keeps the sector it was moved to.
+    expect(after.vacancy[9]).toEqual({ why: "red", playerId: expelled, pos: "FW" });
     expect(after.vacancy[2]).toBeUndefined();
     expect(after.subsUsed).toBe(userSide(live).subsUsed + 1);
     expect(after.subbedOff).toContain(striker);
@@ -885,5 +886,30 @@ describe("posição na substituição (posicao-na-substituicao)", () => {
       expect(substitute(round, me, slot, inId, target), name).toEqual({ ok: false, reason });
       expect(round, name).toEqual(before);
     }
+  });
+
+  test("formação depois da troca mantém a posição", () => {
+    // C8 (L-005): every formation keeps the hole in the attack and the defenders at the back.
+    const { state, live, expelled, defender } = redAt2();
+    const me = state.userClubId!;
+    const subbed = ok(substitute(live, me, 9, defender, 2));
+    const rows: [FormationName, number][] = [
+      ["4-4-2", 4],
+      ["4-5-1", 4],
+      ["4-3-3", 4],
+      ["3-5-2", 3],
+    ];
+    for (const [formation, backs] of rows) {
+      const side = userSide(changeFormation(subbed, me, formation));
+      const lastFw = side.slotPos.lastIndexOf("FW");
+      expect(side.slots[lastFw], formation).toBeNull();
+      expect(side.vacancy[lastFw], formation).toMatchObject({ why: "red", playerId: expelled });
+      const inDefence = side.slots.filter((id, i) => id && side.slotPos[i] === "DF" && subbed.players[id]!.position === "DF");
+      expect(inDefence, formation).toHaveLength(backs);
+      expect(side.slots.filter(Boolean), formation).toHaveLength(10);
+    }
+    const fiveOne = userSide(changeFormation(subbed, me, "4-5-1"));
+    const striker = fiveOne.slots.find((id) => id && subbed.players[id]!.position === "FW")!;
+    expect(fiveOne.slotPos[fiveOne.slots.indexOf(striker)]).toBe("MF");
   });
 });

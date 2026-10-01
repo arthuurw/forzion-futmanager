@@ -61,6 +61,11 @@ export interface VacantSlot {
   why: Vacancy;
   /** Who left the slot. */
   playerId: string;
+  /**
+   * Posicao-na-substituicao C8: the sector the hole was moved to by a substitution. Absent = the
+   * sector of who left (correcoes-validacao AC 43).
+   */
+  pos?: Position;
 }
 
 export interface LiveSide {
@@ -666,7 +671,7 @@ export function substitute(input: LiveRound, clubId: string, slot: number, inId:
     // Posicao-na-substituicao C1, C3: only a red card's empty slot takes the player coming on.
     const outId = side.slots[slot];
     if (!outId || side.slots[target] !== null || side.vacancy[target]?.why !== "red") return { ok: false, reason: "not_vacant" };
-    side.vacancy[slot] = side.vacancy[target]!;
+    side.vacancy[slot] = { ...side.vacancy[target]!, pos: side.slotPos[slot] as Position };
     delete side.vacancy[target];
     side.slots[slot] = null;
     side.slots[target] = outId;
@@ -707,7 +712,7 @@ export function changeFormation(input: LiveRound, clubId: string, formation: For
   const vacancy: Record<number, VacantSlot> = {};
   const unplaced: VacantSlot[] = [];
   for (const v of vacancies) {
-    const lost = live.players[v.playerId]?.position;
+    const lost = v.pos ?? live.players[v.playerId]?.position;
     let slot = -1;
     newPos.forEach((pos, i) => {
       if (pos === lost && !vacancy[i]) slot = i;

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { startCupDate } from "../engine/cup";
 import { runToEnd, startRound, step, userMatch, type LiveSide } from "../engine/live";
@@ -532,7 +532,8 @@ describe("ao vivo na continental (copa-continental)", () => {
     useGame.setState({ phase: "squad", game, hasSave: true });
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Jogar rodada" }));
-    expect(useGame.getState().phase).not.toBe("live");
+    // L-026: the date closes after its save; wait for it, or the save lands in a later test.
+    await waitFor(() => expect(useGame.getState().phase).toBe("round"));
     expect(screen.queryByRole("heading", { level: 1, name: /^Ao vivo/ })).not.toBeInTheDocument();
     const cup = useGame.getState().game!.cups[1]!;
     expect(cup.currentPhase).toBe(1);
@@ -745,5 +746,44 @@ describe("posição na substituição (posicao-na-substituicao)", () => {
     const team = screen.getByRole("tabpanel", { name: "Seu time" });
     expect(within(team).getByLabelText("Sai")).toBeInTheDocument();
     expect(within(team).queryByLabelText("Posição")).not.toBeInTheDocument();
+  });
+
+  test("posição sem quem sai", async () => {
+    // C9: with «Sai» on the red card's own empty slot, no red slot is offered.
+    const user = userEvent.setup();
+    const { expelled } = paused(true);
+    const team = screen.getByRole("tabpanel", { name: "Seu time" });
+    await user.selectOptions(within(team).getByLabelText("Sai"), "2");
+    const posicao = within(team).getByLabelText("Posição") as HTMLSelectElement;
+    expect([...posicao.options].map((o) => o.textContent)).toEqual([`no lugar de ${expelled} (ZAG)`]);
+  });
+
+  test("goleiro reserva vai para o gol", async () => {
+    // C10: a keeper chosen for an outfield player defaults to the goal of the keeper sent off.
+    const user = userEvent.setup();
+    const game = seededGame(4);
+    for (const p of game.leagues[0]!.clubs[0]!.players) Object.assign(p, { injuryRounds: 0, suspendedRounds: 0 });
+    let live = startRound(game);
+    while (live.minute < 10) live = step(live);
+    const side = userSideOf(live);
+    const goalSlot = side.slotPos.indexOf("GK");
+    const keeper = side.slots[goalSlot]!;
+    side.slots[goalSlot] = null;
+    side.vacancy[goalSlot] = { why: "red", playerId: keeper };
+    side.sentOff.push(keeper);
+    const reserve = side.bench.find((id) => live.players[id]!.position === "GK")!;
+    const leaving = side.slots[2]!;
+    useGame.setState({ phase: "live", game, hasSave: true, live, clock: "paused", liveStop: null });
+    render(<Live />);
+    const team = screen.getByRole("tabpanel", { name: "Seu time" });
+    await user.selectOptions(within(team).getByLabelText("Sai"), "2");
+    await user.selectOptions(within(team).getByLabelText("Entra"), reserve);
+    const posicao = within(team).getByLabelText("Posição") as HTMLSelectElement;
+    expect(posicao.selectedOptions[0]!.textContent).toBe(`na vaga de ${live.players[keeper]!.name} (GOL, expulso)`);
+    await user.click(within(team).getByRole("button", { name: "Substituir" }));
+    const after = userSideOf(useGame.getState().live!);
+    expect(after.slots[goalSlot]).toBe(reserve);
+    expect(after.slots[2]).toBeNull();
+    expect(after.subbedOff).toContain(leaving);
   });
 });

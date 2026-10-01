@@ -165,7 +165,13 @@ export function Live() {
   const chosenIn = side.bench.includes(inId) ? inId : (side.bench[0] ?? "");
   // Posicao-na-substituicao C5, C6: the empty slots of players sent off, and who is in a slot.
   const redSlots = side.slots.flatMap((id, slot) => (!id && side.vacancy[slot]?.why === "red" ? [slot] : []));
-  const chosenTarget = target !== null && redSlots.includes(target) ? target : outSlot;
+  // C9: only someone leaving the pitch opens a red card's slot. C10: a keeper coming on for an
+  // outfield player goes in goal when the keeper was sent off, so that is the default shown.
+  const targets = side.slots[outSlot] ? redSlots.filter((slot) => slot !== outSlot) : [];
+  const goal = targets.find((slot) => side.slotPos[slot] === "GK");
+  const keeperIn = !!chosenIn && player(chosenIn).position === "GK" && side.slotPos[outSlot] !== "GK";
+  const defaultTarget = keeperIn && goal !== undefined ? goal : outSlot;
+  const chosenTarget = target !== null && targets.includes(target) ? target : defaultTarget;
   const slotName = (slot: number) => {
     const id = side.slots[slot] ?? side.vacancy[slot]?.playerId;
     return id ? player(id).name : "Vaga";
@@ -355,13 +361,11 @@ export function Live() {
                   <option value={outSlot}>
                     no lugar de {slotName(outSlot)} ({POSITION_LABEL[side.slotPos[outSlot]!]})
                   </option>
-                  {redSlots
-                    .filter((slot) => slot !== outSlot)
-                    .map((slot) => (
-                      <option key={slot} value={slot}>
-                        na vaga de {slotName(slot)} ({POSITION_LABEL[side.slotPos[slot]!]}, expulso)
-                      </option>
-                    ))}
+                  {targets.map((slot) => (
+                    <option key={slot} value={slot}>
+                      na vaga de {slotName(slot)} ({POSITION_LABEL[side.slotPos[slot]!]}, expulso)
+                    </option>
+                  ))}
                 </select>
               </div>
             )}

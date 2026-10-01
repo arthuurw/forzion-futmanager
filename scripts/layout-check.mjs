@@ -268,7 +268,7 @@ async function run({ build, inject, seed }) {
       await wait(`animações de ${screen}`, "__lc.settled()", ANIMATION_TIMEOUT_MS);
       const m = await js("__lc.measure()");
       const bad = problems(screen, m);
-      const toggles = m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ") + (m.posicao ? ` · Posição ${fmt(m.posicao)}` : "");
+      const toggles = m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ") + (screen === "liveRed" && m.posicao ? ` · Posição ${fmt(m.posicao)}` : "");
       console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth} · ${toggles}${bad.length ? ` · ${bad.join("; ")}` : ""}`);
       if (bad.length) failures.push(screen);
       measured.add(screen);
@@ -423,6 +423,25 @@ async function run({ build, inject, seed }) {
     await measure("squadOffer");
     await click("Recusar");
     await wait("proposta recusada", "!document.querySelector('[role=dialog][aria-label=\"Proposta de emprego\"]')");
+    // Varios-saves C24: two more games fill the 3 slots; «Jogos salvos» is measured full, then
+    // with the delete confirmation open.
+    for (let game = 2; game <= 3; game++) {
+      await click("Menu principal");
+      await wait("tela inicial", "__lc.enabled('Novo jogo')");
+      await click("Novo jogo");
+      await wait("escolher clube", "__lc.h1() === 'Escolher clube'");
+      await js("document.querySelector('.club-card').click()");
+      await wait("elenco", "__lc.enabled('Mercado')");
+    }
+    await click("Menu principal");
+    await wait("tela inicial", "__lc.enabled('Jogos salvos')");
+    await click("Jogos salvos");
+    await wait("jogos salvos", "document.querySelectorAll('.save-slot.ok').length === 3");
+    await measure("saves");
+    await js("document.querySelector('.save-slot.ok .save-actions button:not(.primary)').click()");
+    await wait("confirmar apagar", "!!document.querySelector('[role=alertdialog][aria-label=\"Confirmar apagar\"]')");
+    await measure("savesConfirm");
+    await click("Cancelar");
   } catch (e) {
     console.log(`ERRO ${e.message}`);
     failures.push("erro");
@@ -443,7 +462,7 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -462,7 +481,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 17 telas cabem em 400 × 700 px");
+  console.log("layout: as 19 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

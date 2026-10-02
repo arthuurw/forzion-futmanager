@@ -186,6 +186,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C9 / src/ui/Live.test.tsx:758 (checks)
 - last seen: 2026-10-01T17:21:39Z
 
+### L-030 - When checks close weak proofs over code that is already correct, run each new proof on the pre-fix code before writing the checks and declare every one that passes there as pinning existing behaviour.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: ajustes-saves
+- evidence: checks.md Lições aplicadas / C2-C4 (checks)
+- last seen: 2026-10-02T21:23:31Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

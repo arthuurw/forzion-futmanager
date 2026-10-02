@@ -117,7 +117,18 @@ const PAGE_HELPERS = `window.__lc = {
       [...document.querySelectorAll(s)].map((el) => ({ name: s.split(" ").pop() + (el.tagName === "BUTTON" ? " «" + el.textContent.trim() + "»" : ""), ...__lc.rect(el) })),
     );
     const posicao = document.querySelector("select[aria-label='Posição']");
-    return { scrollHeight: doc.scrollHeight, scrollWidth: doc.scrollWidth, toggles, group: group ? __lc.rect(group) : null, title, posicao: posicao ? __lc.rect(posicao) : null };
+    const dialog = document.querySelector("[role=alertdialog]");
+    const loanLists = ["Emprestados por você", "Emprestados a você"].filter((l) => document.querySelector("table[aria-label='" + l + "']"));
+    return {
+      scrollHeight: doc.scrollHeight,
+      scrollWidth: doc.scrollWidth,
+      toggles,
+      group: group ? __lc.rect(group) : null,
+      title,
+      posicao: posicao ? __lc.rect(posicao) : null,
+      dialog: dialog ? __lc.rect(dialog) : null,
+      loanLists,
+    };
   },
   inject() {
     const el = document.createElement("div");
@@ -162,6 +173,12 @@ function problems(screen, m) {
     if (m.title.length < 3) out.push("título, subtítulo ou menu não encontrados");
     for (const t of m.title) if (m.group && crosses(m.group, t)) out.push(`botões de som sobre ${t.name}`);
   }
+  // Emprestimos C23: the loan confirmation on screen; both lists of the «Emprestados» tab filled.
+  if (screen === "squadLoan") {
+    if (!m.dialog) out.push("sem a confirmação de empréstimo");
+    else if (!within(m.dialog)) out.push(`confirmação fora da janela (${fmt(m.dialog)})`);
+  }
+  if (screen === "marketLoans" && m.loanLists.length !== 2) out.push(`listas de emprestados: ${m.loanLists.length} de 2`);
   // Ajustes-saves C8: with a game saved, the title menu shows «Jogos salvos» on screen.
   if (screen === "homeSave") {
     const saves = m.title.find((t) => t.name === "button «Jogos salvos»");
@@ -171,6 +188,30 @@ function problems(screen, m) {
 }
 
 const fmt = (r) => `${Math.round(r.left)},${Math.round(r.top)}-${Math.round(r.right)},${Math.round(r.bottom)}`;
+
+/** Emprestimos C23: clicks «Emprestar» row by row until one opens the confirmation (the others are refused). */
+const LEND = `(async () => {
+  for (const b of [...document.querySelectorAll("button[aria-label^='Emprestar ']")]) {
+    b.click();
+    await new Promise((r) => setTimeout(r, 50));
+    if (document.querySelector("[role=alertdialog][aria-label='Confirmar empréstimo']")) return true;
+  }
+  return false;
+})()`;
+
+/** Emprestimos C23: picks market players, strongest first, until one is a reserve, and takes him on loan. */
+const BORROW = `(async () => {
+  for (const b of [...document.querySelectorAll("table[aria-label='Mercado'] button.link")]) {
+    b.click();
+    await new Promise((r) => setTimeout(r, 20));
+    const take = [...document.querySelectorAll("button")].find((x) => x.textContent.startsWith("Pegar emprestado"));
+    if (take) {
+      take.click();
+      return true;
+    }
+  }
+  return false;
+})()`;
 
 /** The seed of the game in the page's save, read back from IndexedDB. */
 /** Carreira-dinamica C20: writes `pendingJob` (3 other clubs) and `boardWarnings` into the saved game. */
@@ -447,6 +488,23 @@ async function run({ build, inject, seed }) {
     await wait("confirmar apagar", "!!document.querySelector('[role=alertdialog][aria-label=\"Confirmar apagar\"]')");
     await measure("savesConfirm");
     await click("Cancelar");
+    // Emprestimos C23: the newest game (round 1, market open): the squad with the loan confirmation
+    // open, then the «Emprestados» tab with one player lent and one borrowed.
+    await click("Voltar");
+    await wait("tela inicial", "__lc.enabled('Continuar')");
+    await click("Continuar");
+    await wait("elenco", "__lc.enabled('Mercado')");
+    if (!(await js(LEND))) throw new Error("nenhum jogador com destino de empréstimo");
+    await measure("squadLoan");
+    await click("Confirmar");
+    await wait("emprestado", "!document.querySelector('[role=alertdialog]') && __lc.enabled('Mercado')");
+    await click("Mercado");
+    await wait("mercado", "__lc.h1() === 'Mercado'");
+    if (!(await js(BORROW))) throw new Error("nenhum reserva para pegar emprestado");
+    await wait("emprestado a você", "__lc.has('Emprestados (2)')");
+    await click("Emprestados (2)");
+    await wait("aba emprestados", "!!document.querySelector('table[aria-label=\"Emprestados a você\"]')");
+    await measure("marketLoans");
   } catch (e) {
     console.log(`ERRO ${e.message}`);
     failures.push("erro");
@@ -467,7 +525,7 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm", "squadLoan", "marketLoans"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -486,7 +544,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 19 telas cabem em 400 × 700 px");
+  console.log("layout: as 21 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

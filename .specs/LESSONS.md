@@ -198,6 +198,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: src/ui/Squad.test.tsx:646 (C17) (tests)
 - last seen: 2026-10-02T22:30:05Z
 
+### L-032 - On a screen that renders the whole market list, find a button by its text with selector button, not by role and name: a role query names all ~900 buttons (about 1 s each in jsdom) and a test past its timeout keeps running and cleans up the next test's DOM.
+- signal: `gate_fail` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: emprestimos
+- evidence: src/ui/Market.test.tsx:346 «oferta inválida» (tests)
+- last seen: 2026-10-02T23:35:34Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

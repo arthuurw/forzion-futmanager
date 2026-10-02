@@ -357,12 +357,14 @@ describe("oferta digitada (correcoes-validacao)", () => {
       const game = seededGame(4);
       const target = reserveGk(game.leagues[0]!.clubs[6]!);
       show(game);
-      await user.click(screen.getByRole("button", { name: target.name }));
+      // By text, not by role: a role query computes the accessible name of each of the ~900 buttons of
+      // the list (about 1 s per query in jsdom), which took this test past its timeout under a full run.
+      await user.click(screen.getByText(target.name, { selector: "button" }));
       // Set as typed: user-event drops a leading «-» in a number field, so the value is set whole.
       const input = screen.getByLabelText("Oferta") as HTMLInputElement;
       fireEvent.change(input, { target: { value: typed } });
       expect(input.value, label).toBe(typed);
-      const button = screen.getByRole("button", { name: "Fazer proposta" });
+      const button = screen.getByText("Fazer proposta", { selector: "button" });
       if (!(button as HTMLButtonElement).disabled) {
         await user.click(button);
         expect(await screen.findByText("Valor inválido"), label).toBeInTheDocument();

@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { isMarketOpen, marketValue, nextRoundNumber, nextWindowStart, signingFee } from "../engine/market";
+import { isMarketOpen, isStarter, loanFee, loanedOut, marketValue, nextRoundNumber, nextWindowStart, signingFee } from "../engine/market";
 import { allClubs, findAnyClub } from "../engine/season";
-import { COUNTRIES, POSITIONS, type Country, type GameState, type Player, type Position } from "../engine/types";
-import { useGame, userClub } from "../store";
+import { COUNTRIES, POSITIONS, type Club, type Country, type GameState, type Player, type Position } from "../engine/types";
+import { refusalText, useGame, userClub } from "../store";
 import { formatMoney } from "./money";
 import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
-type MarketTab = "buy" | "offers" | "youth" | "transfers";
+type MarketTab = "buy" | "offers" | "youth" | "transfers" | "loans";
 
 interface Listing {
   player: Player;
@@ -59,6 +59,48 @@ function Transfers({ game }: { game: GameState }) {
   );
 }
 
+/** Emprestimos AC 22: one list of players on loan, with the other club of each. */
+function LoanList({ label, rows }: { label: string; rows: { player: Player; clubName: string }[] }) {
+  return (
+    <>
+      <h3 className="loan-head">{label}</h3>
+      {rows.length === 0 ? (
+        <p className="empty">Nenhum</p>
+      ) : (
+        <table aria-label={label} className="compact">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Pos</th>
+              <th className="num">Força</th>
+              <th>Clube</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ player, clubName }) => (
+              <tr key={player.id}>
+                <td>{player.name}</td>
+                <td>
+                  <span className={`pos pos-${player.position}`}>{POSITION_LABEL[player.position]}</span>
+                </td>
+                <td className="num">{player.rating}</td>
+                <td>{clubName}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
+/** Emprestimos AC 22: the players the user lent (and where they play) and the ones lent to the user (and their owner). */
+function loansOf(game: GameState, club: Club) {
+  const lent = loanedOut(game, club.id).map(({ player, club: at }) => ({ player, clubName: at.name }));
+  const borrowed = club.players.filter((p) => p.loanFrom).map((player) => ({ player, clubName: findAnyClub(game, player.loanFrom!).name }));
+  return { lent, borrowed };
+}
+
 /** AC 16-40: buy from other clubs, answer offers, sign free agents, promote juniors. */
 export function Market() {
   const game = useGame((s) => s.game);
@@ -68,6 +110,7 @@ export function Market() {
   const acceptOffer = useGame((s) => s.acceptOffer);
   const rejectOffer = useGame((s) => s.rejectOffer);
   const promoteJunior = useGame((s) => s.promoteJunior);
+  const loanIn = useGame((s) => s.loanIn);
   const goToSquad = useGame((s) => s.goToSquad);
   const [tab, setTab] = useState<MarketTab>("buy");
   const [position, setPosition] = useState<Position | "all">("all");
@@ -133,6 +176,8 @@ export function Market() {
     .filter((l) => position === "all" || l.player.position === position)
     .sort((a, b) => b.player.rating - a.player.rating || a.player.name.localeCompare(b.player.name));
   const selected = listings.find((l) => l.player.id === selectedId) ?? null;
+  const owner = selected?.clubId ? findAnyClub(game, selected.clubId) : null;
+  const loans = loansOf(game, club);
 
   const select = (l: Listing) => {
     setSelectedId(l.player.id);
@@ -152,6 +197,7 @@ export function Market() {
           { id: "offers", label: `Propostas (${game.market.offers.length})` },
           { id: "youth", label: "Base" },
           { id: "transfers", label: "Transferências" },
+          { id: "loans", label: `Emprestados (${loans.lent.length + loans.borrowed.length})` },
         ]}
       />
 
@@ -241,27 +287,40 @@ export function Market() {
                   >
                     Contratar (luvas {formatMoney(signingFee(selected.player))})
                   </button>
+                ) : selected.player.loanFrom ? (
+                  // Emprestimos AC 13.
+                  <p className="empty">{refusalText("on_loan")}</p>
                 ) : (
-                  <div className="loan-row">
-                    <label className="formation-row">
-                      Oferta (R$)
-                      <input
-                        aria-label="Oferta"
-                        type="number"
-                        min={0}
-                        step={10000}
-                        value={offer}
-                        onChange={(e) => setOffer(e.target.value)}
-                      />
-                    </label>
-                    <button
-                      className="primary"
-                      disabled={!validOffer}
-                      onClick={() => void buyPlayer(selected.player.id, offerAmount).then((ok) => ok && setSelectedId(null))}
-                    >
-                      Fazer proposta
-                    </button>
-                  </div>
+                  <>
+                    <div className="loan-row">
+                      <label className="formation-row">
+                        Oferta (R$)
+                        <input
+                          aria-label="Oferta"
+                          type="number"
+                          min={0}
+                          step={10000}
+                          value={offer}
+                          onChange={(e) => setOffer(e.target.value)}
+                        />
+                      </label>
+                      <button
+                        className="primary"
+                        disabled={!validOffer}
+                        onClick={() => void buyPlayer(selected.player.id, offerAmount).then((ok) => ok && setSelectedId(null))}
+                      >
+                        Fazer proposta
+                      </button>
+                    </div>
+                    {/* Emprestimos AC 10, AC 12: only a reserve of its club. */}
+                    {owner && isStarter(owner, selected.player) ? (
+                      <p className="empty">{refusalText("starter")}</p>
+                    ) : (
+                      <button onClick={() => void loanIn(selected.player.id).then((ok) => ok && setSelectedId(null))}>
+                        Pegar emprestado ({formatMoney(loanFee(selected.player))})
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -347,6 +406,18 @@ export function Market() {
       {tab === "transfers" && (
         <div className="screen-body" {...tabPanel("market", tab, { shared: true })}>
           <Transfers game={game} />
+        </div>
+      )}
+
+      {tab === "loans" && (
+        <div className="screen-body" {...tabPanel("market", tab, { shared: true })}>
+          <section aria-label="Emprestados" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
+            <h2 className="title-bar">Emprestados</h2>
+            <div className="fill">
+              <LoanList label="Emprestados por você" rows={loans.lent} />
+              <LoanList label="Emprestados a você" rows={loans.borrowed} />
+            </div>
+          </section>
         </div>
       )}
 

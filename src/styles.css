@@ -2052,6 +2052,11 @@ tr.down td:last-child {
   color: var(--gold);
   border: 1px solid var(--gold);
 }
+/* Emprestimos AC 17: a player on loan to the user. */
+.badge.emp {
+  background: #2b6cff;
+  color: #fff;
+}
 
 tbody tr.out td {
   opacity: 0.55;
@@ -2656,4 +2661,10 @@ button.mini {
   .action-bar button:not(.primary) {
     padding: 6px 10px;
   }
+}
+
+/* Emprestimos AC 22: the two lists of the «Emprestados» tab. */
+.loan-head {
+  margin: 6px 0 2px;
+  font-size: 0.85rem;
 }

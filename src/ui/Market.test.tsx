@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { loadGame } from "../persistence/save";
+import { Squad } from "./Squad";
 import userEvent from "@testing-library/user-event";
 import type { Club, GameState, Player, TransferRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
@@ -370,5 +372,94 @@ describe("oferta digitada (correcoes-validacao)", () => {
       cleanup();
       useGame.setState({ marketMessage: null });
     }
+  });
+});
+
+describe("empréstimo no Mercado (emprestimos)", () => {
+  /** 20% of the value, to R$ 10.000, at least R$ 10.000 (written out, L-004). */
+  const fee = (p: Player) => Math.max(10_000, Math.round((0.2 * value(p)) / 10_000) * 10_000);
+
+  test("pegar emprestado na negociação", async () => {
+    // C20 (L-003): the fee leaves the cash, the player joins the squad on loan and the game is saved.
+    const user = userEvent.setup();
+    const game = seededGame(2);
+    const owner = game.leagues[0]!.clubs[4]!;
+    const target = reserveGk(owner);
+    const cash = userClub(game)!.finance.cash;
+    show(game);
+    await user.click(screen.getByRole("button", { name: target.name }));
+    await user.click(screen.getByRole("button", { name: `Pegar emprestado (${brl(fee(target))})` }));
+    await vi.waitFor(() => expect(useGame.getState().game).not.toBe(game));
+    const after = userClub(useGame.getState().game!)!;
+    expect(after.players.find((p) => p.id === target.id)?.loanFrom).toBe(owner.id);
+    expect(after.finance.cash).toBe(cash - fee(target));
+    expect(screen.getByText(`Caixa ${brl(cash - fee(target))}`)).toBeInTheDocument();
+    const saved = await loadGame();
+    expect(saved.kind === "ok" && userClub(saved.state)!.players.some((p) => p.id === target.id && p.loanFrom === owner.id)).toBe(true);
+    cleanup();
+    useGame.setState({ phase: "squad" });
+    render(<Squad />);
+    const row = within(screen.getByRole("table", { name: "Elenco" })).getByRole("row", { name: new RegExp(target.name) });
+    expect(row).toHaveTextContent("Emprestado");
+  });
+
+  test("pegar emprestado na negociação sem caixa", async () => {
+    // C20 (AC 16): cash one real short of the fee.
+    const user = userEvent.setup();
+    const game = seededGame(2);
+    const target = reserveGk(game.leagues[0]!.clubs[4]!);
+    userClub(game)!.finance.cash = fee(target) - 1;
+    show(game);
+    await user.click(screen.getByRole("button", { name: target.name }));
+    await user.click(screen.getByRole("button", { name: `Pegar emprestado (${brl(fee(target))})` }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Caixa insuficiente");
+    expect(useGame.getState().game).toBe(game);
+  });
+
+  test("negociação de titular e de emprestado", async () => {
+    // C21 (L-005): a starter of its club is not lent; a player on loan is not negotiated at all.
+    const user = userEvent.setup();
+    const game = seededGame(2);
+    const owner = game.leagues[0]!.clubs[4]!;
+    const starter = [...owner.players].sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id))[0]!;
+    const away = game.leagues[0]!.clubs[7]!.players[3]!;
+    away.loanFrom = game.leagues[0]!.clubs[8]!.id;
+    show(game);
+    await user.click(screen.getByRole("button", { name: starter.name }));
+    expect(screen.getByRole("region", { name: "Negociação" })).toHaveTextContent("Titular: o clube não empresta");
+    expect(screen.queryByRole("button", { name: /^Pegar emprestado/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: away.name }));
+    const deal = screen.getByRole("region", { name: "Negociação" });
+    expect(deal).toHaveTextContent("Emprestado: não pode ser negociado");
+    expect(within(deal).queryByLabelText("Oferta")).not.toBeInTheDocument();
+    expect(within(deal).queryByRole("button", { name: "Fazer proposta" })).not.toBeInTheDocument();
+    expect(within(deal).queryByRole("button", { name: /^Pegar emprestado/ })).not.toBeInTheDocument();
+  });
+
+  test("aba emprestados", async () => {
+    // C22: one lent and one borrowed, then none.
+    const user = userEvent.setup();
+    const game = seededGame(2);
+    const me = userClub(game)!;
+    const [x, y] = [game.leagues[0]!.clubs[5]!, game.leagues[1]!.clubs[2]!];
+    const p1 = me.players.find((p) => !me.lineup!.starters.includes(p.id))!;
+    me.players = me.players.filter((p) => p.id !== p1.id);
+    x.players.push({ ...p1, loanFrom: me.id });
+    const p2 = y.players.pop()!;
+    me.players.push({ ...p2, loanFrom: y.id });
+    show(game);
+    await user.click(screen.getByRole("tab", { name: "Emprestados (2)" }));
+    const cells = (label: string) =>
+      within(screen.getByRole("table", { name: label })).getAllByRole("row").slice(1).map((r) => within(r).getAllByRole("cell").map((c) => c.textContent));
+    const pos = { GK: "GOL", DF: "ZAG", MF: "MEI", FW: "ATA" };
+    expect(cells("Emprestados por você")).toEqual([[p1.name, pos[p1.position], String(p1.rating), x.name]]);
+    expect(cells("Emprestados a você")).toEqual([[p2.name, pos[p2.position], String(p2.rating), y.name]]);
+
+    cleanup();
+    resetAll();
+    show(seededGame(2));
+    await userEvent.setup().click(screen.getByRole("tab", { name: "Emprestados (0)" }));
+    expect(screen.getAllByText("Nenhum")).toHaveLength(2);
+    expect(screen.queryByRole("table", { name: "Emprestados por você" })).not.toBeInTheDocument();
   });
 });

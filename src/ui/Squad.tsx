@@ -3,7 +3,7 @@ import { divisionAt, divisionOf, goalLabel } from "../engine/board";
 import { CONTRACT_RENEWAL, isMarketOpen, releaseCost, renewalSalary } from "../engine/market";
 import { nextCompetition } from "../engine/calendar";
 import { formationSlots, isAvailableFor, validateLineup } from "../engine/lineup";
-import { userLeague } from "../engine/season";
+import { findAnyClub, userLeague } from "../engine/season";
 import { FORMATION_NAMES, POSITIONS, POSTURES, TRAININGS, type FormationName, type Position, type Posture, type RatingStep, type Training } from "../engine/types";
 import { useGame, userClub } from "../store";
 import { BoardWarning, OfferPanel } from "./Career";
@@ -82,11 +82,15 @@ export function Squad() {
   const goToCup = useGame((s) => s.goToCup);
   const goHome = useGame((s) => s.goHome);
   const renewContract = useGame((s) => s.renewContract);
+  const checkLoanOut = useGame((s) => s.checkLoanOut);
+  const loanOut = useGame((s) => s.loanOut);
   const message = useGame((s) => s.marketMessage);
   // Correcoes-validacao AC 48: wide screens hide «Campo» (the pitch is always there), so they start on «Elenco».
   const [tab, setTab] = useState<SquadTab>(() => (isWide() ? "roster" : "pitch"));
   const [releasing, setReleasing] = useState<string | null>(null);
   const [renewing, setRenewing] = useState<string | null>(null);
+  // Emprestimos AC 2: the player to lend and the club door 2 picked for him.
+  const [lending, setLending] = useState<{ playerId: string; clubId: string } | null>(null);
   if (!game) return null;
   const club = userClub(game);
   if (!club) return null;
@@ -103,6 +107,11 @@ export function Squad() {
   const marketOpen = isMarketOpen(game);
   const toRelease = club.players.find((p) => p.id === releasing) ?? null;
   const toRenew = club.players.find((p) => p.id === renewing) ?? null;
+  const toLend = lending ? club.players.find((p) => p.id === lending.playerId) : undefined;
+  const askLoan = (playerId: string) => {
+    const clubId = checkLoanOut(playerId);
+    setLending(clubId ? { playerId, clubId } : null);
+  };
 
   // AC 9: by position, then rating descending.
   const roster = [...club.players].sort(
@@ -248,7 +257,7 @@ export function Squad() {
                     </td>
                     <td className="num">{formatMoney(p.salary)}</td>
                     <td className="num contract">
-                      {p.contractSeasons === 1 ? (
+                      {p.contractSeasons === 1 && !p.loanFrom ? (
                         // The last year's number is the renewal button (AC 26).
                         <button className="link contract-n last" aria-label={`Renovar ${p.name}`} title="Renovar contrato" onClick={() => setRenewing(p.id)}>
                           {p.contractSeasons}
@@ -256,7 +265,7 @@ export function Squad() {
                       ) : (
                         <span className="contract-n">{p.contractSeasons}</span>
                       )}
-                      {p.contractSeasons === 1 && <span className="last-year">Último ano</span>}
+                      {p.contractSeasons === 1 && !p.loanFrom && <span className="last-year">Último ano</span>}
                     </td>
                     <td className="num">
                       <FitnessBar value={p.fitness} />
@@ -266,7 +275,9 @@ export function Squad() {
                     </td>
                     <td className="row-actions">
                       <StatusBadge player={p} competition={competition} />
-                      {marketOpen && (
+                      {/* Emprestimos AC 17: a player on loan to the user is not the user's to sell, release or lend. */}
+                      {p.loanFrom && <span className="badge emp">Emprestado</span>}
+                      {marketOpen && !p.loanFrom && (
                         <>
                           <label className="for-sale" title="À venda">
                             <input
@@ -277,6 +288,9 @@ export function Squad() {
                             />
                             <span aria-hidden="true">$</span>
                           </label>
+                          <button className="mini" aria-label={`Emprestar ${p.name}`} title="Emprestar" onClick={() => askLoan(p.id)}>
+                            ⇄
+                          </button>
                           <button className="mini" aria-label={`Dispensar ${p.name}`} title="Dispensar" onClick={() => setReleasing(p.id)}>
                             ✕
                           </button>
@@ -333,6 +347,26 @@ export function Squad() {
             Confirmar
           </button>
           <button onClick={() => setReleasing(null)}>Cancelar</button>
+        </div>
+      )}
+
+      {toLend && lending && (
+        <div role="alertdialog" aria-label="Confirmar empréstimo" className="panel confirm inline">
+          <p>
+            Emprestar {toLend.name} para {findAnyClub(game, lending.clubId).name} até o fim da temporada? O salário fica com o clube que o
+            recebe.
+          </p>
+          <button
+            className="primary"
+            autoFocus
+            onClick={() => {
+              setLending(null);
+              void loanOut(toLend.id);
+            }}
+          >
+            Confirmar
+          </button>
+          <button onClick={() => setLending(null)}>Cancelar</button>
         </div>
       )}
 

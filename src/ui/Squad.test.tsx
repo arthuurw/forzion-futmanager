@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../App";
 import { playDate } from "../engine/season";
 import { POSITIONS, type GameState } from "../engine/types";
-import { loadGame } from "../persistence/save";
+import { loadGame, saveGame } from "../persistence/save";
 import { useGame, userClub } from "../store";
 import { Squad } from "./Squad";
 import { preliminaryWithCupSuspended, resetAll, seededGame, seededGameIn, skipLive } from "./test-utils";
@@ -600,5 +600,126 @@ describe("menu principal (menu-no-elenco)", () => {
     expect(await screen.findByRole("heading", { name: club.name })).toBeInTheDocument();
     expect(useGame.getState().phase).toBe("squad");
     expect(useGame.getState().game).toEqual(game);
+  });
+});
+
+describe("empréstimo no Elenco (emprestimos)", () => {
+  /** Opens the app on `game` saved in IndexedDB and goes to the squad (L-001). */
+  async function openSaved(game: GameState) {
+    await saveGame(game);
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Continuar" }));
+    await screen.findByRole("heading", { name: userClub(game)!.name });
+    return user;
+  }
+  const rowOf = (name: string) => within(screen.getByRole("table", { name: "Elenco" })).getByRole("row", { name: new RegExp(name) });
+  const allClubsOf = (g: GameState) => g.leagues.flatMap((l) => l.clubs);
+  /** Every Brazilian AI club rated `rating`, so a lent player starts nowhere unless he beats it. */
+  const rateBrazil = (g: GameState, rating: number) =>
+    g.leagues.filter((l) => l.country === "BR").flatMap((l) => l.clubs).filter((c) => c.id !== g.userClubId).forEach((c) => c.players.forEach((p) => (p.rating = rating)));
+
+  test("botão emprestar no elenco", async () => {
+    // C17: every own row has «Emprestar»; the borrowed one says «Emprestado» and has no action.
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    const owner = game.leagues[0]!.clubs[6]!;
+    const borrowed = { ...owner.players.pop()!, contractSeasons: 1, loanFrom: owner.id };
+    club.players.push(borrowed);
+    await openSaved(game);
+    for (const p of club.players.filter((x) => x.id !== borrowed.id)) {
+      expect(within(rowOf(p.name)).getByRole("button", { name: `Emprestar ${p.name}` })).toBeInTheDocument();
+    }
+    const row = rowOf(borrowed.name);
+    expect(row).toHaveTextContent("Emprestado");
+    expect(within(row).queryByLabelText(`À venda: ${borrowed.name}`)).not.toBeInTheDocument();
+    for (const action of ["Dispensar", "Emprestar", "Renovar"]) {
+      expect(within(row).queryByRole("button", { name: `${action} ${borrowed.name}` }), action).not.toBeInTheDocument();
+    }
+  });
+
+  test("botão emprestar no elenco com o mercado fechado", () => {
+    // C17: no «Emprestar» while the market is closed.
+    const game = seededGame(4, 2, 5);
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    render(<Squad />);
+    expect(screen.queryAllByRole("button", { name: /^Emprestar / })).toHaveLength(0);
+  });
+
+  test("emprestar com confirmação", async () => {
+    // C18 (L-001, L-003): the club door 2 picks is named; «Cancelar» changes nothing; «Confirmar» saves.
+    const game = seededGame(4, 2);
+    const club = userClub(game)!;
+    rateBrazil(game, 90);
+    const dest = game.leagues[1]!.clubs[11]!;
+    dest.players.forEach((p) => (p.rating = 50));
+    const player = club.players.find((p) => p.position === "MF" && !club.lineup!.starters.includes(p.id))!;
+    Object.assign(player, { rating: 80, contractSeasons: 3 });
+    const user = await openSaved(game);
+    await user.click(screen.getByRole("button", { name: `Emprestar ${player.name}` }));
+    const dialog = screen.getByRole("alertdialog", { name: "Confirmar empréstimo" });
+    expect(dialog).toHaveTextContent(`Emprestar ${player.name} para ${dest.name} até o fim da temporada? O salário fica com o clube que o recebe.`);
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Confirmar" }));
+    expect(rowOf(player.name)).toBeInTheDocument();
+    const before = useGame.getState().game;
+    await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+    expect(screen.queryByRole("alertdialog", { name: "Confirmar empréstimo" })).not.toBeInTheDocument();
+    expect(useGame.getState().game).toBe(before);
+    await user.click(screen.getByRole("button", { name: `Emprestar ${player.name}` }));
+    await user.click(within(screen.getByRole("alertdialog", { name: "Confirmar empréstimo" })).getByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(within(screen.getByRole("table", { name: "Elenco" })).queryByText(player.name)).not.toBeInTheDocument());
+    await waitFor(async () => {
+      const saved = await loadGame();
+      if (saved.kind !== "ok") throw new Error(saved.kind);
+      const there = allClubsOf(saved.state).find((c) => c.id === dest.id)!;
+      expect(there.players.find((p) => p.id === player.id)?.loanFrom).toBe(club.id);
+    });
+  });
+
+  test("recusas do emprestar na tela", async () => {
+    // C19 (L-005, L-008): the refusal is in the bar and no confirmation opens.
+    const cases: [string, (g: GameState) => string, string][] = [
+      [
+        "sem destino",
+        (g) => {
+          rateBrazil(g, 90);
+          const c = userClub(g)!;
+          return c.players.find((p) => !c.lineup!.starters.includes(p.id) && p.contractSeasons > 1)!.name;
+        },
+        "Nenhum clube quer esse jogador agora",
+      ],
+      [
+        "último ano",
+        (g) => {
+          const c = userClub(g)!;
+          const p = c.players.find((x) => !c.lineup!.starters.includes(x.id))!;
+          p.contractSeasons = 1;
+          return p.name;
+        },
+        "Renove o contrato antes de emprestar",
+      ],
+      [
+        "elenco com 18",
+        (g) => {
+          const c = userClub(g)!;
+          c.players = c.players.slice(0, 18);
+          c.lineup = autoLineup(c, AI_FORMATION);
+          return c.players.find((x) => x.contractSeasons > 1)!.name;
+        },
+        "Elenco no mínimo (18)",
+      ],
+    ];
+    for (const [name, arrange, text] of cases) {
+      cleanup();
+      resetAll();
+      const game = seededGame(4, 2);
+      const who = arrange(game);
+      useGame.setState({ phase: "squad", game, hasSave: true });
+      render(<Squad />);
+      await userEvent.setup().click(screen.getByRole("button", { name: `Emprestar ${who}` }));
+      expect(screen.getByRole("status"), name).toHaveTextContent(text);
+      expect(screen.queryByRole("alertdialog", { name: "Confirmar empréstimo" }), name).not.toBeInTheDocument();
+      expect(useGame.getState().game, name).toBe(game);
+    }
   });
 });

@@ -162,6 +162,11 @@ function problems(screen, m) {
     if (m.title.length < 3) out.push("título, subtítulo ou menu não encontrados");
     for (const t of m.title) if (m.group && crosses(m.group, t)) out.push(`botões de som sobre ${t.name}`);
   }
+  // Ajustes-saves C8: with a game saved, the title menu shows «Jogos salvos» on screen.
+  if (screen === "homeSave") {
+    const saves = m.title.find((t) => t.name === "button «Jogos salvos»");
+    if (!saves || !within(saves)) out.push("sem o botão «Jogos salvos»");
+  }
   return out;
 }
 

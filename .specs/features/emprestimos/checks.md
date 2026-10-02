@@ -32,7 +32,7 @@ Proof: `npx vitest run src/engine/market.test.ts -t "salário de quem está empr
 
 ### S2 - Pegar emprestado (motor) · mesmos arquivos · ~105 KB · ~0k a mais
 
-**C5** - `loanFee(jogador)` = 20% de `marketValue`, arredondado para R$ 10.000, no mínimo R$ 10.000, em tabela: valor R$ 1.230.000 → 250.000; valor R$ 30.000 → 10.000 (6.000 sobe para o mínimo); valor R$ 2.000.000 → 400.000 (AC 10).
+**C5** - `loanFee(jogador)` = 20% de `marketValue`, arredondado para R$ 10.000, no mínimo R$ 10.000, em tabela por força e idade: 65 e 20 anos (valor R$ 1.290.000) → 260.000; 61 e 25 (R$ 730.000) → 150.000; 62 e 20 (R$ 1.000.000) → 200.000; 40 e 35 (R$ 30.000, o menor valor possível) → 10.000 (AC 10).
 Proof: `npx vitest run src/engine/market.test.ts -t "taxa do empréstimo"`
 
 **C6** - Com o mercado aberto, `loanIn(jogo, id)` de um reserva (fora dos 11 de maior força do dono) que estava na `lineup` salva do dono devolve `{ ok: true }` com: `cash` do usuário − taxa e `pendingOut` + taxa; `cash` do dono + taxa e `pendingIn` + taxa; o jogador fora de `players` e de `lineup.starters` do dono; no `players` do usuário com `loanFrom` = id do dono e fora da `lineup` do usuário (AC 11).
@@ -133,3 +133,4 @@ Proof: `npm run check:layout`
 ## Handoff
 
 - S1 + S2 = market.ts 24 KB + types.ts 12 KB + market.test.ts 69 KB = 105 KB / 4 ≈ 26k; S3 entra na virada e na carreira (rollover.ts 15 KB, rollover.test.ts 36 KB, career.ts 7 KB, season.ts 11 KB) a ~43k; S4 entra nas telas (store.ts 35 KB, store.test.ts 49 KB, Squad.tsx 17 KB, Squad.test.tsx 31 KB, Market.tsx 15 KB, Market.test.tsx 19 KB, styles.css 54 KB, layout-check.mjs 24 KB, saveFile.test.ts 8 KB = 252 KB ≈ 63k) a ~106k, abaixo do budget de 150k - one builder
+- **Settled mid-build:** C5 trocou os valores ilustrativos (R$ 1.230.000 e R$ 2.000.000 não são valores de mercado possíveis) por força e idade reais, antes de qualquer teste de C5; o mínimo de R$ 10.000 nunca decide sozinho, porque o menor valor de mercado (R$ 30.000) já arredonda para R$ 10.000

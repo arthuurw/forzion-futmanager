@@ -68,6 +68,11 @@ export interface Player extends PlayerCore, Condition, PlayerStats {
    * it, in order. Absent = none; emptied at the turn of the season.
    */
   ratingLog?: RatingStep[];
+  /**
+   * Door 1 (emprestimos): on loan from this club, which still owns the player; the player plays
+   * for the club whose `players` hold them. Absent = not on loan. Every loan ends at the turn.
+   */
+  loanFrom?: string;
 }
 
 /** One rating change: the league round (1-based) and ±1. */

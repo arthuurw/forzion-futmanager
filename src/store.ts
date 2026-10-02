@@ -133,6 +133,15 @@ export function refusalText(reason: Refusal, amount = 0): string {
       return "Chegou nesta temporada: só pode ser vendido na próxima";
     case "buyer_gone":
       return "O comprador desistiu da proposta";
+    // Emprestimos AC 5, AC 7, AC 12, AC 13, AC 17.
+    case "starter":
+      return "Titular: o clube não empresta";
+    case "on_loan":
+      return "Emprestado: não pode ser negociado";
+    case "no_club":
+      return "Nenhum clube quer esse jogador agora";
+    case "last_year":
+      return "Renove o contrato antes de emprestar";
   }
 }
 
@@ -237,6 +246,12 @@ export interface GameStore {
   repayLoan(amount: number): Promise<boolean>;
   /** AC 26. */
   renewContract(playerId: string): Promise<boolean>;
+  /** Emprestimos AC 3: lends the user's player to the door-2 club. */
+  loanOut(playerId: string): Promise<boolean>;
+  /** Emprestimos AC 11: takes an AI club's reserve on loan. */
+  loanIn(playerId: string): Promise<boolean>;
+  /** Emprestimos AC 2, AC 5-7: the club a loan would go to, or null with the refusal in `marketMessage`. */
+  checkLoanOut(playerId: string): string | null;
   /** Carreira-dinamica AC 10, AC 15: takes one of the pending offers, saves, then opens the new club's squad. */
   takeJob(clubId: string): Promise<boolean>;
   /** Carreira-dinamica AC 19: turns the pending offer down and saves. */
@@ -713,6 +728,20 @@ export const useGame = create<GameStore>()((set, get) => {
     takeLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.takeLoan(f, amount))),
     repayLoan: (amount) => commit((g) => withUserFinance(g, (f) => finance.repayLoan(f, amount))),
     renewContract: (playerId) => commit((g) => market.renewContract(g, playerId)),
+    loanOut: (playerId) => commit((g) => market.loanOut(g, playerId)),
+    loanIn: (playerId) => commit((g) => market.loanIn(g, playerId)),
+
+    checkLoanOut(playerId) {
+      const { game } = get();
+      if (!game) return null;
+      const r = market.loanOutCheck(game, playerId);
+      if (r.ok) {
+        set({ marketMessage: null });
+        return r.clubId;
+      }
+      set({ marketMessage: refusalText(r.reason) });
+      return null;
+    },
 
     async takeJob(clubId) {
       const { game, saving } = get();

@@ -167,3 +167,20 @@ describe("carreira no arquivo (carreira-dinamica)", () => {
     expect(decodeSaveFile(envelope(game)).kind).toBe("ok");
   });
 });
+
+describe("empréstimo no arquivo (emprestimos)", () => {
+  test("empréstimo atravessa o arquivo", () => {
+    // C16 (door 1): two players on loan, one each way, export and import unchanged.
+    const g = withClub(4);
+    const [me, x] = [g.leagues[0]!.clubs[0]!, g.leagues[0]!.clubs[3]!];
+    const out = me.players.pop()!;
+    x.players.push({ ...out, loanFrom: me.id });
+    const inn = x.players.shift()!;
+    me.players.push({ ...inn, loanFrom: x.id });
+    const r = decodeSaveFile(encodeSaveFile(g, ISO));
+    expect(r).toEqual({ kind: "ok", state: g });
+    if (r.kind !== "ok") throw new Error(r.kind);
+    const loaned = r.state.leagues.flatMap((l) => l.clubs).flatMap((c) => c.players).filter((p) => p.loanFrom);
+    expect(loaned.map((p) => [p.id, p.loanFrom]).sort()).toEqual([[out.id, me.id], [inn.id, x.id]].sort());
+  });
+});

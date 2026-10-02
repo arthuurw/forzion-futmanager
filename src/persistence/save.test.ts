@@ -298,3 +298,17 @@ describe("vários espaços (varios-saves)", () => {
     expect(await raw("slot-3")).toEqual(three);
   });
 });
+
+describe("empréstimo no save (emprestimos)", () => {
+  test("empréstimo atravessa o save", async () => {
+    // C16 (door 1): two players on loan, one each way, saved and read unchanged.
+    const state = fixture();
+    const [me, x] = [state.leagues[0]!.clubs[0]!, state.leagues[0]!.clubs[3]!];
+    const out = me.players.pop()!;
+    x.players.push({ ...out, loanFrom: me.id });
+    const inn = x.players.shift()!;
+    me.players.push({ ...inn, loanFrom: x.id });
+    await saveGame(state);
+    expect(await loadGame()).toEqual({ kind: "ok", state });
+  });
+});

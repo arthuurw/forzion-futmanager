@@ -7,9 +7,14 @@ import {
   buyPlayer,
   closeRoundMarket,
   isWindowOpen,
+  loanDestination,
+  loanFee,
+  loanIn,
+  loanOut,
   marketValue,
   promoteJunior,
   releasePlayer,
+  renewContract,
   signFreeAgent,
   toggleForSale,
 } from "./market";
@@ -1443,5 +1448,327 @@ describe("oferta inválida (correcoes-validacao)", () => {
     const target = reserveGk(clubs(state)[4]!);
     for (const offer of [0, -5, 12.5, Number.NaN]) expect(buyPlayer(state, target.id, offer), String(offer)).toMatchObject({ ok: false, reason: "invalid" });
     expect(buyPlayer(state, "nobody", 100_000)).toMatchObject({ ok: false, reason: "not_found" });
+  });
+});
+
+/**
+ * Emprestimos: everyone rated 50 at 25, the user at the first Série A club, and P, one of the
+ * user's reserve midfielders, rated 70 at 20 with 3 seasons left, so P would start for any club
+ * of 50s. Market open (next round 1).
+ */
+function loanWorld(seed = 1) {
+  const s = game(seed);
+  for (const p of everyClub(s).flatMap((c) => c.players)) Object.assign(p, { rating: 50, age: 25 });
+  const me = user(s);
+  const p = me.players.filter((x) => x.position === "MF")[4]!;
+  Object.assign(p, { rating: 70, age: 20, contractSeasons: 3 });
+  me.lineup = autoLineup(me, AI_FORMATION);
+  return { s, me, p };
+}
+
+const rate = (club: Club, rating: number) => club.players.forEach((x) => (x.rating = rating));
+/** The clubs of the user's country (Brasil: Série A and Série B) other than the user's. */
+const brAi = (s: GameState) => s.leagues.filter((l) => l.country === "BR").flatMap((l) => l.clubs).filter((c) => c.id !== s.userClubId);
+const payroll = (c: Club) => c.players.reduce((sum, x) => sum + x.salary, 0);
+const where = (s: GameState, playerId: string) => everyClub(s).find((c) => c.players.some((x) => x.id === playerId));
+
+describe("empréstimo: emprestar (emprestimos)", () => {
+  test("emprestar cede o jogador", () => {
+    // C1: out of the squad, the lineup, the sale list and the offers; at the destination, starting; no money.
+    const { s, me, p } = loanWorld();
+    expect(me.lineup!.starters).toContain(p.id);
+    me.forSale = [p.id];
+    const bidder = clubs(s)[3]!;
+    s.market.offers = [{ id: "o1-1", buyerId: bidder.id, playerId: p.id, amount: 500_000 }];
+    const money = (c: Club) => ({ cash: c.finance.cash, pendingIn: c.finance.pendingIn, pendingOut: c.finance.pendingOut });
+    const mine = money(me);
+    const dest = loanDestination(s, p.id)!;
+    const theirs = money(anyClub(s, dest));
+    const out = ok(loanOut(s, p.id));
+    const meAfter = user(out);
+    expect(meAfter.players.map((x) => x.id)).not.toContain(p.id);
+    expect(meAfter.lineup!.starters).not.toContain(p.id);
+    expect(meAfter.forSale).not.toContain(p.id);
+    const there = anyClub(out, dest);
+    expect(there.players.find((x) => x.id === p.id)).toEqual({ ...p, loanFrom: me.id });
+    expect(aiLineup(there).starters).toContain(p.id);
+    expect(out.market.offers.map((o) => o.playerId)).not.toContain(p.id);
+    expect(money(meAfter)).toEqual(mine);
+    expect(money(there)).toEqual(theirs);
+  });
+
+  test("destino do empréstimo", () => {
+    // C2 (L-005, L-018): door 2, case by case.
+    // The strongest club where he would not start is skipped; the next one, where he starts, is picked.
+    {
+      const { s, p } = loanWorld();
+      const [strong, next] = [clubs(s)[3]!, s.leagues[1]!.clubs[7]!];
+      rate(strong, 80);
+      rate(next, 60);
+      expect(aiLineup({ ...strong, players: [...strong.players, p] }).starters).not.toContain(p.id);
+      expect(loanDestination(s, p.id), "titular").toBe(next.id);
+    }
+    // A stronger club with 30 players, where he would start, is skipped.
+    {
+      const { s, p } = loanWorld();
+      const [full, next] = [clubs(s)[2]!, s.leagues[1]!.clubs[7]!];
+      pad(full, 30);
+      rate(full, 65);
+      rate(next, 60);
+      expect(loanDestination(s, p.id), "30 jogadores").toBe(next.id);
+    }
+    // A stronger club of another country, where he would start, is skipped.
+    {
+      const { s, p } = loanWorld();
+      const [abroad, next] = [s.leagues[2]!.clubs[0]!, s.leagues[1]!.clubs[7]!];
+      expect(s.leagues[2]!.country).not.toBe("BR");
+      rate(abroad, 65);
+      rate(next, 60);
+      expect(loanDestination(s, p.id), "outro país").toBe(next.id);
+    }
+    // Two clubs with the same eleven: the smaller id, which is not the first in array order.
+    {
+      const { s, p } = loanWorld();
+      const later = s.leagues[1]!.clubs.find((y) => s.leagues[0]!.clubs.slice(1).some((x) => y.id < x.id))!;
+      const earlier = s.leagues[0]!.clubs.slice(1).find((x) => later.id < x.id)!;
+      rate(earlier, 60);
+      rate(later, 60);
+      expect(loanDestination(s, p.id), "empate").toBe(later.id);
+    }
+    // Nowhere to start: null.
+    {
+      const { s, p } = loanWorld();
+      brAi(s).forEach((c) => rate(c, 80));
+      expect(loanDestination(s, p.id), "nenhum").toBeNull();
+    }
+  });
+
+  test("recusas ao emprestar", () => {
+    // C3 (L-005): each refusal changes nothing.
+    const cases: [string, (w: ReturnType<typeof loanWorld>) => string, string][] = [
+      ["mercado fechado", ({ s, p }) => ((s.leagues[0]!.currentRound = 5), p.id), "closed"],
+      ["fora do elenco", () => "nobody", "not_found"],
+      ["elenco com 18", ({ me, p }) => ((me.players = [p, ...me.players.filter((x) => x.id !== p.id).slice(0, 17)]), p.id), "user_min"],
+      ["último ano", ({ p }) => ((p.contractSeasons = 1), p.id), "last_year"],
+      ["sem destino", ({ s, p }) => (brAi(s).forEach((c) => rate(c, 80)), p.id), "no_club"],
+      ["emprestado ao usuário", ({ s, p }) => ((p.loanFrom = clubs(s)[4]!.id), p.id), "on_loan"],
+    ];
+    for (const [name, arrange, reason] of cases) {
+      const w = loanWorld();
+      const id = arrange(w);
+      const before = JSON.stringify(w.s);
+      expect(loanOut(w.s, id), name).toEqual({ ok: false, reason });
+      expect(JSON.stringify(w.s), name).toBe(before);
+    }
+  });
+
+  test("salário de quem está emprestado", () => {
+    // C4: each club pays the players it fields, on loan or not.
+    const { s, me, p } = loanWorld();
+    const owner = clubs(s)[5]!;
+    const q = owner.players[3]!;
+    q.rating = 40;
+    const lent = ok(loanOut(s, p.id));
+    const both = ok(loanIn(lent, q.id));
+    user(both).lineup = autoLineup(user(both), AI_FORMATION);
+    const x = where(both, p.id)!;
+    expect(x.id).not.toBe(me.id);
+    expect(user(both).players.map((y) => y.id)).toContain(q.id);
+    const wagesMe = payroll(user(both));
+    const wagesX = payroll(x);
+    const after = playRound(both).state;
+    expect(user(after).finance.lastRound!.salaries).toBe(wagesMe);
+    expect(anyClub(after, x.id).finance.lastRound!.salaries).toBe(wagesX);
+    expect(wagesX).toBeGreaterThanOrEqual(p.salary);
+  });
+});
+
+describe("empréstimo: pegar emprestado (emprestimos)", () => {
+  /** loanWorld plus Y, a Série A club whose fourth player is rated 40, so he is a reserve. */
+  function takeWorld() {
+    const w = loanWorld();
+    const owner = clubs(w.s)[5]!;
+    const q = owner.players[3]!;
+    q.rating = 40;
+    return { ...w, owner, q };
+  }
+
+  test("taxa do empréstimo", () => {
+    // C5: 20% of the market value, to R$ 10.000, at least R$ 10.000.
+    const cases: [number, number, number, number][] = [
+      [65, 20, 1_290_000, 260_000],
+      [61, 25, 730_000, 150_000],
+      [62, 20, 1_000_000, 200_000],
+      [40, 35, 30_000, 10_000],
+    ];
+    for (const [rating, age, value, fee] of cases) {
+      expect(valueOf(rating, age), `${rating}/${age}`).toBe(value);
+      expect(loanFee({ rating, age }), `${rating}/${age}`).toBe(fee);
+    }
+  });
+
+  test("pegar emprestado traz o jogador", () => {
+    // C6: the fee moves, the player leaves the owner's saved lineup and joins the user's squad, not the eleven.
+    const { s, me, owner, q } = takeWorld();
+    owner.lineup = autoLineup(owner, AI_FORMATION);
+    owner.lineup.starters[5] = q.id;
+    const fee = loanFee(q);
+    expect(fee).toBe(20_000);
+    const [cash, out, ownerCash, ownerIn] = [me.finance.cash, me.finance.pendingOut, owner.finance.cash, owner.finance.pendingIn];
+    const after = ok(loanIn(s, q.id));
+    const meAfter = user(after);
+    const from = anyClub(after, owner.id);
+    expect(meAfter.finance.cash).toBe(cash - fee);
+    expect(meAfter.finance.pendingOut).toBe(out + fee);
+    expect(from.finance.cash).toBe(ownerCash + fee);
+    expect(from.finance.pendingIn).toBe(ownerIn + fee);
+    expect(from.players.map((x) => x.id)).not.toContain(q.id);
+    expect(from.lineup!.starters).not.toContain(q.id);
+    expect(meAfter.players.find((x) => x.id === q.id)).toEqual({ ...q, loanFrom: owner.id });
+    expect(meAfter.lineup!.starters).not.toContain(q.id);
+  });
+
+  test("recusas ao pegar emprestado", () => {
+    // C7 (L-005): each refusal changes nothing.
+    const cases: [string, (w: ReturnType<typeof takeWorld>) => string, string][] = [
+      ["mercado fechado", ({ s, q }) => ((s.leagues[0]!.currentRound = 5), q.id), "closed"],
+      ["não é de clube da IA", ({ p }) => p.id, "not_found"],
+      ["titular do dono", ({ owner }) => [...owner.players].sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id))[0]!.id, "starter"],
+      ["emprestado", ({ s, q }) => ((q.loanFrom = clubs(s)[6]!.id), q.id), "on_loan"],
+      [
+        "29 e 1 emprestado",
+        ({ s, me, q }) => {
+          pad(me, 29);
+          const lent = me.players.find((x) => x.id !== q.id && !me.lineup!.starters.includes(x.id))!;
+          me.players = me.players.filter((x) => x.id !== lent.id);
+          clubs(s)[9]!.players.push({ ...lent, loanFrom: me.id });
+          expect(me.players).toHaveLength(28);
+          pad(me, 29);
+          return q.id;
+        },
+        "squad_full",
+      ],
+      ["dono com 18", ({ owner, q }) => ((owner.players = owner.players.slice(0, 18)), expect(owner.players).toContain(q), q.id), "seller_min"],
+      ["caixa", ({ me, q }) => ((me.finance.cash = loanFee(q) - 1), q.id), "cash"],
+    ];
+    for (const [name, arrange, reason] of cases) {
+      const w = takeWorld();
+      const id = arrange(w);
+      const before = JSON.stringify(w.s);
+      expect(loanIn(w.s, id), name).toEqual({ ok: false, reason });
+      expect(JSON.stringify(w.s), name).toBe(before);
+    }
+  });
+
+  /** The user with 29 players, `lent` of them out on loan at another club, and cash for anything. */
+  function full(lent: number) {
+    const s = game(3);
+    const me = user(s);
+    me.finance.cash = 1_000_000_000;
+    pad(me, 29);
+    for (let i = 0; i < lent; i++) {
+      const away = me.players.find((x) => !me.lineup!.starters.includes(x.id))!;
+      me.players = me.players.filter((x) => x.id !== away.id);
+      clubs(s)[9]!.players.push({ ...away, loanFrom: me.id });
+    }
+    pad(me, 29);
+    expect(s.market.freeAgents.length).toBeGreaterThan(0);
+    expect(s.market.juniors.length).toBeGreaterThan(0);
+    const target = reserveGk(clubs(s)[4]!);
+    return {
+      buy: () => buyPlayer(s, target.id, 100_000_000),
+      sign: () => signFreeAgent(s, s.market.freeAgents[0]!.id),
+      promote: () => promoteJunior(s, s.market.juniors[0]!.id),
+    };
+  }
+
+  test("limite de 30 conta os emprestados", () => {
+    // C8: 29 in the squad and 1 out on loan is a full squad.
+    const actions = full(1);
+    for (const [name, act] of Object.entries(actions)) expect(act(), name).toEqual({ ok: false, reason: "squad_full" });
+  });
+
+  test("limite de 30 sem emprestados", () => {
+    // C9 (L-030, behaviour that already existed): 29 and nobody out on loan still signs.
+    const actions = full(0);
+    for (const [name, act] of Object.entries(actions)) expect(act().ok, name).toBe(true);
+  });
+
+  test("emprestado não se negocia", () => {
+    // C10 (L-005): a player on loan is not for sale, released, renewed or bought.
+    const { s, me, owner, q } = takeWorld();
+    const mine = user(ok(loanIn(s, q.id)));
+    expect(mine.players.map((x) => x.id)).toContain(q.id);
+    const withQ = ok(loanIn(s, q.id));
+    user(withQ).players.find((x) => x.id === q.id)!.contractSeasons = 1;
+    expect(toggleForSale(withQ, q.id), "à venda").toEqual({ ok: false, reason: "on_loan" });
+    expect(releasePlayer(withQ, q.id), "dispensa").toEqual({ ok: false, reason: "on_loan" });
+    expect(renewContract(withQ, q.id), "renovação").toEqual({ ok: false, reason: "on_loan" });
+    // At an AI club, on loan from another AI club: the user cannot buy him.
+    const away = clubs(s)[7]!.players[2]!;
+    away.loanFrom = owner.id;
+    expect(buyPlayer(s, away.id, 100_000_000), "compra").toEqual({ ok: false, reason: "on_loan" });
+    expect(me.id).toBe(s.userClubId);
+  });
+});
+
+describe("empréstimo: a IA respeita (emprestimos)", () => {
+  test("IA respeita o empréstimo", () => {
+    // C11 (L-005): purchases, sales from the red and releases skip a player on loan.
+    // Purchase: in everyoneBuys the third goalkeepers rated 90 are the only candidates; all on loan.
+    let bought = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = everyoneBuys(seed);
+      const loaned = new Set<string>();
+      for (const c of aiOrder(s)) {
+        const gk = c.players.filter((p) => p.position === "GK")[2]!;
+        gk.loanFrom = s.userClubId!;
+        loaned.add(gk.id);
+      }
+      closeRoundMarket(s, s.rngState, 1);
+      bought += s.market.transfers.filter((t) => t.kind === "buy" && loaned.has(t.playerId)).length;
+    }
+    expect(bought, "compra").toBe(0);
+    // Sale from the red: the star is on loan, so another player is sold.
+    {
+      const { s, from, star } = redWorld(61);
+      star.loanFrom = s.leagues[0]!.clubs[8]!.id;
+      const rich = s.leagues[0]!.clubs[3]!;
+      rich.finance.cash = 100_000_000;
+      closeRoundMarket(s, s.rngState, 1);
+      expect(has(s, from.id, star.id), "venda").toBe(true);
+      const sold = s.market.transfers.filter((t) => t.kind === "buy" && t.fromId === from.id);
+      expect(sold.length, "venda").toBeGreaterThan(0);
+      expect(sold.map((t) => t.playerId), "venda").not.toContain(star.id);
+    }
+    // Release above 22: the weakest bench DF is on loan, so the next one goes.
+    {
+      const q = quiet(47);
+      const bench = q.buyer.players.filter((p) => p.position === "DF" && p.rating === 50);
+      bench.forEach((p, i) => Object.assign(p, { rating: 66 + i, injuryRounds: 3 }));
+      bench[0]!.loanFrom = q.s.leagues[0]!.clubs.find((c) => c.id !== q.buyer.id)!.id;
+      const target = reserve(seller(q), "DF", 70, 25);
+      close(q);
+      const buyer = anyClub(q.s, q.buyer.id);
+      expect(buyer.players.map((p) => p.id), "dispensa").toContain(target.id);
+      expect(buyer.players.map((p) => p.id), "dispensa").toContain(bench[0]!.id);
+      expect(buyer.players.map((p) => p.id), "dispensa").not.toContain(bench[1]!.id);
+    }
+  });
+
+  test("sem proposta por emprestado", () => {
+    // C12: the user's 5 most valuable players are on loan to them; offers only for the others.
+    let others = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const s = game(seed);
+      const me = user(s);
+      const top = [...me.players].sort((a, b) => marketValue(b) - marketValue(a)).slice(0, 5);
+      for (const p of top) p.loanFrom = clubs(s)[10]!.id;
+      const ids = new Set(top.map((p) => p.id));
+      closeRoundMarket(s, s.rngState, 1);
+      expect(s.market.offers.filter((o) => ids.has(o.playerId)), `semente ${seed}`).toEqual([]);
+      others += s.market.offers.length;
+    }
+    expect(others).toBeGreaterThan(0);
   });
 });

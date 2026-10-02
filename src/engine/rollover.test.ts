@@ -8,6 +8,7 @@ import { nextSeason } from "./rollover";
 import { playRound, seasonReview } from "./season";
 import { computeTable } from "./table";
 import { busySeason, expectedCupGoal, zeroAiSurplus } from "./test-fixtures";
+import { takeJob } from "./career";
 import type { Club, GameState, Player, Position } from "./types";
 
 /** Written out here, not imported (L-004). */
@@ -684,4 +685,89 @@ describe("base na virada (correcoes-validacao)", () => {
       }
     }
   });
+});
+
+describe("empréstimos na virada (emprestimos)", () => {
+  /**
+   * A finished season with P1 (the user's, 20 years old, 3 seasons left) starting for X on loan,
+   * and P2 (Y's) starting for the user on loan.
+   */
+  function loans() {
+    const s = ended();
+    const me = userOf(s);
+    const [x, y] = [s.leagues[0]!.clubs[4]!, s.leagues[0]!.clubs[9]!];
+    const p1 = me.players.find((p) => p.position === "MF")!;
+    Object.assign(p1, { age: 20, contractSeasons: 3, rating: 95 });
+    me.players = me.players.filter((p) => p.id !== p1.id);
+    me.lineup = { ...me.lineup!, starters: me.lineup!.starters.map((id) => (id === p1.id ? null : id)) };
+    x.players.push({ ...p1, loanFrom: me.id });
+    x.lineup = autoLineup(x, AI_FORMATION);
+    expect(x.lineup.starters).toContain(p1.id);
+    const p2 = y.players[0]!;
+    y.players = y.players.slice(1);
+    me.players.push({ ...p2, loanFrom: y.id });
+    me.lineup.starters[me.lineup.starters.indexOf(null)] = p2.id;
+    return { s, me, x, y, p1, p2 };
+  }
+
+  test("virada devolve os emprestados", () => {
+    // C13 (door 3): back to the owner before ageing and contracts; nobody left on loan.
+    const { s, me, x, y, p1, p2 } = loans();
+    const { state } = nextSeason(s);
+    const back = userOf(state).players.find((p) => p.id === p1.id);
+    expect(back).toBeDefined();
+    expect(back).not.toHaveProperty("loanFrom");
+    expect(back).toMatchObject({ age: 21, contractSeasons: 2 });
+    expect(clubOf(state, x.id).players.map((p) => p.id)).not.toContain(p1.id);
+    expect(clubOf(state, x.id).lineup?.starters ?? []).not.toContain(p1.id);
+    const home = clubOf(state, y.id).players.find((p) => p.id === p2.id);
+    expect(home).toBeDefined();
+    expect(home).not.toHaveProperty("loanFrom");
+    expect(clubOf(state, me.id).players.map((p) => p.id)).not.toContain(p2.id);
+    expect(clubOf(state, me.id).lineup?.starters ?? []).not.toContain(p2.id);
+    expect(all(state).flatMap((c) => c.players).filter((p) => p.loanFrom !== undefined)).toEqual([]);
+  });
+
+  test("quem volta entra no relatório", () => {
+    // C14: the user's player back from loan has his «Antes» row; the one who went home has none.
+    const { s, p1, p2 } = loans();
+    const start = p1.rating - (p1.ratingLog ?? []).reduce((sum, step) => sum + step.delta, 0);
+    const { report } = nextSeason(s);
+    expect(report.changes.find((c) => c.playerId === p1.id)?.before).toBe(start);
+    expect(report.changes.map((c) => c.playerId)).not.toContain(p2.id);
+  });
+
+  test("troca de clube mantém o empréstimo", () => {
+    // C15 (carreira-dinamica): the user leaves A for B mid-season; P1 goes back to A at the turn.
+    let s = newGame(31);
+    const a = s.leagues[0]!.clubs[2]!;
+    s.userClubId = a.id;
+    s.boardGoal = 20;
+    for (let r = 0; r < 10; r++) {
+      userOf(s).lineup = autoLineup(userOf(s), AI_FORMATION);
+      zeroAiSurplus(s);
+      s = playRound(s).state;
+    }
+    const x = s.leagues[0]!.clubs[6]!;
+    const me = userOf(s);
+    const p1 = me.players.find((p) => p.position === "DF")!;
+    me.players = me.players.filter((p) => p.id !== p1.id);
+    x.players.push({ ...p1, loanFrom: a.id });
+    const b = s.leagues[0]!.clubs[12]!;
+    s.pendingJob = { reason: "offer", clubIds: [b.id] };
+    const moved = takeJob(s, b.id);
+    if (!moved.ok) throw new Error("takeJob refused");
+    s = moved.state;
+    expect(s.userClubId).toBe(b.id);
+    expect(clubOf(s, x.id).players.find((p) => p.id === p1.id)?.loanFrom).toBe(a.id);
+    for (let r = 10; r < 38; r++) {
+      userOf(s).lineup = autoLineup(userOf(s), AI_FORMATION);
+      zeroAiSurplus(s);
+      s = playRound(s).state;
+    }
+    s.boardGoal = 20;
+    const { state } = nextSeason(s);
+    expect(clubOf(state, a.id).players.map((p) => p.id)).toContain(p1.id);
+    expect(clubOf(state, b.id).players.map((p) => p.id)).not.toContain(p1.id);
+  }, 60_000);
 });

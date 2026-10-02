@@ -9,7 +9,7 @@ import { NATIONAL_CUP_ID, continentalFromTables, countryLookup, newContinentalCu
 import { salaryFor } from "./finance";
 import { generateJuniors, generateSchedule, makePlayer, takenNames } from "./generate";
 import { AI_FORMATION, autoLineup } from "./lineup";
-import { CONTRACT_JUNIOR, SQUAD_MIN } from "./market";
+import { CONTRACT_JUNIOR, SQUAD_MIN, endLoans } from "./market";
 import { generatePlayerName, uniqueName } from "./names";
 import { createRng, mix32, randInt, shuffle, type Rng } from "./rng";
 import { allClubs, seasonReview, type SeasonReview } from "./season";
@@ -185,6 +185,8 @@ export function nextSeason(input: GameState, jobClubId?: string): { state: GameS
     })),
   };
   state.history = [...state.history, record];
+  // Emprestimos door 3: every loan ends before anyone ages, retires or comes to the end of a contract.
+  endLoans(state);
 
   // AC 10, door 4: 4 down from each division, 4 up from the one below, appended in table order.
   // Paises AC 11: the one below is the next tier of the same country; a country's only league stays.

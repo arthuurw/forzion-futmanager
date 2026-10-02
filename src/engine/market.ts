@@ -76,14 +76,18 @@ export function marketValue(p: Pick<Player, "rating" | "age">): number {
   return roundTo(salaryFor(p.rating) * 50 * ageFactor(p.age), 10_000);
 }
 
-/**
- * AC 20: a club asks half as much again for a starter. Correcoes-validacao AC 28: a starter is one
- * of the club's 11 highest-rated players, injured, suspended or tired alike; ties by id.
- */
+/** Correcoes-validacao AC 28: the club's 11 highest-rated players, injured, suspended or tired alike; ties by id. */
+const strongestEleven = (club: Pick<Club, "players">): Player[] =>
+  [...club.players].sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id)).slice(0, 11);
+
+/** AC 20 (elenco-mercado-financas): one of the club's 11 highest-rated players. */
+export function isStarter(club: Club, player: Player): boolean {
+  return strongestEleven(club).some((p) => p.id === player.id);
+}
+
+/** AC 20: a club asks half as much again for a starter. */
 export function askingPrice(club: Club, player: Player): number {
-  const strongest = [...club.players].sort((a, b) => b.rating - a.rating || a.id.localeCompare(b.id)).slice(0, 11);
-  const starter = strongest.some((p) => p.id === player.id);
-  return starter ? Math.round(marketValue(player) * STARTER_MARKUP) : marketValue(player);
+  return isStarter(club, player) ? Math.round(marketValue(player) * STARTER_MARKUP) : marketValue(player);
 }
 
 export type MarketRefusal =
@@ -97,7 +101,11 @@ export type MarketRefusal =
   | "not_last_year"
   | "arrived"
   | "buyer_gone"
-  | "invalid";
+  | "invalid"
+  | "starter"
+  | "on_loan"
+  | "no_club"
+  | "last_year";
 /**
  * A refusal may still change the game: `state` is then the game to keep (correcoes-validacao AC
  * 27, an offer whose buyer gave up leaves the list).
@@ -141,6 +149,19 @@ function detach(state: GameState, club: Club, playerId: string): Player {
   return player;
 }
 
+/** Emprestimos door 1: on loan, so owned by another club than the one it plays for. */
+const onLoan = (p: Pick<Player, "loanFrom">) => p.loanFrom !== undefined;
+
+/** Emprestimos AC 22: the players a club has out on loan, with the club each plays for. */
+export function loanedOut(state: GameState, clubId: string): { player: Player; club: Club }[] {
+  return allClubs(state).flatMap((club) => club.players.filter((p) => p.loanFrom === clubId).map((player) => ({ player, club })));
+}
+
+/** Emprestimos AC 14: the user's squad counts the players out on loan, so their return never passes 30. */
+function squadFull(state: GameState, user: Club): boolean {
+  return user.players.length + loanedOut(state, user.id).length >= SQUAD_MAX;
+}
+
 /** AC 21-26: buy a player from an AI club. The player arrives as they are, out of the lineup. */
 export function buyPlayer(input: GameState, playerId: string, offer: number): MarketResult {
   if (!isMarketOpen(input)) return refuse("closed");
@@ -149,9 +170,11 @@ export function buyPlayer(input: GameState, playerId: string, offer: number): Ma
   const seller = allClubs(input).find((c) => c.id !== user.id && c.players.some((p) => p.id === playerId));
   const player = seller?.players.find((p) => p.id === playerId);
   if (!seller || !player) return refuse("not_found");
+  // Emprestimos AC 13.
+  if (onLoan(player)) return refuse("on_loan");
   // Correcoes-validacao AC 45: a bad amount is not a missing player.
   if (!Number.isInteger(offer) || offer <= 0) return refuse("invalid");
-  if (user.players.length >= SQUAD_MAX) return refuse("squad_full");
+  if (squadFull(input, user)) return refuse("squad_full");
   if (seller.players.length <= SQUAD_MIN) return refuse("seller_min");
   const asking = askingPrice(seller, player);
   if (offer < asking) return refuse("price", asking);
@@ -173,6 +196,8 @@ export function toggleForSale(input: GameState, playerId: string): MarketResult 
   if (!isMarketOpen(input)) return refuse("closed");
   const player = userOf(input).players.find((p) => p.id === playerId);
   if (!player) return refuse("not_found");
+  // Emprestimos AC 17.
+  if (onLoan(player)) return refuse("on_loan");
   if (!userOf(input).forSale.includes(playerId) && arrivedThisSeason(input, player)) return refuse("arrived");
   const state = clone(input);
   const user = userOf(state);
@@ -231,6 +256,7 @@ export function releasePlayer(input: GameState, playerId: string): MarketResult 
   if (!isMarketOpen(input)) return refuse("closed");
   const player = userOf(input).players.find((p) => p.id === playerId);
   if (!player) return refuse("not_found");
+  if (onLoan(player)) return refuse("on_loan");
   if (userOf(input).players.length <= SQUAD_MIN) return refuse("user_min");
   const cost = releaseCost(player);
   if (cost > userOf(input).finance.cash) return refuse("cash");
@@ -248,7 +274,7 @@ export function signFreeAgent(input: GameState, playerId: string): MarketResult 
   if (!isMarketOpen(input)) return refuse("closed");
   const player = input.market.freeAgents.find((p) => p.id === playerId);
   if (!player) return refuse("not_found");
-  if (userOf(input).players.length >= SQUAD_MAX) return refuse("squad_full");
+  if (squadFull(input, userOf(input))) return refuse("squad_full");
   const fee = signingFee(player);
   if (fee > userOf(input).finance.cash) return refuse("cash");
 
@@ -266,7 +292,7 @@ export function promoteJunior(input: GameState, playerId: string): MarketResult 
   if (!isMarketOpen(input)) return refuse("closed");
   const junior = input.market.juniors.find((p) => p.id === playerId);
   if (!junior) return refuse("not_found");
-  if (userOf(input).players.length >= SQUAD_MAX) return refuse("squad_full");
+  if (squadFull(input, userOf(input))) return refuse("squad_full");
   const state = clone(input);
   state.market.juniors = state.market.juniors.filter((p) => p.id !== playerId);
   userOf(state).players.push(arrived(signed(junior, CONTRACT_JUNIOR), state.season));
@@ -281,11 +307,103 @@ export function renewalSalary(p: Pick<Player, "rating">): number {
 export function renewContract(input: GameState, playerId: string): MarketResult {
   const player = userOf(input).players.find((p) => p.id === playerId);
   if (!player) return refuse("not_found");
+  if (onLoan(player)) return refuse("on_loan");
   if (player.contractSeasons !== 1) return refuse("not_last_year");
   const state = clone(input);
   const user = userOf(state);
   user.players = user.players.map((p) => (p.id === playerId ? { ...p, contractSeasons: CONTRACT_RENEWAL, salary: renewalSalary(p) } : p));
   return { ok: true, state };
+}
+
+/** Emprestimos AC 10: what the user pays the owner to take a player on loan until the turn. */
+export const LOAN_FEE_SHARE = 0.2;
+export const LOAN_FEE_MIN = 10_000;
+
+export function loanFee(p: Pick<Player, "rating" | "age">): number {
+  return Math.max(LOAN_FEE_MIN, roundTo(LOAN_FEE_SHARE * marketValue(p), 10_000));
+}
+
+/**
+ * Emprestimos door 2: the AI club of the user's country, under 30 players, whose AI lineup with the
+ * player added fields him; the one with the strongest eleven, ties by id. No draw. Null = none.
+ */
+export function loanDestination(state: GameState, playerId: string): string | null {
+  const user = userOf(state);
+  const player = user.players.find((p) => p.id === playerId);
+  if (!player) return null;
+  const strength = (c: Club) => strongestEleven(c).reduce((sum, p) => sum + p.rating, 0);
+  const fits = aiClubs(state).filter(
+    (c) =>
+      sameCountry(state, c, user) &&
+      c.players.length < SQUAD_MAX &&
+      aiLineup({ ...c, players: [...c.players, player] }).starters.includes(player.id),
+  );
+  return fits.sort((a, b) => strength(b) - strength(a) || a.id.localeCompare(b.id))[0]?.id ?? null;
+}
+
+export type LoanOutCheck = { ok: true; clubId: string } | { ok: false; reason: MarketRefusal };
+
+/** Emprestimos AC 4-8, AC 17: where the user's player would go, or why not. Changes nothing. */
+export function loanOutCheck(state: GameState, playerId: string): LoanOutCheck {
+  if (!isMarketOpen(state)) return { ok: false, reason: "closed" };
+  const user = userOf(state);
+  const player = user.players.find((p) => p.id === playerId);
+  if (!player) return { ok: false, reason: "not_found" };
+  if (onLoan(player)) return { ok: false, reason: "on_loan" };
+  if (user.players.length <= SQUAD_MIN) return { ok: false, reason: "user_min" };
+  if (player.contractSeasons === 1) return { ok: false, reason: "last_year" };
+  const clubId = loanDestination(state, playerId);
+  return clubId ? { ok: true, clubId } : { ok: false, reason: "no_club" };
+}
+
+/** Emprestimos AC 3: the player goes to the door-2 club until the turn; no money changes hands. */
+export function loanOut(input: GameState, playerId: string): MarketResult {
+  const check = loanOutCheck(input, playerId);
+  if (!check.ok) return refuse(check.reason);
+  const state = clone(input);
+  const user = userOf(state);
+  const player = detach(state, user, playerId);
+  findAnyClub(state, check.clubId).players.push({ ...player, loanFrom: user.id });
+  return { ok: true, state };
+}
+
+/** Emprestimos AC 10-16: a reserve of an AI club joins the user until the turn, for the loan fee. */
+export function loanIn(input: GameState, playerId: string): MarketResult {
+  if (!isMarketOpen(input)) return refuse("closed");
+  const user = userOf(input);
+  const owner = allClubs(input).find((c) => c.id !== user.id && c.players.some((p) => p.id === playerId));
+  const player = owner?.players.find((p) => p.id === playerId);
+  if (!owner || !player) return refuse("not_found");
+  if (onLoan(player)) return refuse("on_loan");
+  if (isStarter(owner, player)) return refuse("starter");
+  if (squadFull(input, user)) return refuse("squad_full");
+  if (owner.players.length <= SQUAD_MIN) return refuse("seller_min");
+  const fee = loanFee(player);
+  if (fee > user.finance.cash) return refuse("cash");
+
+  const state = clone(input);
+  const taker = userOf(state);
+  const from = findAnyClub(state, owner.id);
+  taker.players.push({ ...detach(state, from, playerId), loanFrom: from.id });
+  taker.finance.cash -= fee;
+  taker.finance.pendingOut += fee;
+  from.finance.cash += fee;
+  from.finance.pendingIn += fee;
+  return { ok: true, state };
+}
+
+/**
+ * Emprestimos door 3: every player on loan goes back to the club that owns them, out of the lineup
+ * of the club they played for. The first step of the turn. Mutates `state`.
+ */
+export function endLoans(state: GameState): void {
+  for (const club of allClubs(state)) {
+    for (const p of club.players.filter(onLoan)) {
+      const { loanFrom, ...player } = detach(state, club, p.id);
+      const owner = allClubs(state).find((c) => c.id === loanFrom);
+      (owner ?? club).players.push(player);
+    }
+  }
 }
 
 function between(rng: Rng, [lo, hi]: readonly [number, number]): number {
@@ -323,8 +441,9 @@ function generateOffers(state: GameState, rng: Rng, roundNumber: number): Offer[
     if (user.forSale.includes(player.id) && !arrivedThisSeason(state, player) && rng.next() < FOR_SALE_OFFER_CHANCE) add(player, FOR_SALE_OFFER_RANGE);
   }
   if (rng.next() < UNSOLICITED_OFFER_CHANCE) {
+    // Emprestimos AC 18: never for a player the user only has on loan.
     const targets = user.players
-      .filter((p) => !user.forSale.includes(p.id) && !arrivedThisSeason(state, p))
+      .filter((p) => !user.forSale.includes(p.id) && !arrivedThisSeason(state, p) && !onLoan(p))
       .sort((a, b) => marketValue(b) - marketValue(a) || a.id.localeCompare(b.id))
       .slice(0, UNSOLICITED_TARGETS);
     if (targets.length) add(pick(rng, targets), UNSOLICITED_OFFER_RANGE);
@@ -406,7 +525,8 @@ function aiSign(state: GameState, roundNumber: number, buyer: Club, player: Play
   record(state, roundNumber, "buy", player, seller.id, buyer.id, price);
   if (buyer.players.length <= AI_SQUAD_KEEP) return;
   const released = buyer.players
-    .filter((p) => p.position === player.position && p.id !== player.id && !eleven.has(p.id))
+    // Emprestimos AC 18: never one on loan.
+    .filter((p) => p.position === player.position && p.id !== player.id && !eleven.has(p.id) && !onLoan(p))
     .sort(weakestFirst)[0];
   if (!released) return;
   const cost = releaseCost(released);
@@ -427,7 +547,7 @@ function sellFromTheRed(state: GameState, roundNumber: number): void {
     if (seller.finance.cash >= 0 || seller.players.length <= SQUAD_MIN) continue;
     const bought = boughtByAi(state);
     const player = seller.players
-      .filter((p) => !bought.has(p.id))
+      .filter((p) => !bought.has(p.id) && !onLoan(p))
       .sort((a, b) => marketValue(b) - marketValue(a) || a.id.localeCompare(b.id))[0];
     if (!player) continue;
     const price = marketValue(player);
@@ -467,7 +587,13 @@ function tryAiPurchase(state: GameState, roundNumber: number, buyer: Club): void
   // Ajustes-4a AC 5, AC 6: not injured, and not bought by an AI club this season.
   const bought = boughtByAi(state);
   const fits = (p: Player) =>
-    p.position === position && p.rating >= rating + AI_BUY_MIN_GAIN && p.age <= AI_BUY_MAX_AGE && p.injuryRounds === 0 && !bought.has(p.id);
+    p.position === position &&
+    p.rating >= rating + AI_BUY_MIN_GAIN &&
+    p.age <= AI_BUY_MAX_AGE &&
+    p.injuryRounds === 0 &&
+    !bought.has(p.id) &&
+    // Emprestimos AC 18.
+    !onLoan(p);
   const candidates: Candidate[] = aiClubs(state)
     .filter((c) => c.id !== buyer.id && sameCountry(state, c, buyer) && c.players.length > AI_SELLER_ABOVE)
     .flatMap((c) => {

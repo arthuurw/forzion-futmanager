@@ -44,6 +44,12 @@ Corroborated across multiple features. Safe to apply as guidance.
 - evidence: plan.md Landing door 5 / src/engine/finance.ts:121 (checks) (+1 more)
 - last seen: 2026-09-27T01:23:53Z
 
+### L-030 - When checks close weak proofs over code that is already correct, run each new proof on the pre-fix code before writing the checks and declare every one that passes there as pinning existing behaviour.
+- signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `checks` · harmful: 0
+- features: ajustes-saves, emprestimos
+- evidence: checks.md Lições aplicadas / C2-C4 (checks) (+1 more)
+- last seen: 2026-10-02T22:30:05Z
+
 ## Candidates (under observation - do NOT load as guidance yet)
 
 Seen once or not yet corroborated. Tracked, not trusted.
@@ -186,11 +192,11 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: C9 / src/ui/Live.test.tsx:758 (checks)
 - last seen: 2026-10-01T17:21:39Z
 
-### L-030 - When checks close weak proofs over code that is already correct, run each new proof on the pre-fix code before writing the checks and declare every one that passes there as pinning existing behaviour.
-- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
-- features: ajustes-saves
-- evidence: checks.md Lições aplicadas / C2-C4 (checks)
-- last seen: 2026-10-02T21:23:31Z
+### L-031 - A test that asserts something is absent also asserts the precondition that makes it absent (market closed, rows rendered), or it passes on an empty screen.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: emprestimos
+- evidence: src/ui/Squad.test.tsx:646 (C17) (tests)
+- last seen: 2026-10-02T22:30:05Z
 
 ## Quarantined (failed when applied - ignore)
 

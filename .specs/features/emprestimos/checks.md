@@ -134,3 +134,5 @@ Proof: `npm run check:layout`
 
 - S1 + S2 = market.ts 24 KB + types.ts 12 KB + market.test.ts 69 KB = 105 KB / 4 ≈ 26k; S3 entra na virada e na carreira (rollover.ts 15 KB, rollover.test.ts 36 KB, career.ts 7 KB, season.ts 11 KB) a ~43k; S4 entra nas telas (store.ts 35 KB, store.test.ts 49 KB, Squad.tsx 17 KB, Squad.test.tsx 31 KB, Market.tsx 15 KB, Market.test.tsx 19 KB, styles.css 54 KB, layout-check.mjs 24 KB, saveFile.test.ts 8 KB = 252 KB ≈ 63k) a ~106k, abaixo do budget de 150k - one builder
 - **Settled mid-build:** C5 trocou os valores ilustrativos (R$ 1.230.000 e R$ 2.000.000 não são valores de mercado possíveis) por força e idade reais, antes de qualquer teste de C5; o mínimo de R$ 10.000 nunca decide sozinho, porque o menor valor de mercado (R$ 30.000) já arredonda para R$ 10.000
+- **Boundary:** C1-C23 closed at `bd82792` (motor em 20e638a, telas em 7f9118c, layout em bd82792)
+- **Abandoned:** nada

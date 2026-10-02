@@ -33,10 +33,10 @@
 
 ## Handoff
 
-**Feature**: ajustes-saves verificada (PASS round 1, 8/8, a3a7052..dfeda92, profile light): fecha os oito pontos fracos do Verifier de varios-saves; a única mudança de comportamento é o aviso «Jogo salvo incompatível (versão N)» do título, que só aparece sem jogo legível em nenhum espaço (`src/store.ts` `incompatibleOf`); o `check:layout` exige «Jogos salvos» em `homeSave`. Antes: varios-saves (PASS round 1, 24/24, publicada)
-**Where**: publicado em `main` (deploy do Actions verde de 71b2dc0, 02/10/2026); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
+**Feature**: emprestimos verificada (PASS round 1, 23/23, a3a30b5..bd82792, profile light; AD-026): emprestar do Elenco («Emprestar», destino determinístico da door 2), pegar emprestado na «Negociação» (taxa de 20% do valor), aba «Emprestados» no Mercado, IA que não move emprestado, devolução no primeiro passo da virada; `check:layout` com 21 telas. Antes: ajustes-saves (PASS, publicada)
+**Where**: `main` local, à frente de `origin` (emprestimos ainda não publicada); o deploy pede o ok do autor para o push
 **In progress**: nada
-**Next step**: escolher a próxima feature (candidata: empréstimo de jogadores). Pontos fracos não bloqueantes do Verifier: C2, C3 e C4 também passam no código de antes (testes fracos sobre código certo), mas as «Lições aplicadas» só declararam C1, C5 e C6 (L-030); a linha «só o 2 incompatível → 1» de C1 espera o mesmo valor do `activeSlot` inicial da store, e as outras duas linhas fecham a brecha; a suíte cheia teve o timeout conhecido de «oferta inválida» em `Market.test.tsx` (18/18 ao repetir)
+**Next step**: publicar; escolher a próxima feature. Pontos fracos não bloqueantes do Verifier: o teste instável «oferta inválida» (`src/ui/Market.test.tsx:346`) continua rodando depois do timeout e chama `cleanup()`, o que esvazia o DOM do teste seguinte, agora C20 (falso vermelho na suíte cheia; passa sozinho) - vale corrigir esse teste; C16 também passa no código de antes e não foi declarado (L-030, agora confirmada); o teste de mercado fechado de C17 não afirma a pré-condição (L-031); AC 9 provado pela `aiLineup`, não por uma partida; os cabeçalhos «Clube» das duas listas e o «⇄» não são afirmados
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

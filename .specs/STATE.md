@@ -32,10 +32,10 @@
 
 ## Handoff
 
-**Feature**: posicao-na-substituicao verificada (PASS round 2, 10/10, 4c230a5..5544409, profile light); round 1 deu FAIL (a troca de formação devolvia a vaga do expulso para a zaga), corrigido em cdb6310 com C8-C10. menu-no-elenco verificada (PASS round 1, 2/2, a2ce79b). Antes: carreira-dinamica (PASS round 2, publicada)
-**Where**: publicado em `main` (deploy do Actions verde de de181bf); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
+**Feature**: varios-saves verificada (PASS round 1, 24/24, d39c6b0..4b39245, profile light; 636/636 na suíte, `check:layout` com 19 telas). Antes: ajustes-substituicao (PASS round 1, 5/5), que fechou os quatro pontos fracos de posicao-na-substituicao
+**Where**: `main` local, 8 commits à frente de `origin` (ajustes-substituicao e varios-saves ainda não publicados); o deploy pede o ok do autor para o push
 **In progress**: nada
-**Next step**: escolher a próxima feature (candidatas: empréstimo de jogadores, vários saves). Pontos fracos não bloqueantes do Verifier: C9 passa também no código de antes (o fixture não usa vaga de lesão com expulso em outra vaga, L-029); com goleiro em «Entra» e o gol vazio, «no lugar de X» volta para o gol (resultado certo); os movimentos da regra do goleiro (`engine/live.ts` substitute e preenchimento da IA) não gravam `pos`, então uma troca de formação depois devolveria o buraco ao gol (não alcançável pela tela hoje); a tela ao vivo com o campo «Posição» não é medida pelo layout. Corrigido no caminho: o teste «continental fecha sem tela para quem não joga» vazava o save da data para testes seguintes (falha intermitente de «substituição na vaga do expulso» sob carga); agora espera a fase «round» (L-026)
+**Next step**: publicar (push → Actions → Pages) e escolher a próxima feature (candidata: empréstimo de jogadores). Pontos fracos não bloqueantes do Verifier de varios-saves: C6 só prova «sem Continuar» depois de «Novo jogo», não o fallback de abertura (`src/store.ts:75`); C11/C12 usam sempre o clube em `leagues[0]`, então um resumo preso à primeira liga passaria (L-018); C21 não afirma o texto «Isso apaga o jogo salvo. Continuar?» nas provas nomeadas (só no teste substituído `src/ui/Home.test.tsx:72`); C10 observa a marca `pendingLive`, não o save do fim da data; C22/C23 não afirmam os espaços 2 e 3 vazios; C24 não exige «Jogos salvos» em `homeSave`; o título «Jogo salvo incompatível (versão N)» aparece se qualquer espaço for incompatível, mesmo com «Continuar» abrindo outro (`src/ui/Home.tsx:52`), comportamento que nenhum check decide
 **Blockers**: none
-**Uncommitted**: nenhum
+**Uncommitted**: nenhum (`.specs/print.png` é um print do autor, fora do git)
 **Branch**: main

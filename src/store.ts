@@ -75,7 +75,9 @@ export function activeSlotOf(slots: SlotView[]): number {
   return best?.slot ?? slots.find((s) => s.kind === "empty")?.slot ?? 1;
 }
 
+/** Ajustes-saves C7: the title's notice only when no slot holds a readable game. */
 const incompatibleOf = (slots: SlotView[]): unknown => {
+  if (slots.some((s) => s.kind === "ok")) return null;
   const found = slots.find((s) => s.kind === "incompatible");
   return found?.kind === "incompatible" ? found.version : null;
 };

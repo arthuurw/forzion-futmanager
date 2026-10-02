@@ -988,6 +988,24 @@ describe("vários espaços (varios-saves)", () => {
     expect(await raw(1)).toEqual({ schemaVersion: 9 });
   });
 
+  test("abertura sem jogo legível escolhe o menor vazio", async () => {
+    // Ajustes-saves C1 (L-005): read before any click, on the title itself.
+    const cases: [string, number[], number][] = [
+      ["só o 1 incompatível", [1], 2],
+      ["só o 2 incompatível", [2], 1],
+      ["1 e 2 incompatíveis", [1, 2], 3],
+    ];
+    for (const [name, broken, slot] of cases) {
+      cleanup();
+      resetAll();
+      for (const n of broken) await put(n, { schemaVersion: 9 });
+      render(createElement(App));
+      await screen.findByRole("button", { name: "Novo jogo" });
+      expect(screen.queryByRole("button", { name: "Continuar" }), name).not.toBeInTheDocument();
+      expect(useGame.getState().activeSlot, name).toBe(slot);
+    }
+  });
+
   test("data pendente do espaço ativo", async () => {
     // C7 (AD-019): only the active slot's pending date is played and saved, in that slot.
     const [a, b] = games();
@@ -1031,4 +1049,31 @@ describe("vários espaços (varios-saves)", () => {
     expect(await raw(1)).toEqual(one);
     expect(await raw(3)).toBeUndefined();
   });
+
+  test("fim da data grava só no espaço ativo", async () => {
+    // Ajustes-saves C2: the write that closes the date, not only the pendingLive mark of its start.
+    const [a, b] = games();
+    await put(1, at(a, 100));
+    await put(2, at(b, 200));
+    await useGame.getState().init();
+    expect(useGame.getState().activeSlot).toBe(2);
+    const one = await raw(1);
+    const round = b.leagues[0]!.currentRound;
+    vi.spyOn(Date, "now").mockReturnValue(1700000000000);
+    await act(async () => {
+      useGame.getState().continueGame();
+      await useGame.getState().playRound();
+    });
+    expect(useGame.getState().phase).toBe("live");
+    expect(await raw(2)).toMatchObject({ pendingLive: true });
+    await act(async () => {
+      await useGame.getState().skipToEnd();
+    });
+    await waitFor(async () => expect((await raw(2))?.pendingLive).toBeUndefined());
+    const saved = (await raw(2))!;
+    expect(saved.savedAt).toBe(1700000000000);
+    expect((saved.leagues as GameState["leagues"])[0]!.currentRound).toBe(round + 1);
+    expect(await raw(1)).toEqual(one);
+    expect(await raw(3)).toBeUndefined();
+  }, 60_000);
 });

@@ -6,7 +6,7 @@ import { App } from "../App";
 import type { GameState } from "../engine/types";
 import { DB_NAME, DB_VERSION, STORE, slotKey } from "../persistence/save";
 import { useGame, userClub } from "../store";
-import { resetAll, seededGame } from "./test-utils";
+import { resetAll, seededGame, seededGameIn } from "./test-utils";
 
 beforeEach(resetAll);
 afterEach(() => vi.restoreAllMocks());
@@ -73,6 +73,21 @@ describe("tela Jogos salvos (varios-saves)", () => {
     await openSaves(user);
     expect(row(1)).toHaveTextContent(`${clubName(a)} · ${a.leagues[0]!.name} · Temporada ${a.season}`);
     expect(row(1)).not.toHaveTextContent("Salvo em");
+  });
+
+  test("resumo com a liga do clube", async () => {
+    // Ajustes-saves C3 (L-018, L-005): the user's club outside the first league names its own league.
+    for (const division of [1, 2]) {
+      cleanup();
+      resetAll();
+      const game = seededGameIn(division, 7, 2);
+      expect(game.leagues[division]!.name, `liga ${division}`).not.toBe(game.leagues[0]!.name);
+      await put(1, at(game, 100));
+      const user = await boot();
+      await openSaves(user);
+      expect(row(1), `liga ${division}`).toHaveTextContent(`${clubName(game)} · ${game.leagues[division]!.name} · Temporada ${game.season}`);
+      expect(row(1), `liga ${division}`).not.toHaveTextContent(game.leagues[0]!.name);
+    }
   });
 
   test("abrir um espaço", async () => {
@@ -223,5 +238,7 @@ describe("novo jogo nos espaços (varios-saves)", () => {
     });
     expect((await raw(2))?.savedAt).toBe(1700000000000);
     expect(await raw(1)).toEqual(at(a, 100));
+    // Ajustes-saves C5: the third slot is left alone too.
+    expect(await raw(3)).toBeUndefined();
   });
 });

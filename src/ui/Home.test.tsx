@@ -229,12 +229,16 @@ describe("exportar e importar (lancamento)", () => {
     const user = userEvent.setup();
     const saved = seededGame(3);
     await saveGame(saved);
-    useGame.setState({ phase: "home", hasSave: true, game: saved });
+    // Ajustes-saves C6: the store reads the slots from IndexedDB, as the app does.
+    await useGame.getState().init();
+    expect(useGame.getState()).toMatchObject({ phase: "home", hasSave: true, activeSlot: 1 });
     render(<Home />);
     await user.upload(input(), saveFileOf(text));
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(useGame.getState().phase).toBe("home");
     expect(await loadGame()).toEqual({ kind: "ok", state: saved });
+    expect(await raw(2)).toBeUndefined();
+    expect(await raw(3)).toBeUndefined();
   }
 
   test("arquivo inválido mostra o aviso e mantém o save", async () => {
@@ -341,6 +345,20 @@ describe("confirmação com foco (correcoes-validacao)", () => {
     const dialog = screen.getByRole("alertdialog", { name: "Confirmar novo jogo" });
     expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Sim, apagar" }));
   });
+
+  test("falha real de leitura pede confirmação com foco", async () => {
+    // Ajustes-saves C4 (L-008): the read fails in init, not by hand; the exact text and the focus.
+    const user = userEvent.setup();
+    await saveGame(seededGame(3));
+    failNextOpen();
+    await useGame.getState().init();
+    expect(useGame.getState().loadFailed).toBe(true);
+    render(<Home />);
+    await user.click(screen.getByRole("button", { name: "Novo jogo" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Confirmar novo jogo" });
+    expect(dialog).toHaveTextContent("Isso apaga o jogo salvo. Continuar?");
+    expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Sim, apagar" }));
+  });
 });
 
 describe("título com vários espaços (varios-saves)", () => {
@@ -393,5 +411,40 @@ describe("título com vários espaços (varios-saves)", () => {
     expect(await screen.findByRole("heading", { name: "Jogos salvos" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("Os 3 espaços estão ocupados. Apague um jogo para importar outro.");
     for (const [i, doc] of docs.entries()) expect(await raw(i + 1)).toEqual(doc);
+  });
+});
+
+describe("ajustes dos saves (ajustes-saves)", () => {
+  const notice = "Jogo salvo incompatível (versão 9)";
+
+  test("aviso de incompatível só sem jogo legível", async () => {
+    // C7 (L-001, L-005): the title's notice only when no slot holds a readable game.
+    const game = seededGame(3);
+    await saveGame(game, 1);
+    await put(2, { schemaVersion: 9 });
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("button", { name: "Continuar" });
+    expect(screen.getByRole("button", { name: "Jogos salvos" })).toBeInTheDocument();
+    expect(screen.queryByText(notice), "com jogo legível").not.toBeInTheDocument();
+
+    // After deleting the readable game, only the unsupported one is left.
+    await user.click(screen.getByRole("button", { name: "Jogos salvos" }));
+    const slot1 = within(await screen.findByRole("list", { name: "Espaços" })).getByRole("listitem", { name: "Jogo 1" });
+    await user.click(within(slot1).getByRole("button", { name: "Apagar" }));
+    await user.click(await screen.findByRole("button", { name: "Sim, apagar" }));
+    await waitFor(async () => expect(await raw(1)).toBeUndefined());
+    await user.click(screen.getByRole("button", { name: "Voltar" }));
+    expect(await screen.findByText(notice)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+
+    // Opened with only the unsupported save.
+    cleanup();
+    resetAll();
+    await put(2, { schemaVersion: 9 });
+    render(<App />);
+    await screen.findByRole("button", { name: "Novo jogo" });
+    expect(screen.getByText(notice), "sem jogo legível").toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
   });
 });

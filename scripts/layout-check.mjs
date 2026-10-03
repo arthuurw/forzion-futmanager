@@ -4,9 +4,12 @@
  * `vite preview`, drives the installed Chrome (or Edge) headless over the DevTools Protocol at
  * 400 × 700 px through the 11 screens and the Copa screen's continental tab, and exits 1 naming every screen that scrolls, that cuts a
  * sound switch, or (title screen) whose switches overlap the title, the tagline or the menu.
+ * The round (with news) and the live match are measured again at 1366 × 768 px: no scroll, no empty
+ * grid column, and no text cut by an ellipsis or a line clamp (`roundDesktop`, `liveDesktop`).
  *
- * Flags: `--no-build` reuses `dist/`; `--inject=<screen>` adds an 800 px tall element to that
- * screen (the selftest's broken screen); `--seed=<n>` plays the game of seed n, 1 by default
+ * Flags: `--no-build` reuses `dist/`; `--inject=<screen>[,<screen>…]` adds an 800 px tall element
+ * to each screen named, or, for a desktop screen, spreads `.round-body` over four columns (the
+ * selftest's broken screens); `--seed=<n>` plays the game of seed n, 1 by default
  * (correcoes-validacao AC 60): the page opens with `?seed=<n>` and the script prints `seed <n>` as
  * read back from the saved game. The Chrome profile is a `layout-check-*` folder in the temp
  * directory, removed on every exit (AC 64).
@@ -22,6 +25,9 @@ export const PREVIEW_PORT = 4179;
 export const HOST = "127.0.0.1";
 const WIDTH = 400;
 const HEIGHT = 700;
+/** The desktop window where the round and the live match keep three readable columns. */
+const DESKTOP_WIDTH = 1366;
+const DESKTOP_HEIGHT = 768;
 /** Correcoes-validacao AC 64: a loaded machine can take long to settle the entrance animations. */
 export const ANIMATION_TIMEOUT_MS = 20000;
 export const PROFILE_PREFIX = "layout-check-";
@@ -132,6 +138,40 @@ const PAGE_HELPERS = `window.__lc = {
       install: install ? { text: install.textContent.trim(), ...__lc.rect(install) } : null,
       difficulty: document.querySelector("fieldset.difficulty") ? __lc.rect(document.querySelector("fieldset.difficulty")) : null,
     };
+  },
+  /** The desktop measurement: scroll, the right edge of the panels against the grid's, the texts cut. */
+  desktop() {
+    const doc = document.scrollingElement ?? document.documentElement;
+    const body = document.querySelector(".stage .screen-body");
+    const panels = body ? [...body.children].filter((p) => p.getClientRects().length > 0) : [];
+    const cut = [...(body?.querySelectorAll("*") ?? [])]
+      .filter((el) => {
+        if (el.getClientRects().length === 0 || el.closest("select")) return false;
+        const cs = getComputedStyle(el);
+        if (cs.textOverflow === "ellipsis") return el.scrollWidth > el.clientWidth + 1;
+        if (cs.webkitLineClamp && cs.webkitLineClamp !== "none") return el.scrollHeight > el.clientHeight + 1;
+        return false;
+      })
+      .map((el) => el.textContent.trim());
+    return {
+      scrollHeight: doc.scrollHeight,
+      scrollWidth: doc.scrollWidth,
+      bodyRight: body ? body.getBoundingClientRect().right : null,
+      panelsRight: panels.length ? Math.max(...panels.map((p) => p.getBoundingClientRect().right)) : null,
+      cut,
+    };
+  },
+  /** The selftest's broken desktop screen: the news as a fourth column, as before the fix. */
+  squeeze() {
+    const el = document.createElement("style");
+    el.setAttribute("data-layout-check", "squeeze");
+    el.textContent = ".round-body { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; grid-template-areas: none !important; } .round-body > .panel { grid-area: auto !important; }";
+    document.head.appendChild(el);
+    return true;
+  },
+  unsqueeze() {
+    document.querySelector("style[data-layout-check=squeeze]")?.remove();
+    return true;
   },
   inject() {
     const el = document.createElement("div");
@@ -331,7 +371,7 @@ async function run({ build, inject, seed }) {
     const wait = (what, expression, timeoutMs) => until(what, () => js(`(() => { try { return ${expression}; } catch { return false; } })()`), timeoutMs);
     const click = (text) => js(`__lc.click(${JSON.stringify(text)})`);
     const measure = async (screen) => {
-      if (inject === screen) await js("__lc.inject()");
+      if (inject.includes(screen)) await js("__lc.inject()");
       await wait(`animações de ${screen}`, "__lc.settled()", ANIMATION_TIMEOUT_MS);
       const m = await js("__lc.measure()");
       const bad = problems(screen, m);
@@ -342,6 +382,27 @@ async function run({ build, inject, seed }) {
       console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth} · ${toggles}${bad.length ? ` · ${bad.join("; ")}` : ""}`);
       if (bad.length) failures.push(screen);
       measured.add(screen);
+    };
+    /** The same screen at 1366 × 768: no scroll, the panels reach the grid's right edge, no text cut. */
+    const measureDesktop = async (screen) => {
+      await page.send("Emulation.setDeviceMetricsOverride", { width: DESKTOP_WIDTH, height: DESKTOP_HEIGHT, deviceScaleFactor: 1, mobile: false });
+      if (inject.includes(screen)) await js("__lc.squeeze()");
+      await sleep(300);
+      await wait(`animações de ${screen}`, "__lc.settled()", ANIMATION_TIMEOUT_MS);
+      const m = await js("__lc.desktop()");
+      const bad = [];
+      if (m.scrollHeight > DESKTOP_HEIGHT) bad.push(`scrollHeight ${m.scrollHeight} > ${DESKTOP_HEIGHT}`);
+      if (m.scrollWidth > DESKTOP_WIDTH) bad.push(`scrollWidth ${m.scrollWidth} > ${DESKTOP_WIDTH}`);
+      if (m.bodyRight === null || m.panelsRight === null) bad.push("sem painéis");
+      else if (m.panelsRight < m.bodyRight - 2) bad.push(`coluna vazia: painéis até ${Math.round(m.panelsRight)}, grade até ${Math.round(m.bodyRight)}`);
+      if (m.cut.length) bad.push(`${m.cut.length} texto(s) cortado(s): ${m.cut.slice(0, 4).map((t) => `«${t}»`).join(", ")}`);
+      const panels = m.panelsRight === null ? "" : ` · painéis até ${Math.round(m.panelsRight)} de ${Math.round(m.bodyRight)}`;
+      console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} ${DESKTOP_WIDTH} × ${DESKTOP_HEIGHT} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth}${panels}${bad.length ? ` · ${bad.join("; ")}` : " · nenhum texto cortado"}`);
+      if (bad.length) failures.push(screen);
+      measured.add(screen);
+      await js("__lc.unsqueeze()");
+      await page.send("Emulation.setDeviceMetricsOverride", { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1, mobile: false });
+      await sleep(300);
     };
 
     await wait("página carregada", "document.readyState === 'complete' && !!document.querySelector('#root')");
@@ -403,7 +464,10 @@ async function run({ build, inject, seed }) {
         continue;
       }
       if (state === "live") {
-        if (!measured.has("live")) await measure("live");
+        if (!measured.has("live")) {
+          await measure("live");
+          await measureDesktop("liveDesktop");
+        }
         // Ajustes-substituicao C5: until the user's first red card, the match runs at 4x; the stop
         // it causes shows «Posição», measured once. Halftime goes on; an injury stop is skipped.
         if (!measured.has("liveRed")) {
@@ -429,9 +493,10 @@ async function run({ build, inject, seed }) {
         continue;
       }
       if (state === "round" && !measured.has("round")) await measure("round");
-      // Noticias C16: the first round with news, on its «Notícias» tab; then the Histórico's tab with them.
+      // Noticias C16: the first round with news, at 1366 × 768 and then on its «Notícias» tab; then the Histórico's tab with them.
       const newsTab = state === "round" && !measured.has("roundNews") ? await js(NEWS_TAB) : null;
       if (newsTab) {
+        await measureDesktop("roundDesktop");
         await click(newsTab);
         await wait("aba notícias", "!!document.querySelector('[role=tabpanel][aria-label=\"Notícias\"] li')");
         await measure("roundNews");
@@ -566,13 +631,13 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm", "squadLoan", "marketLoans", "roundNews", "historyNews"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm", "squadLoan", "marketLoans", "roundNews", "historyNews", "roundDesktop", "liveDesktop"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const inject = args.find((a) => a.startsWith("--inject="))?.slice("--inject=".length) ?? null;
+  const inject = args.find((a) => a.startsWith("--inject="))?.slice("--inject=".length).split(",") ?? [];
   const seedArg = args.find((a) => a.startsWith("--seed="))?.slice("--seed=".length) ?? "1";
   const seed = Number(seedArg);
   if (!Number.isSafeInteger(seed) || seed < 1) {
@@ -585,7 +650,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 23 telas cabem em 400 × 700 px");
+  console.log(`layout: as 23 telas cabem em 400 × 700 px; rodada e partida ao vivo legíveis em ${DESKTOP_WIDTH} × ${DESKTOP_HEIGHT} px`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

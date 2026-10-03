@@ -216,6 +216,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: src/ui/ChooseClub.test.tsx:142 (C3) (tests)
 - last seen: 2026-10-03T01:41:49Z
 
+### L-035 - Take the members of a Coverage set of fields from the type declaration and give each field a refusal row, not only the fields listed by hand.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `checks` · harmful: 0
+- features: validacao-importacao
+- evidence: verification.md Coverage / src/engine/saveFile.test.ts:259-282 (checks)
+- last seen: 2026-10-03T01:58:59Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

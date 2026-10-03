@@ -46,10 +46,10 @@ Candidatas propostas em 02/10/2026 e não escolhidas ainda (o autor escolheu as 
 
 ## Handoff
 
-**Feature**: a sequência pedida pelo autor em 02/10/2026 está completa e verificada: offline-instalar (PASS 11/11, AD-027), noticias (PASS 16/16, AD-028) e dificuldade (PASS 8/8, 122b8e8..f26198c, AD-029). Também a pedido do autor: `LICENSE` MIT em nome de forzion.tech e README atualizado
-**Where**: publicado em `main` (deploy do Actions verde de af503ec, 02/10/2026; o site serve `sw.js`); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
+**Feature**: validacao-importacao verificada (round 1 FAIL por 7 campos de notícia sem prova; round 2 PASS 4/4, b30cb2f..51c058f): a importação recusa como `malformed` `difficulty` fora dos 3 níveis, `career` e `news` fora da forma do motor ou com id de clube que não é do jogo, e `news` com mais de 60 itens. Antes: offline-instalar (AD-027), noticias (AD-028) e dificuldade (AD-029) verificadas e publicadas
+**Where**: commits locais em `main`, sem push; o site no ar (https://arthuurw.github.io/forzion.tech-futmanager/) ainda é o de af503ec
 **In progress**: nada
-**Next step**: recomendado: validar na importação os campos opcionais novos (`difficulty`, `news`, e já antes `career`), porque `hasGameShape` (`src/engine/saveFile.ts`) deixa passar um valor inválido e o jogo quebra (`difficultyOf` devolve undefined; `news` malformado quebra Rodada e Histórico). Pontos fracos não bloqueantes do Verifier de dificuldade: C3 não exercita o arredondamento (o caixa escolhido já é redondo, L-034); a meta gravada depois de escolher Difícil não é lida da store; C7 não prova «como hoje» sozinho (o Normal de hoje está preso por C4, C6 e testes antigos); C1 não exclui as outras frases; C2 não lê `"easy"` gravado; as «Lições aplicadas» dizem C6 onde é C7; `loanLimit` não acompanha o caixa do nível (1× no Fácil, 4× no Difícil); o `check:layout` estourou uma vez em `marketLoans` e passou ao repetir. Pontos de noticias e offline-instalar: ver os relatórios (`.specs/features/*/verification.md`); destaque para o `ignoreVary` provado só pelo `check:offline` (L-033) e a notícia de data de copa sem prova pela store
+**Next step**: push de `main` (pede o ok do autor). Fora do escopo e anotados pelo Verifier: `hasJobShape` aceita `pendingJob.clubIds` vazio; `boardWarnings` não é validado; inteiros negativos, `amount` negativo e `playerName` vazio passam (dentro do tipo, não quebram a tela). Pontos fracos de dificuldade, noticias e offline-instalar: ver `.specs/features/*/verification.md` (destaques: `loanLimit` não acompanha o caixa do nível; `ignoreVary` provado só pelo `check:offline`, L-033)
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

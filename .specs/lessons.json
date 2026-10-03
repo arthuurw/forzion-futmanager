@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 35,
+  "next_id": 36,
   "lessons": [
     {
       "id": "L-001",
@@ -632,6 +632,24 @@
       ],
       "created": "2026-10-03T01:41:49Z",
       "last_seen": "2026-10-03T01:41:49Z"
+    },
+    {
+      "id": "L-035",
+      "key": "spec_precision_gap::take the members of a coverage set of fields from the type declaration and give each field a refusal row not only the fields listed by hand",
+      "text": "Take the members of a Coverage set of fields from the type declaration and give each field a refusal row, not only the fields listed by hand.",
+      "signal": "spec_precision_gap",
+      "scope": "checks",
+      "status": "candidate",
+      "features": [
+        "validacao-importacao"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "verification.md Coverage / src/engine/saveFile.test.ts:259-282 (checks)"
+      ],
+      "created": "2026-10-03T01:58:59Z",
+      "last_seen": "2026-10-03T01:58:59Z"
     }
   ]
 }

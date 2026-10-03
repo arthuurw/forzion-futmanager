@@ -85,7 +85,7 @@ O Vite mostra o endereço local no terminal, normalmente
 | `npm run build` | Checa os tipos e gera o site estático em `dist/`. |
 | `npm run preview` | Serve o `dist/` gerado. |
 | `npm run check:dist` | Falha se algum arquivo de `dist/` apontar para a raiz do site em vez de usar caminho relativo. Rode depois do build. |
-| `npm run check:layout` | Mede as telas a 400 × 700 px num Chrome real e falha se alguma rolar a página; mede também a rodada e a partida ao vivo a 1366 × 768 px e falha com coluna vazia ou texto cortado. |
+| `npm run check:layout` | Mede as telas a 400 × 700 px num Chrome real e falha se alguma rolar a página; mede também cada tela a 1366 × 768 px e falha com rolagem, coluna vazia ou texto cortado. |
 | `npm run check:layout:selftest` | Confere que o `check:layout` falha numa tela quebrada de propósito. |
 | `npm run check:offline` | Abre o build num Chrome real, derruba o servidor e confere que o jogo abre e joga uma rodada sem rede, e que o Chrome o considera instalável. |
 | `npm run check:audio` | Renderiza os efeitos sonoros num Chrome real e falha se algum saturar ou chiar. |

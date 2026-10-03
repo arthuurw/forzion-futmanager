@@ -4,11 +4,11 @@
  * `vite preview`, drives the installed Chrome (or Edge) headless over the DevTools Protocol at
  * 400 × 700 px through the 11 screens and the Copa screen's continental tab, and exits 1 naming every screen that scrolls, that cuts a
  * sound switch, or (title screen) whose switches overlap the title, the tagline or the menu.
- * The round (with news) and the live match are measured again at 1366 × 768 px: no scroll, no empty
- * grid column, and no text cut by an ellipsis or a line clamp (`roundDesktop`, `liveDesktop`).
+ * Every screen is measured again at 1366 × 768 px (`<screen>Desktop`): no scroll, no empty column in
+ * the screen's grid, and no text cut by an ellipsis or a line clamp.
  *
  * Flags: `--no-build` reuses `dist/`; `--inject=<screen>[,<screen>…]` adds an 800 px tall element
- * to each screen named, or, for a desktop screen, spreads `.round-body` over four columns (the
+ * to each screen named, or, for a desktop screen, spreads a `.round-body` over four columns (the
  * selftest's broken screens); `--seed=<n>` plays the game of seed n, 1 by default
  * (correcoes-validacao AC 60): the page opens with `?seed=<n>` and the script prints `seed <n>` as
  * read back from the saved game. The Chrome profile is a `layout-check-*` folder in the temp
@@ -139,12 +139,12 @@ const PAGE_HELPERS = `window.__lc = {
       difficulty: document.querySelector("fieldset.difficulty") ? __lc.rect(document.querySelector("fieldset.difficulty")) : null,
     };
   },
-  /** The desktop measurement: scroll, the right edge of the panels against the grid's, the texts cut. */
+  /** The desktop measurement: scroll, the grid's columns with no panel in them, the texts cut. */
   desktop() {
     const doc = document.scrollingElement ?? document.documentElement;
     const body = document.querySelector(".stage .screen-body");
     const panels = body ? [...body.children].filter((p) => p.getClientRects().length > 0) : [];
-    const cut = [...(body?.querySelectorAll("*") ?? [])]
+    const cut = [...document.body.querySelectorAll("*")]
       .filter((el) => {
         if (el.getClientRects().length === 0 || el.closest("select")) return false;
         const cs = getComputedStyle(el);
@@ -153,11 +153,22 @@ const PAGE_HELPERS = `window.__lc = {
         return false;
       })
       .map((el) => el.textContent.trim());
+    // A column is empty when no visible panel crosses the middle of its track.
+    const cs = body ? getComputedStyle(body) : null;
+    const tracks = cs && cs.display === "grid" && cs.gridTemplateColumns !== "none" ? cs.gridTemplateColumns.split(" ").map(parseFloat) : [];
+    const gap = cs ? parseFloat(cs.columnGap) || 0 : 0;
+    let x = body ? body.getBoundingClientRect().left + parseFloat(cs.paddingLeft) : 0;
+    const middles = tracks.map((w) => {
+      const m = x + w / 2;
+      x += w + gap;
+      return m;
+    });
+    const rects = panels.map((p) => p.getBoundingClientRect());
     return {
       scrollHeight: doc.scrollHeight,
       scrollWidth: doc.scrollWidth,
-      bodyRight: body ? body.getBoundingClientRect().right : null,
-      panelsRight: panels.length ? Math.max(...panels.map((p) => p.getBoundingClientRect().right)) : null,
+      columns: tracks.length,
+      emptyColumns: middles.filter((m) => !rects.some((r) => r.left <= m && m <= r.right)).length,
       cut,
     };
   },
@@ -382,8 +393,9 @@ async function run({ build, inject, seed }) {
       console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth} · ${toggles}${bad.length ? ` · ${bad.join("; ")}` : ""}`);
       if (bad.length) failures.push(screen);
       measured.add(screen);
+      await measureDesktop(`${screen}Desktop`);
     };
-    /** The same screen at 1366 × 768: no scroll, the panels reach the grid's right edge, no text cut. */
+    /** The same screen at 1366 × 768: no scroll, no grid column without a panel, no text cut. */
     const measureDesktop = async (screen) => {
       await page.send("Emulation.setDeviceMetricsOverride", { width: DESKTOP_WIDTH, height: DESKTOP_HEIGHT, deviceScaleFactor: 1, mobile: false });
       if (inject.includes(screen)) await js("__lc.squeeze()");
@@ -393,10 +405,9 @@ async function run({ build, inject, seed }) {
       const bad = [];
       if (m.scrollHeight > DESKTOP_HEIGHT) bad.push(`scrollHeight ${m.scrollHeight} > ${DESKTOP_HEIGHT}`);
       if (m.scrollWidth > DESKTOP_WIDTH) bad.push(`scrollWidth ${m.scrollWidth} > ${DESKTOP_WIDTH}`);
-      if (m.bodyRight === null || m.panelsRight === null) bad.push("sem painéis");
-      else if (m.panelsRight < m.bodyRight - 2) bad.push(`coluna vazia: painéis até ${Math.round(m.panelsRight)}, grade até ${Math.round(m.bodyRight)}`);
+      if (m.emptyColumns > 0) bad.push(`${m.emptyColumns} de ${m.columns} coluna(s) da grade sem painel`);
       if (m.cut.length) bad.push(`${m.cut.length} texto(s) cortado(s): ${m.cut.slice(0, 4).map((t) => `«${t}»`).join(", ")}`);
-      const panels = m.panelsRight === null ? "" : ` · painéis até ${Math.round(m.panelsRight)} de ${Math.round(m.bodyRight)}`;
+      const panels = m.columns ? ` · ${m.columns - m.emptyColumns} de ${m.columns} coluna(s) com painel` : "";
       console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} ${DESKTOP_WIDTH} × ${DESKTOP_HEIGHT} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth}${panels}${bad.length ? ` · ${bad.join("; ")}` : " · nenhum texto cortado"}`);
       if (bad.length) failures.push(screen);
       measured.add(screen);
@@ -464,10 +475,7 @@ async function run({ build, inject, seed }) {
         continue;
       }
       if (state === "live") {
-        if (!measured.has("live")) {
-          await measure("live");
-          await measureDesktop("liveDesktop");
-        }
+        if (!measured.has("live")) await measure("live");
         // Ajustes-substituicao C5: until the user's first red card, the match runs at 4x; the stop
         // it causes shows «Posição», measured once. Halftime goes on; an injury stop is skipped.
         if (!measured.has("liveRed")) {
@@ -493,10 +501,9 @@ async function run({ build, inject, seed }) {
         continue;
       }
       if (state === "round" && !measured.has("round")) await measure("round");
-      // Noticias C16: the first round with news, at 1366 × 768 and then on its «Notícias» tab; then the Histórico's tab with them.
+      // Noticias C16: the first round with news, on its «Notícias» tab; then the Histórico's tab with them.
       const newsTab = state === "round" && !measured.has("roundNews") ? await js(NEWS_TAB) : null;
       if (newsTab) {
-        await measureDesktop("roundDesktop");
         await click(newsTab);
         await wait("aba notícias", "!!document.querySelector('[role=tabpanel][aria-label=\"Notícias\"] li')");
         await measure("roundNews");
@@ -631,7 +638,7 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm", "squadLoan", "marketLoans", "roundNews", "historyNews", "roundDesktop", "liveDesktop"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm", "squadLoan", "marketLoans", "roundNews", "historyNews"].flatMap((s) => [s, `${s}Desktop`]);
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -650,7 +657,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log(`layout: as 23 telas cabem em 400 × 700 px; rodada e partida ao vivo legíveis em ${DESKTOP_WIDTH} × ${DESKTOP_HEIGHT} px`);
+  console.log(`layout: as 23 telas cabem em 400 × 700 px e são legíveis em ${DESKTOP_WIDTH} × ${DESKTOP_HEIGHT} px`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

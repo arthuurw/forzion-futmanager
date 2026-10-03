@@ -8,6 +8,7 @@ import { CONTINENTAL_AFTER_ROUNDS, CUP_AFTER_ROUNDS, nextDate } from "./calendar
 import { applyRound } from "./condition";
 import { attendanceFor } from "./finance";
 import { makeMatch, resultOf, roundSnapshot, runToEnd, sideFor, userMatch, type LiveMatch, type LiveRound } from "./live";
+import { appendNews, dateNews } from "./news";
 import { createRng, mix32, randInt } from "./rng";
 import type { RoundOutcome } from "./season";
 import type { Competition, Country, Cup, GameState, League, Ledger, Tie } from "./types";
@@ -324,6 +325,8 @@ export function finishCupDate(input: GameState, liveInput: LiveRound): RoundOutc
   const rng = createRng(state.rngState);
   rng.next();
   state.rngState = rng.getState();
+  // Noticias AC 1, AC 2, AC 8: the cup result, injuries and suspensions of the date.
+  appendNews(state, dateNews(input, state, { kind: "cup", cupId: cup.id, phase: k }));
 
   return {
     state,

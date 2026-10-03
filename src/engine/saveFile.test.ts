@@ -184,3 +184,17 @@ describe("empréstimo no arquivo (emprestimos)", () => {
     expect(loaned.map((p) => [p.id, p.loanFrom]).sort()).toEqual([[out.id, me.id], [inn.id, x.id]].sort());
   });
 });
+
+describe("notícias no arquivo (noticias)", () => {
+  test("notícias atravessam o arquivo", () => {
+    // C12 (door 1): a league and a cup item, export and import unchanged.
+    const g = withClub(6);
+    const x = g.leagues[0]!.clubs[4]!.id;
+    g.news = [
+      { season: 1, date: { kind: "league", round: 3 }, kind: "offer", playerName: "Fulano", clubId: x, amount: 900_000 },
+      { season: 1, date: { kind: "cup", cupId: "cup-nat", phase: 0 }, kind: "cup", cupId: "cup-nat", phase: 0, result: "advanced", opponentId: x },
+    ];
+    const r = decodeSaveFile(encodeSaveFile(g, ISO));
+    expect(r).toEqual({ kind: "ok", state: g });
+  });
+});

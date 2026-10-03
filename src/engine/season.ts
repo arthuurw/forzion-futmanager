@@ -6,6 +6,7 @@ import { applyRound } from "./condition";
 import { closeRoundFinances, positionsBeforeRound, prizeFor } from "./finance";
 import { resultOf, runToEnd, startRound, userMatch, type LiveRound } from "./live";
 import { closeRoundMarket } from "./market";
+import { appendNews, dateNews } from "./news";
 import { createRng } from "./rng";
 import { computeTable, type TableRow } from "./table";
 import { evolutionSeed, evolveRound } from "./training";
@@ -99,7 +100,10 @@ export function finishRound(input: GameState, liveInput: LiveRound): RoundOutcom
   state.rngState = rng.getState();
 
   // Carreira-dinamica AC 3-5, AC 17: the board looks at the table once the round is closed.
-  return { state: boardAfterRound(state, shown.currentRound), roundNumber, userEvents: userMatch(live)?.events ?? [], results };
+  const closed = boardAfterRound(state, shown.currentRound);
+  // Noticias AC 1-9: what the round did to the user's club, once everything about it is settled.
+  appendNews(closed, dateNews(input, closed, { kind: "league", round: roundNumber }));
+  return { state: closed, roundNumber, userEvents: userMatch(live)?.events ?? [], results };
 }
 
 /** One date with no decisions, league round or cup phase (copa-nacional door 4). */

@@ -22,7 +22,7 @@ Proof: `npx vitest run src/engine/news.test.ts -t "notícia de suspensão"`
 **C3** - `dateNews` de uma rodada 7 da liga com o `ratingLog` de A ganhando `{ round: 7, delta: 1 }` (força 71) e o de B já tendo `{ round: 6, delta: -1 }` de antes devolve só `{ kind: "rating", playerName: <A>, rating: 71, delta: 1 }` (AC 3).
 Proof: `npx vitest run src/engine/news.test.ts -t "notícia de força"`
 
-**C4** - `dateNews` com duas propostas da IA em `depois.market.offers` (clubes X e Y, valores R$ 1.200.000 e R$ 800.000, jogadores A e B do usuário) devolve duas `offer`, uma por proposta, com `clubId`, `amount` e `playerName` (AC 4).
+**C4** - `dateNews` com duas propostas da IA em `depois.market.offers` (clubes X e Y, valores R$ 1.200.000 e R$ 800.000, jogadores A e B do usuário) devolve duas `offer`, uma por proposta, com `clubId`, `amount` e `playerName`; uma data de copa com as mesmas propostas ainda na lista (elas valem até a rodada seguinte fechar) não devolve nenhuma `offer` (AC 4).
 Proof: `npx vitest run src/engine/news.test.ts -t "notícia de proposta"`
 
 **C5** - `dateNews`, em tabela (AC 5, AC 6): `boardWarnings` de 1 para 2 → `{ kind: "board", warnings: 2 }`; de 2 para 2 → nenhuma `board`; `pendingJob` `{ reason: "offer", clubIds: [X, Y] }` que não havia antes → `{ kind: "job", clubIds: [X, Y] }`; o mesmo `pendingJob` já presente antes → nenhuma `job`.
@@ -34,7 +34,7 @@ Proof: `npx vitest run src/engine/news.test.ts -t "notícia de transferência"`
 **C7** - `dateNews` de uma data de copa, em tabela (AC 8): usuário vence na fase 2 de 6 → `{ kind: "cup", result: "advanced", phase: 2, opponentId }`; vence a última fase → `champion`; perde → `out`, com o adversário; uma data de copa sem confronto do usuário → nenhuma `cup`.
 Proof: `npx vitest run src/engine/news.test.ts -t "notícia de copa"`
 
-**C8** - Uma data com copa, lesão, suspensão, força, proposta, aviso, emprego e transferência devolve as notícias nessa ordem de tipos (AC 1-8).
+**C8** - Uma rodada da liga com lesão, suspensão, força, proposta, aviso, emprego e transferência devolve as notícias nessa ordem de tipos, e uma data de copa com resultado, lesão e suspensão devolve copa, lesão, suspensão (AC 1-8).
 Proof: `npx vitest run src/engine/news.test.ts -t "ordem das notícias"`
 
 **C9** - `appendNews` com 58 notícias guardadas e 5 novas deixa 60: as 3 mais velhas saem e as 5 novas ficam no fim; `dateNews` sem clube do usuário devolve `[]` mesmo com propostas e lesões no jogo (AC 9).
@@ -48,6 +48,7 @@ Proof: `npx vitest run src/store.test.ts -t "notícias ao vivo e na reabertura"`
 
 **C12** - `encodeSaveFile`/`decodeSaveFile` e `saveGame`/`loadGame` devolvem o jogo com `news` igual (door 1).
 Proof: `npx vitest run src/engine/saveFile.test.ts -t "notícias atravessam o arquivo"`
+Proof: `npx vitest run src/persistence/save.test.ts -t "notícias atravessam o save"`
 
 ### S2 - O texto e as telas · 7 files · ~70 KB · ~18k
 
@@ -95,3 +96,4 @@ Proof: `npm run check:layout`
 ## Handoff
 
 - S1 = `src/engine/news.ts` (novo, ~8 KB) + `news.test.ts` (novo, ~15 KB) + `season.ts` 11 KB + `cup.ts` 16 KB + `types.ts` 12 KB + `saveFile.test.ts` 9 KB + trecho de `store.test.ts` (49 KB) ≈ 120 KB / 4 ≈ 30k; S2 entra nas telas (`Round.tsx` 8 KB, `Round.test.tsx` 15 KB, `History.tsx` 8 KB, `History.test.tsx` 10 KB, `newsText.ts` novo, `styles.css` 54 KB) a ~55k; S3 entra no `layout-check.mjs` (26 KB) a ~62k, abaixo do budget de 150k - one builder
+- **Settled mid-build:** antes dos testes, C4 ganhou o caso da data de copa (as propostas da rodada continuam na lista até a rodada seguinte fechar e seriam repetidas) e C8 foi separado em uma rodada da liga e uma data de copa (copa e transferência nunca caem na mesma data)

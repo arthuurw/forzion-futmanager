@@ -312,3 +312,14 @@ describe("empréstimo no save (emprestimos)", () => {
     expect(await loadGame()).toEqual({ kind: "ok", state });
   });
 });
+
+describe("notícias no save (noticias)", () => {
+  test("notícias atravessam o save", async () => {
+    // C12 (door 1): saved and read unchanged.
+    const state = fixture();
+    const x = state.leagues[0]!.clubs[4]!.id;
+    state.news = [{ season: 1, date: { kind: "league", round: 3 }, kind: "injury", playerName: "Fulano", rounds: 2 }, { season: 1, date: { kind: "league", round: 3 }, kind: "job", clubIds: [x] }];
+    await saveGame(state);
+    expect(await loadGame()).toEqual({ kind: "ok", state });
+  });
+});

@@ -11,6 +11,7 @@ import { createElement } from "react";
 import { Banner } from "./ui/Banner";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
+import { playDate } from "./engine/season";
 import { userBoardGoal } from "./engine/board";
 import { AI_FORMATION, autoLineup, validateLineup } from "./engine/lineup";
 import { nextCompetition } from "./engine/calendar";
@@ -1075,5 +1076,33 @@ describe("vários espaços (varios-saves)", () => {
     expect((saved.leagues as GameState["leagues"])[0]!.currentRound).toBe(round + 1);
     expect(await raw(1)).toEqual(one);
     expect(await raw(3)).toBeUndefined();
+  }, 60_000);
+});
+
+describe("notícias pela store (noticias)", () => {
+  test("notícias ao vivo e na reabertura", async () => {
+    // C11 (AC 10, L-003): live to the end, reopened with the date pending, and the engine agree.
+    // A game a few rounds in, inside a transfer window, so the round brings ratings and offers.
+    const game = seededGame(12, 4, 2);
+    const engine = playDate(game).state.news ?? [];
+    const before = (game.news ?? []).length;
+    expect(engine.length).toBeGreaterThan(before);
+
+    useGame.setState({ phase: "squad", game, hasSave: true });
+    await act(async () => {
+      await useGame.getState().playRound();
+    });
+    expect(useGame.getState().phase).toBe("live");
+    await act(async () => {
+      await useGame.getState().skipToEnd();
+    });
+    await waitFor(() => expect(useGame.getState().phase).toBe("round"));
+    expect(useGame.getState().game!.news).toEqual(engine);
+
+    resetAll();
+    await saveGame({ ...game, pendingLive: true });
+    await useGame.getState().init();
+    await waitFor(() => expect(useGame.getState().phase).toBe("round"));
+    expect(useGame.getState().game!.news).toEqual(engine);
   }, 60_000);
 });

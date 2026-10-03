@@ -331,7 +331,27 @@ export interface GameState {
   pendingJob?: PendingJob;
   /** Door 1 (carreira-dinamica): the manager's club changes, oldest first, never rewritten; absent = none. */
   career?: CareerMove[];
+  /** Door 1 (noticias): what the closed dates did to the user's club, oldest first, at most 60; absent = none. */
+  news?: NewsItem[];
 }
+
+/** Door 1 (noticias): the date a news item belongs to: a league round (1-based) or a cup phase. */
+export type NewsDate = { kind: "league"; round: number } | { kind: "cup"; cupId: string; phase: number };
+
+/**
+ * Door 1 (noticias): one fact of a date about the user's club. Data only: the screen writes the
+ * sentence (AD-004). Players by name, since they may retire; clubs by id, since they never go.
+ */
+export type NewsItem = { season: number; date: NewsDate } & (
+  | { kind: "injury"; playerName: string; rounds: number }
+  | { kind: "suspension"; playerName: string; rounds: number; cupId?: string }
+  | { kind: "rating"; playerName: string; rating: number; delta: 1 | -1 }
+  | { kind: "offer"; playerName: string; clubId: string; amount: number }
+  | { kind: "transfer"; playerName: string; fromId: string; toId: string; amount: number }
+  | { kind: "board"; warnings: number }
+  | { kind: "job"; clubIds: string[] }
+  | { kind: "cup"; cupId: string; phase: number; result: "advanced" | "champion" | "out"; opponentId: string }
+);
 
 /** Door 1 (carreira-dinamica): offers the user must (`fired`) or may (`offer`) take. Never the user's club. */
 export interface PendingJob {

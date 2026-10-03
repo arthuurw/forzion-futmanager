@@ -16,7 +16,7 @@ Defaults escolhidos (o autor aprovou o próximo passo sem rodada de perguntas):
 - `job.clubIds` vazio é recusado: a frase ficaria «… e undefined querem contratar você».
 - Fora do escopo: `boardWarnings` e a leitura do IndexedDB (o save do próprio aparelho é gravado pelo jogo).
 
-3 checks in 1 slice · 0 one-way doors · 0 open
+4 checks in 1 slice · 0 one-way doors · 0 open
 
 Runner: Vitest (`npx vitest run <arquivo> -t "<nome>"`).
 
@@ -36,6 +36,9 @@ Proof: `npx vitest run src/engine/saveFile.test.ts -t "carreira no arquivo"`
 Proof: `npx vitest run src/engine/saveFile.test.ts -t "notícias no arquivo recusa a forma errada"`
 Proof: `npx vitest run src/engine/saveFile.test.ts -t "notícias atravessam o arquivo"`
 
+**C4** - Acrescentado depois do FAIL do Verifier (round 1): a tabela de C3 não cobria todos os campos de tipo de `NewsItem` (`src/engine/types.ts:351-359`). Sobre a mesma lista válida de C3, em tabela, cada caso → `malformed`: `suspension` sem `playerName`; `suspension` com `rounds` `"1"`; `rating` sem `playerName`; `offer` sem `playerName`; `transfer` sem `playerName`; `transfer` com `amount` `"1200000"`; `cup` com `cupId` `7` no item (a data continua válida).
+Proof: `npx vitest run src/engine/saveFile.test.ts -t "notícias no arquivo recusa os demais campos"`
+
 ## Coverage
 
 | Set (size) | Member -> proof | Unproven |
@@ -48,6 +51,7 @@ Proof: `npx vitest run src/engine/saveFile.test.ts -t "notícias atravessam o ar
 | tipos de `NewsDate` (2) | `league` C3 · `cup` C3 | - |
 | campos de tipo das notícias (14) | `injury.rounds` C3 · `injury.playerName` C3 · `suspension.cupId` C3 · `rating.delta` C3 · `rating.rating` C3 · `offer.clubId` C3 · `offer.amount` C3 · `transfer.fromId` C3 · `transfer.toId` C3 · `board.warnings` C3 · `job.clubIds` vazio C3 · `job.clubIds` id C3 · `cup.result` C3 · `cup.opponentId` C3 | - |
 | limite de notícias (2 bordas) | 60 C3 · 61 C3 | - |
+| campos de tipo das notícias fora da linha acima, que conta `job.clubIds` duas vezes e omite `cup.phase` (8) | `suspension.playerName` C4 · `suspension.rounds` C4 · `rating.playerName` C4 · `offer.playerName` C4 · `transfer.playerName` C4 · `transfer.amount` C4 · `cup.cupId` C4 · `cup.phase` C3 | - |
 
 - Nenhum check fala de tela: a ligação `malformed` → aviso já é provada por `src/ui/Home.test.tsx`.
 

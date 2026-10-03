@@ -285,6 +285,27 @@ describe("notícias no arquivo (noticias)", () => {
     for (const [name, news] of cases) expect(decodeSaveFile(envelope({ ...g, news })), name).toEqual({ kind: "malformed" });
     expect(decodeSaveFile(envelope({ ...g, news: valid })).kind).toBe("ok");
   });
+
+  test("notícias no arquivo recusa os demais campos", () => {
+    // C4: the kind fields the table above left out, one at a time over the same valid list.
+    const g = withClub(6);
+    const valid = newsOfEveryKind(g);
+    const at = (kind: string) => valid.findIndex((n) => n.kind === kind);
+    const edit = (i: number, change: Record<string, unknown>) => valid.map((n, j) => (j === i ? { ...n, ...change } : n));
+    const without = (i: number, field: string) => valid.map((n, j) => (j === i ? Object.fromEntries(Object.entries(n).filter(([k]) => k !== field)) : n));
+    const cases: [string, unknown][] = [
+      ["suspension sem playerName", without(at("suspension"), "playerName")],
+      ["suspension rounds texto", edit(at("suspension"), { rounds: "1" })],
+      ["rating sem playerName", without(at("rating"), "playerName")],
+      ["offer sem playerName", without(at("offer"), "playerName")],
+      ["transfer sem playerName", without(at("transfer"), "playerName")],
+      ["transfer amount texto", edit(at("transfer"), { amount: "1200000" })],
+      ["cup cupId número no item", edit(at("cup"), { cupId: 7 })],
+    ];
+    expect(cases).toHaveLength(7);
+    for (const [name, news] of cases) expect(decodeSaveFile(envelope({ ...g, news })), name).toEqual({ kind: "malformed" });
+    expect(decodeSaveFile(envelope({ ...g, news: valid })).kind).toBe("ok");
+  });
 });
 
 describe("dificuldade no arquivo (dificuldade)", () => {

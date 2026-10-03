@@ -197,6 +197,13 @@ function problems(screen, m) {
 
 const fmt = (r) => `${Math.round(r.left)},${Math.round(r.top)}-${Math.round(r.right)},${Math.round(r.bottom)}`;
 
+/** Noticias C16: the label of the round's «Notícias (n)» tab when n > 0, else null. */
+const NEWS_TAB = `(() => {
+  const tab = [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim().startsWith("Notícias ("));
+  const n = tab ? Number(tab.textContent.trim().slice("Notícias (".length, -1)) : 0;
+  return n > 0 ? tab.textContent.trim() : null;
+})()`;
+
 /** Emprestimos C23: clicks «Emprestar» row by row until one opens the confirmation (the others are refused). */
 const LEND = `(async () => {
   for (const b of [...document.querySelectorAll("button[aria-label^='Emprestar ']")]) {
@@ -416,6 +423,23 @@ async function run({ build, inject, seed }) {
         continue;
       }
       if (state === "round" && !measured.has("round")) await measure("round");
+      // Noticias C16: the first round with news, on its «Notícias» tab; then the Histórico's tab with them.
+      const newsTab = state === "round" && !measured.has("roundNews") ? await js(NEWS_TAB) : null;
+      if (newsTab) {
+        await click(newsTab);
+        await wait("aba notícias", "!!document.querySelector('[role=tabpanel][aria-label=\"Notícias\"] li')");
+        await measure("roundNews");
+        await click("Escalação");
+        await wait("elenco", "__lc.enabled('Mercado')");
+        await click("Histórico");
+        await wait("histórico", "__lc.h1() === 'Histórico'");
+        await js(`[...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Notícias").click()`);
+        await wait("histórico notícias", "!!document.querySelector('section[aria-label=\"Notícias\"] li')");
+        await measure("historyNews");
+        await click("Voltar ao elenco");
+        await wait("elenco", "__lc.enabled('Mercado')");
+        continue;
+      }
       // Carreira-dinamica C20: an offer of a better club is measured once on the round and turned down.
       if (await js("!!document.querySelector('[role=dialog][aria-label=\"Proposta de emprego\"]')")) {
         if (state === "round" && !measured.has("roundOffer")) await measure("roundOffer");
@@ -536,7 +560,7 @@ async function run({ build, inject, seed }) {
       failures.push("perfil");
     }
   }
-  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm", "squadLoan", "marketLoans"];
+  const screens = ["home", "chooseClub", "squad", "market", "finance", "live", "round", "cup", "cupCont", "history", "end", "newSeason", "homeSave", "about", "job", "squadOffer", "liveRed", "saves", "savesConfirm", "squadLoan", "marketLoans", "roundNews", "historyNews"];
   return { failures, missing: screens.filter((s) => !measured.has(s)) };
 }
 
@@ -555,7 +579,7 @@ async function main() {
     console.log(`layout: FALHA em ${[...new Set([...failures, ...missing])].join(", ")}`);
     process.exit(1);
   }
-  console.log("layout: as 21 telas cabem em 400 × 700 px");
+  console.log("layout: as 23 telas cabem em 400 × 700 px");
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) void main();

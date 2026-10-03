@@ -232,6 +232,17 @@ main.app.on-title {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
 }
 
+/* Desktop: the sacking card alone, centred, without an empty second column. */
+@media (min-width: 901px) {
+  .end-body.job-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .job-body > .panel {
+    justify-self: center;
+    width: min(100%, 760px);
+  }
+}
+
 .d-hidden {
   display: none !important;
 }
@@ -1526,6 +1537,27 @@ td.rating-cell .bar {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Desktop: a long club name takes a second line instead of an ellipsis (after the nowrap rules above).
+   The table's club column only from 1200 px: narrower, its words do not fit a line either. */
+@media (min-width: 901px) {
+  .results .h,
+  .results .a {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+}
+
+@media (min-width: 1200px) {
+  .club-name-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
 }
 
 .results b {

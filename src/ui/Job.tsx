@@ -15,7 +15,7 @@ export function Job() {
 
   return (
     <div className="screen">
-      <div className="screen-body end-body">
+      <div className="screen-body end-body job-body">
         <section className="panel champion-card" style={{ "--i": 0 } as React.CSSProperties}>
           <h1>Demitido</h1>
           <div className="verdict">

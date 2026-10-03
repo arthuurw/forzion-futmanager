@@ -47,9 +47,9 @@ Candidatas propostas em 02/10/2026 e não escolhidas ainda (o autor escolheu as 
 ## Handoff
 
 **Feature**: validacao-importacao verificada (round 1 FAIL por 7 campos de notícia sem prova; round 2 PASS 4/4, b30cb2f..51c058f): a importação recusa como `malformed` `difficulty` fora dos 3 níveis, `career` e `news` fora da forma do motor ou com id de clube que não é do jogo, e `news` com mais de 60 itens. Antes: offline-instalar (AD-027), noticias (AD-028) e dificuldade (AD-029) verificadas e publicadas
-**Where**: commits locais em `main`, sem push; o site no ar (https://arthuurw.github.io/forzion.tech-futmanager/) ainda é o de af503ec
+**Where**: publicado em `main` (deploy do Actions verde de 7ba9601, 02/10/2026); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
 **In progress**: nada
-**Next step**: push de `main` (pede o ok do autor). Fora do escopo e anotados pelo Verifier: `hasJobShape` aceita `pendingJob.clubIds` vazio; `boardWarnings` não é validado; inteiros negativos, `amount` negativo e `playerName` vazio passam (dentro do tipo, não quebram a tela). Pontos fracos de dificuldade, noticias e offline-instalar: ver `.specs/features/*/verification.md` (destaques: `loanLimit` não acompanha o caixa do nível; `ignoreVary` provado só pelo `check:offline`, L-033)
+**Next step**: escolher a próxima feature (ver Backlog). Fora do escopo e anotados pelo Verifier: `hasJobShape` aceita `pendingJob.clubIds` vazio; `boardWarnings` não é validado; inteiros negativos, `amount` negativo e `playerName` vazio passam (dentro do tipo, não quebram a tela). Pontos fracos de dificuldade, noticias e offline-instalar: ver `.specs/features/*/verification.md` (destaques: `loanLimit` não acompanha o caixa do nível; `ignoreVary` provado só pelo `check:offline`, L-033)
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

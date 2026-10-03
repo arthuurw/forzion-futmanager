@@ -47,7 +47,7 @@ Proof: `npx vitest run src/ui/About.test.tsx -t "seção instalar"`
 
 ### S3 - A tela cabe · 1 file · ~25 KB · ~6k
 
-**C11** - `npm run check:layout` (seed 1) sai 0 com a tela `about` medida com a seção «Instalar» à vista (o texto do menu do navegador, sem convite) e termina em «layout: as 21 telas cabem em 400 × 700 px» (AC 13).
+**C11** - `npm run check:layout` (seed 1) sai 0 com a tela `about` medida com o que vem depois do título «Instalar» dentro da janela (o Chrome headless convida, então é o botão «Instalar o jogo»; sem o elemento, ou fora da janela, a medição falha) e termina em «layout: as 21 telas cabem em 400 × 700 px» (AC 13).
 Proof: `npm run check:layout`
 
 ## Coverage
@@ -81,3 +81,5 @@ Proof: `npm run check:layout`
 ## Handoff
 
 - S1 = `src/pwa/build.ts`, `src/pwa/register.ts`, `src/main.tsx`, `vite.config.ts` (novos e pequenos, ~10 KB) + os testes novos (~15 KB) + `scripts/offline-check.mjs` (novo, ~8 KB) ≈ 33 KB / 4 ≈ 8k; S2 entra em `public/manifest.webmanifest`, `scripts/share-images.mjs` (8 KB), `src/launch.test.ts` (8 KB), `src/ui/About.tsx` (2 KB) e `About.test.tsx` (3 KB) a ~14k; S3 entra no `scripts/layout-check.mjs` (25 KB) a ~20k, abaixo do budget de 150k - one builder
+- **Settled mid-build:** C11 dizia que a tela `about` seria medida com o texto do menu do navegador, mas, com o manifesto e o service worker novos, o Chrome headless entrega o convite e a seção mostra o botão; a prova mede o que vem depois do título «Instalar». O estado com o texto foi medido à mão uma vez, com o `About` forçado nesse estado (cabe: 29,295-371,329), e o código voltou ao normal
+- **Settled mid-build:** o `vite preview` responde `Vary: Origin`, e o script de módulo pede com `Origin`; sem `ignoreVary` o cache errava e o jogo não abria sem rede. Achado pelo `check:offline` (C7), corrigido no `sw.js` gerado antes do primeiro commit do código

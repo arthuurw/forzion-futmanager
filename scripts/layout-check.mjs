@@ -19,14 +19,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PREVIEW_PORT = 4179;
-const HOST = "127.0.0.1";
+export const HOST = "127.0.0.1";
 const WIDTH = 400;
 const HEIGHT = 700;
 /** Correcoes-validacao AC 64: a loaded machine can take long to settle the entrance animations. */
 export const ANIMATION_TIMEOUT_MS = 20000;
 export const PROFILE_PREFIX = "layout-check-";
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const BROWSERS = [
+export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+export const BROWSERS = [
   process.env.CHROME_PATH,
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
@@ -49,7 +49,7 @@ export function portFree(port = PREVIEW_PORT, host = HOST) {
   });
 }
 
-async function until(what, check, timeoutMs = 20000, everyMs = 100) {
+export async function until(what, check, timeoutMs = 20000, everyMs = 100) {
   const end = Date.now() + timeoutMs;
   for (;;) {
     const value = await check();
@@ -59,14 +59,14 @@ async function until(what, check, timeoutMs = 20000, everyMs = 100) {
   }
 }
 
-function killTree(child) {
+export function killTree(child) {
   if (!child || child.exitCode !== null) return;
   if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
   else child.kill("SIGKILL");
 }
 
 /** A minimal DevTools Protocol client over Node's global WebSocket. */
-async function connect(url) {
+export async function connect(url) {
   const ws = new WebSocket(url);
   const pending = new Map();
   let next = 0;
@@ -119,6 +119,7 @@ const PAGE_HELPERS = `window.__lc = {
     const posicao = document.querySelector("select[aria-label='Posição']");
     const dialog = document.querySelector("[role=alertdialog]");
     const loanLists = ["Emprestados por você", "Emprestados a você"].filter((l) => document.querySelector("table[aria-label='" + l + "']"));
+    const install = [...document.querySelectorAll(".about h3")].find((h) => h.textContent.trim() === "Instalar")?.nextElementSibling ?? null;
     return {
       scrollHeight: doc.scrollHeight,
       scrollWidth: doc.scrollWidth,
@@ -128,6 +129,7 @@ const PAGE_HELPERS = `window.__lc = {
       posicao: posicao ? __lc.rect(posicao) : null,
       dialog: dialog ? __lc.rect(dialog) : null,
       loanLists,
+      install: install ? { text: install.textContent.trim(), ...__lc.rect(install) } : null,
     };
   },
   inject() {
@@ -179,6 +181,12 @@ function problems(screen, m) {
     else if (!within(m.dialog)) out.push(`confirmação fora da janela (${fmt(m.dialog)})`);
   }
   if (screen === "marketLoans" && m.loanLists.length !== 2) out.push(`listas de emprestados: ${m.loanLists.length} de 2`);
+  // Offline-instalar C11: «Sobre» shows what follows the «Instalar» heading (the button when Chrome
+  // invites, the browser's menu otherwise) inside the window.
+  if (screen === "about") {
+    if (!m.install) out.push("sem a seção «Instalar»");
+    else if (!within(m.install)) out.push(`seção «Instalar» fora da janela (${fmt(m.install)})`);
+  }
   // Ajustes-saves C8: with a game saved, the title menu shows «Jogos salvos» on screen.
   if (screen === "homeSave") {
     const saves = m.title.find((t) => t.name === "button «Jogos salvos»");
@@ -249,7 +257,7 @@ const SAVED_SEED = `new Promise((resolve) => {
 })`;
 
 /** Removes the Chrome profile, retrying while the browser still holds its files. */
-async function removeProfile(profile) {
+export async function removeProfile(profile) {
   const gone = await until("perfil removido", () => {
     try {
       rmSync(profile, { recursive: true, force: true });
@@ -314,7 +322,10 @@ async function run({ build, inject, seed }) {
       await wait(`animações de ${screen}`, "__lc.settled()", ANIMATION_TIMEOUT_MS);
       const m = await js("__lc.measure()");
       const bad = problems(screen, m);
-      const toggles = m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ") + (screen === "liveRed" && m.posicao ? ` · Posição ${fmt(m.posicao)}` : "");
+      const toggles =
+        m.toggles.map((t) => `${t.name} ${fmt(t)}`).join(" · ") +
+        (screen === "liveRed" && m.posicao ? ` · Posição ${fmt(m.posicao)}` : "") +
+        (screen === "about" && m.install ? ` · Instalar «${m.install.text.slice(0, 30)}» ${fmt(m.install)}` : "");
       console.log(`${bad.length ? "FALHA" : "ok   "} ${screen.padEnd(10)} scrollHeight ${m.scrollHeight} scrollWidth ${m.scrollWidth} · ${toggles}${bad.length ? ` · ${bad.join("; ")}` : ""}`);
       if (bad.length) failures.push(screen);
       measured.add(screen);

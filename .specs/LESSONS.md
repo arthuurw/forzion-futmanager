@@ -204,6 +204,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: src/ui/Market.test.tsx:346 «oferta inválida» (tests)
 - last seen: 2026-10-02T23:35:34Z
 
+### L-033 - A fake that drops an option the code passes (cache.match ignoring ignoreVary) cannot prove that option; give the fake the real rule for it, or name the end-to-end proof that does.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: offline-instalar
+- evidence: src/pwa/sw.test.ts:24 (C6, ignoreVary) (tests)
+- last seen: 2026-10-03T00:38:49Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

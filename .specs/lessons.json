@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 33,
+  "next_id": 34,
   "lessons": [
     {
       "id": "L-001",
@@ -594,6 +594,24 @@
       ],
       "created": "2026-10-02T23:35:34Z",
       "last_seen": "2026-10-02T23:35:34Z"
+    },
+    {
+      "id": "L-033",
+      "key": "spec_precision_gap::a fake that drops an option the code passes cache match ignoring ignorevary cannot prove that option give the fake the real rule for it or name the end to end proof that does",
+      "text": "A fake that drops an option the code passes (cache.match ignoring ignoreVary) cannot prove that option; give the fake the real rule for it, or name the end-to-end proof that does.",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "offline-instalar"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "src/pwa/sw.test.ts:24 (C6, ignoreVary) (tests)"
+      ],
+      "created": "2026-10-03T00:38:49Z",
+      "last_seen": "2026-10-03T00:38:49Z"
     }
   ]
 }

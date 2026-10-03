@@ -44,10 +44,10 @@ Candidatas propostas em 02/10/2026 e não escolhidas ainda (o autor escolheu as 
 
 ## Handoff
 
-**Feature**: emprestimos verificada (PASS round 1, 23/23, a3a30b5..bd82792, profile light; AD-026): emprestar do Elenco («Emprestar», destino determinístico da door 2), pegar emprestado na «Negociação» (taxa de 20% do valor), aba «Emprestados» no Mercado, IA que não move emprestado, devolução no primeiro passo da virada; `check:layout` com 21 telas. Antes: ajustes-saves (PASS, publicada)
-**Where**: publicado em `main` (deploy do Actions verde de 14596ea, 02/10/2026); no ar em https://arthuurw.github.io/forzion.tech-futmanager/
-**In progress**: nada
-**Next step**: escolher a próxima feature. O teste instável «oferta inválida» foi corrigido em 02/10/2026: cada `getByRole` com nome calculava o nome acessível dos ~900 botões da lista (cerca de 1 s por consulta no jsdom), o teste passava de 30 s na suíte cheia e, depois do timeout, o `cleanup()` dele esvaziava o DOM do teste seguinte; agora busca os botões pelo texto (9 s → 1,9 s; suíte cheia 666/666 três vezes, L-032). Pontos fracos não bloqueantes do Verifier de emprestimos: C16 também passa no código de antes e não foi declarado (L-030, agora confirmada); o teste de mercado fechado de C17 não afirma a pré-condição (L-031); AC 9 provado pela `aiLineup`, não por uma partida; os cabeçalhos «Clube» das duas listas e o «⇄» não são afirmados
+**Feature**: offline-instalar verificada (PASS round 1, 11/11, 4f84454..184db13, profile light; AD-027): service worker gerado no build, jogo abre e joga sem rede depois da primeira visita (`npm run check:offline`), manifesto instalável com ícones de 192 e 512 px, seção «Instalar» em «Sobre». Em andamento a sequência pedida pelo autor em 02/10/2026: offline-instalar → noticias → dificuldade
+**Where**: `main` local, à frente de `origin` (não publicada; o deploy pede o ok do autor)
+**In progress**: noticias (plano e checks escritos)
+**Next step**: construir noticias, depois dificuldade. Pontos fracos não bloqueantes do Verifier de offline-instalar: o `ignoreVary` só é provado pelo `check:offline` (o cache falso de `src/pwa/sw.test.ts` ignora opções, L-033); ninguém afirma a ausência de `skipWaiting`; o estado da seção «Instalar» com o texto do menu (Safari e Firefox) só foi medido à mão; apagar a versão velha do cache e trocar de versão não roda num navegador de verdade; o caminho do arquivo no hash não é afirmado; o `import.meta.env.PROD` de `src/main.tsx` não é testado; o Vite avisa sobre o import sem extensão em `vite.config.ts:3`; `app.test.tsx` «fim da rodada ao vivo grava e mostra resultados» estourou 30 s uma vez sob carga (passou ao repetir)
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main

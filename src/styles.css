@@ -196,9 +196,36 @@ main.app.on-title {
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.18fr);
 }
 
-/* Noticias AC 11: a fourth column for the date's news. */
 .round-body {
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.05fr);
+}
+
+/* Noticias AC 11: the date's news under the other results, so the three columns keep their width. */
+@media (min-width: 901px) {
+  .round-body.round-news {
+    grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-areas:
+      "match results table"
+      "match news table";
+  }
+  .round-body.round-news.no-match {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    grid-template-areas:
+      "results table"
+      "news table";
+  }
+  .round-news > .area-match {
+    grid-area: match;
+  }
+  .round-news > .area-results {
+    grid-area: results;
+  }
+  .round-news > .area-table {
+    grid-area: table;
+  }
+  .round-news > .area-news {
+    grid-area: news;
+  }
 }
 
 .end-body {

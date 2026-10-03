@@ -43,7 +43,7 @@ export function Round() {
   const name = (id: string) => findAnyClub(game, id).name;
   const nextPhase = cup && cupDate ? cup.phases[cupDate.phase + 1] : undefined;
   const champion = cup ? cupChampion(cup) : null;
-  const panelClass = (id: RoundTab) => `panel${tab === id ? " m-active" : ""}`;
+  const panelClass = (id: RoundTab) => `panel area-${id}${tab === id ? " m-active" : ""}`;
   // Noticias AC 11: the news of the date on screen, in the order kept.
   const dateNews = (game.news ?? []).filter((n) =>
     n.season === game.season && (cup && cupDate
@@ -70,7 +70,7 @@ export function Round() {
         />
       </div>
 
-      <div className="screen-body round-body tabbed">
+      <div className={`screen-body round-body round-news tabbed${mine ? "" : " no-match"}`}>
         {mine && (
           <section aria-label="Sua partida" {...tabPanel("round", "match", { named: true })} className={panelClass("match")} style={{ "--i": 0 } as React.CSSProperties}>
             <h2 className="scorebug">

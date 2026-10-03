@@ -333,7 +333,13 @@ export interface GameState {
   career?: CareerMove[];
   /** Door 1 (noticias): what the closed dates did to the user's club, oldest first, at most 60; absent = none. */
   news?: NewsItem[];
+  /** Door 1 (dificuldade): the level chosen with the club, for the whole game; absent = "normal". */
+  difficulty?: Difficulty;
 }
+
+/** Door 1 (dificuldade): Fácil, Normal, Difícil. */
+export type Difficulty = "easy" | "normal" | "hard";
+export const DIFFICULTIES: readonly Difficulty[] = ["easy", "normal", "hard"];
 
 /** Door 1 (noticias): the date a news item belongs to: a league round (1-based) or a cup phase. */
 export type NewsDate = { kind: "league"; round: number } | { kind: "cup"; cupId: string; phase: number };

@@ -1772,3 +1772,33 @@ describe("empréstimo: a IA respeita (emprestimos)", () => {
     expect(others).toBeGreaterThan(0);
   });
 });
+
+describe("compra da IA pela dificuldade (dificuldade)", () => {
+  test("chance de compra pela dificuldade", () => {
+    // C6 (AC 5, L-005, L-018): the same draws, the level's threshold; the three sets differ.
+    const s = everyoneBuys(41, [0, 5]);
+    const order = aiOrder(s).map((c) => c.id);
+    const draws = buyDraws(s.rngState, 2, order.length);
+    const below = (t: number) => order.filter((_, i) => draws[i]! < t).sort(byId);
+    const [easy, normal, hard] = [below(0.15), below(0.25), below(0.35)];
+    const buyers = (difficulty: GameState["difficulty"]) => {
+      const s = everyoneBuys(41, [0, 5]);
+      if (difficulty) s.difficulty = difficulty;
+      // Every club that could buy at any level keeps 19 players, so no buyer becomes a seller
+      // (more than 20); the others stay sellers.
+      for (const id of hard) anyClub(s, id).players = anyClub(s, id).players.slice(0, 19);
+      const before = new Map(everyClub(s).map((c) => [c.id, new Set(c.players.map((p) => p.id))]));
+      closeRoundMarket(s, s.rngState, 2);
+      return everyClub(s)
+        .filter((c) => c.players.some((p) => !before.get(c.id)!.has(p.id)))
+        .map((c) => c.id)
+        .sort(byId);
+    };
+    expect(easy.length).toBeLessThan(normal.length);
+    expect(normal.length).toBeLessThan(hard.length);
+    expect(buyers("easy"), "Fácil").toEqual(easy);
+    expect(buyers("normal"), "Normal").toEqual(normal);
+    expect(buyers(undefined), "sem nível").toEqual(normal);
+    expect(buyers("hard"), "Difícil").toEqual(hard);
+  });
+});

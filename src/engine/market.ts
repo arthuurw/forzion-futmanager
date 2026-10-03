@@ -1,3 +1,4 @@
+import { difficultyOf } from "./difficulty";
 import { takenNames, generateJuniors } from "./generate";
 import { aiBudget, salaryFor } from "./finance";
 import { aiLineup, formationSlots } from "./lineup";
@@ -25,8 +26,7 @@ export const CONTRACT_RENEWAL = 3;
 /** Door 3: salts mixed into `rngState` with the round number, next to the 10 match streams. */
 const OFFERS_SALT = 14;
 const JUNIORS_SALT = 15;
-/** Gastos-da-ia AC 2-3, 5-6: calibration of the AI's purchases (plan, Landing note). */
-const AI_BUY_CHANCE = 0.25;
+/** Gastos-da-ia AC 2-3, 5-6: calibration of the AI's purchases (plan, Landing note). The chance to try is the level's (dificuldade AC 5). */
 const AI_BUY_MIN_GAIN = 4;
 const AI_BUY_MAX_AGE = 32;
 /** An AI club sells to another AI club only above this many players. */
@@ -608,11 +608,12 @@ function tryAiPurchase(state: GameState, roundNumber: number, buyer: Club): void
   if (best) aiSign(state, roundNumber, buyer, best.player, best.seller, best.price);
 }
 
-/** Gastos-da-ia AC 2, door 3: one draw per AI club, in division and club order; below 25% it tries to buy. */
+/** Gastos-da-ia AC 2, door 3: one draw per AI club, in division and club order; below the level's chance (25% in Normal) it tries to buy. */
 function aiPurchases(state: GameState, rngState: number, roundNumber: number): void {
   const rng = createRng(mix32(mix32(rngState, AI_BUY_SALT), roundNumber));
+  const chance = difficultyOf(state).aiBuyChance;
   for (const club of aiClubs(state)) {
-    if (rng.next() < AI_BUY_CHANCE) tryAiPurchase(state, roundNumber, club);
+    if (rng.next() < chance) tryAiPurchase(state, roundNumber, club);
   }
 }
 

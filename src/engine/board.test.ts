@@ -1,7 +1,14 @@
 import { combinedVerdict, cupGoalLabel, cupGoalMet, divisionAt, goalLabel, jobOffers, userBoardGoal, userCupGoal, verdictFor } from "./board";
 import { cupReached } from "./cup";
 import { newGame } from "./generate";
-import type { Club, Cup, Tie, Verdict } from "./types";
+import type { Club, Cup, GameState, Tie, Verdict } from "./types";
+import { takeJob } from "./career";
+import { AI_FORMATION, autoLineup } from "./lineup";
+import { nextSeason } from "./rollover";
+import { playRound } from "./season";
+import { computeTable } from "./table";
+
+const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
 
 const best11 = (c: Club) => [...c.players].map((p) => p.rating).sort((a, b) => b - a).slice(0, 11).reduce((a, b) => a + b, 0) / 11;
 
@@ -223,4 +230,80 @@ describe("diretoria coerente (correcoes-validacao)", () => {
       for (const goal of [4, 12, 17]) expect(verdictFor(divisionAt(leagues, k), goal, 20), `liga ${k} meta ${goal}`).toBe("fired");
     }
   });
+});
+
+describe("meta pela dificuldade (dificuldade)", () => {
+  /** A game whose division `division` has its clubs ranked by array order; the user at rank `rank`. */
+  function ranked(division: number, rank: number, difficulty?: GameState["difficulty"]): GameState {
+    const s = newGame(13);
+    s.leagues[division]!.clubs.forEach((c, i) => c.players.forEach((p) => (p.rating = 90 - i)));
+    s.userClubId = s.leagues[division]!.clubs[rank - 1]!.id;
+    if (difficulty) s.difficulty = difficulty;
+    return s;
+  }
+
+  test("folga da meta pela dificuldade", () => {
+    // C4 (AC 4, L-005): by level, rank and kind of division; no level = Normal.
+    const cases: [string, number, number, [number, number, number, number]][] = [
+      ["Série A 5º", 0, 5, [10, 8, 6, 8]],
+      ["Série A 14º", 0, 14, [16, 16, 15, 16]],
+      ["Série B 2º", 1, 2, [4, 4, 4, 4]],
+      ["Série B 10º", 1, 10, [15, 13, 11, 13]],
+      ["sem rebaixamento 15º", 2, 15, [17, 17, 16, 17]],
+    ];
+    expect(divisionAt(newGame(13).leagues, 2)).toEqual({ relegates: false, promotes: false });
+    for (const [name, division, rank, [easy, normal, hard, none]] of cases) {
+      expect(userBoardGoal(ranked(division, rank, "easy")), `${name} Fácil`).toBe(easy);
+      expect(userBoardGoal(ranked(division, rank, "normal")), `${name} Normal`).toBe(normal);
+      expect(userBoardGoal(ranked(division, rank, "hard")), `${name} Difícil`).toBe(hard);
+      expect(userBoardGoal(ranked(division, rank)), `${name} sem nível`).toBe(none);
+    }
+  });
+
+  /** Plays `rounds` league rounds with the user's eleven picked before each. */
+  function play(s: GameState, rounds: number): GameState {
+    for (let r = 0; r < rounds; r++) {
+      const me = s.leagues.flatMap((l) => l.clubs).find((c) => c.id === s.userClubId)!;
+      me.lineup = autoLineup(me, AI_FORMATION);
+      s = playRound(s).state;
+    }
+    return s;
+  }
+
+  test("meta difícil na virada e na troca", () => {
+    // C5 (AC 4): the turn and a mid-season move both use the level's margin.
+    let s = newGame(14);
+    s.userClubId = s.leagues[0]!.clubs[6]!.id;
+    s.difficulty = "hard";
+    s.boardGoal = 20;
+    s = play(s, 38);
+    s.boardGoal = 20;
+    const { state } = nextSeason(s);
+    expect(state.boardGoal, "virada").toBe(userBoardGoal(state));
+    expect(state.boardGoal, "virada").not.toBe(userBoardGoal({ ...state, difficulty: "normal" }));
+
+    let m = newGame(15);
+    m.userClubId = m.leagues[0]!.clubs[6]!.id;
+    m.difficulty = "hard";
+    m.boardGoal = 20;
+    m = play(m, 10);
+    const leader = computeTable(m.leagues[0]!)[0]!.clubId;
+    expect(leader).not.toBe(m.userClubId);
+    m.pendingJob = { reason: "offer", clubIds: [leader] };
+    const moved = takeJob(m, leader);
+    if (!moved.ok) throw new Error("takeJob refused");
+    expect(moved.state.boardGoal, "troca").toBe(userBoardGoal(moved.state));
+    expect(moved.state.boardGoal, "troca").not.toBe(userBoardGoal({ ...moved.state, difficulty: "normal" }));
+  }, 60_000);
+
+  test("normal joga como antes", () => {
+    // C7 (AC 6, L-030 - behaviour that already existed): no level and «normal» play the same game.
+    const start = newGame(16);
+    start.userClubId = start.leagues[0]!.clubs[4]!.id;
+    const a = play(clone(start), 3);
+    const b = play({ ...clone(start), difficulty: "normal" }, 3);
+    const { difficulty, ...rest } = b;
+    expect(difficulty).toBe("normal");
+    expect(rest).toEqual(a);
+  }, 60_000);
 });

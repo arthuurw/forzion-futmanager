@@ -1,4 +1,5 @@
 /** The board: the season's goal, the verdict and the job offers after a sacking (S5). */
+import { DIFFICULTY, difficultyOf } from "./difficulty";
 import { bestElevenMean } from "./lineup";
 import type { Club, GameState, League, Verdict } from "./types";
 
@@ -46,10 +47,10 @@ export function divisionAt(leagues: readonly Pick<League, "country" | "tier">[],
  * AC 30, paises AC 13: the worst acceptable position for rank `rank` (1-based) in `division`.
  * Correcoes-validacao AC 33: a division without relegation asks for the 17th place at worst.
  */
-export function boardGoalFor(division: Division, rank: number): number {
-  if (division.relegates) return Math.min(STAY_UP_GOAL, rank + 3);
+export function boardGoalFor(division: Division, rank: number, margin = DIFFICULTY.normal.goalMargin): number {
+  if (division.relegates) return Math.min(STAY_UP_GOAL, rank + margin);
   if (division.promotes && rank <= PROMOTION_GOAL) return PROMOTION_GOAL;
-  return Math.min(NO_RELEGATION_GOAL_MAX, rank + 3);
+  return Math.min(NO_RELEGATION_GOAL_MAX, rank + margin);
 }
 
 /** The division the club plays in, 0 = Série A; -1 when it plays nowhere. */
@@ -57,13 +58,13 @@ export function divisionOf(state: Pick<GameState, "leagues">, clubId: string): n
   return state.leagues.findIndex((l) => l.clubs.some((c) => c.id === clubId));
 }
 
-/** AC 30: the user's goal for the season about to start; 0 without a club. */
-export function userBoardGoal(state: Pick<GameState, "leagues" | "userClubId">): number {
+/** AC 30: the user's goal for the season about to start; 0 without a club. Dificuldade AC 4: the level's margin. */
+export function userBoardGoal(state: Pick<GameState, "leagues" | "userClubId" | "difficulty">): number {
   if (!state.userClubId) return 0;
   const division = divisionOf(state, state.userClubId);
   const league = state.leagues[division];
   if (!league) return 0;
-  return boardGoalFor(divisionAt(state.leagues, division), strengthRanking(league.clubs).indexOf(state.userClubId) + 1);
+  return boardGoalFor(divisionAt(state.leagues, division), strengthRanking(league.clubs).indexOf(state.userClubId) + 1, difficultyOf(state).goalMargin);
 }
 
 /** AC 31: «até o 8º», «não cair» or «subir». */

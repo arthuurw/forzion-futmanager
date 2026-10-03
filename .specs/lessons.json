@@ -3,7 +3,7 @@
   "promote_threshold": 2,
   "window_days": 45,
   "quarantine_threshold": 2,
-  "next_id": 34,
+  "next_id": 35,
   "lessons": [
     {
       "id": "L-001",
@@ -614,6 +614,24 @@
       ],
       "created": "2026-10-03T00:38:49Z",
       "last_seen": "2026-10-03T00:38:49Z"
+    },
+    {
+      "id": "L-034",
+      "key": "spec_precision_gap::a check that names a rounding rule needs a fixture whose exact value is not already round or floor ceil and no rounding all pass",
+      "text": "A check that names a rounding rule needs a fixture whose exact value is not already round, or floor, ceil and no rounding all pass.",
+      "signal": "spec_precision_gap",
+      "scope": "tests",
+      "status": "candidate",
+      "features": [
+        "dificuldade"
+      ],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "src/ui/ChooseClub.test.tsx:142 (C3) (tests)"
+      ],
+      "created": "2026-10-03T01:41:49Z",
+      "last_seen": "2026-10-03T01:41:49Z"
     }
   ]
 }

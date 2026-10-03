@@ -210,6 +210,12 @@ Seen once or not yet corroborated. Tracked, not trusted.
 - evidence: src/pwa/sw.test.ts:24 (C6, ignoreVary) (tests)
 - last seen: 2026-10-03T00:38:49Z
 
+### L-034 - A check that names a rounding rule needs a fixture whose exact value is not already round, or floor, ceil and no rounding all pass.
+- signal: `spec_precision_gap` · recurrence: 1 feature(s) · scope: `tests` · harmful: 0
+- features: dificuldade
+- evidence: src/ui/ChooseClub.test.tsx:142 (C3) (tests)
+- last seen: 2026-10-03T01:41:49Z
+
 ## Quarantined (failed when applied - ignore)
 
 A confirmed lesson that recurred alongside failure. Kept for the maintainer to review.

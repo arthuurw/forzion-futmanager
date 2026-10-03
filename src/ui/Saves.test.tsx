@@ -242,3 +242,19 @@ describe("novo jogo nos espaços (varios-saves)", () => {
     expect(await raw(3)).toBeUndefined();
   });
 });
+
+describe("dificuldade em Jogos salvos (dificuldade)", () => {
+  test("nível no resumo", async () => {
+    // C8 (AC 7, L-001, L-005): each readable game ends its summary with its level; none = Normal.
+    const [a, b, c] = games();
+    await put(1, at({ ...a, difficulty: "easy" }, 100));
+    await put(2, at(b, 200));
+    await put(3, at({ ...c, difficulty: "hard" }, 300));
+    const user = await boot();
+    await openSaves(user);
+    const summary = (game: GameState, level: string) => `${clubName(game)} · ${game.leagues[0]!.name} · Temporada ${game.season} · ${level}`;
+    expect(row(1)).toHaveTextContent(summary(a, "Fácil"));
+    expect(row(2)).toHaveTextContent(summary(b, "Normal"));
+    expect(row(3)).toHaveTextContent(summary(c, "Difícil"));
+  });
+});

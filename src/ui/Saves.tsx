@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useGame, type SlotView } from "../store";
+import { DIFFICULTY_LABEL } from "./ChooseClub";
 
 const two = (n: number) => String(n).padStart(2, "0");
 
@@ -24,7 +25,7 @@ export function Saves() {
     return (
       <>
         <span className="save-line">
-          {s.club} · {s.league} · Temporada {s.season}
+          {s.club} · {s.league} · Temporada {s.season} · {DIFFICULTY_LABEL[s.difficulty]}
         </span>
         {s.savedAt > 0 && <span className="save-date">{savedAtText(s.savedAt)}</span>}
       </>

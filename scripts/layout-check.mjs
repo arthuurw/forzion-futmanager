@@ -130,6 +130,7 @@ const PAGE_HELPERS = `window.__lc = {
       dialog: dialog ? __lc.rect(dialog) : null,
       loanLists,
       install: install ? { text: install.textContent.trim(), ...__lc.rect(install) } : null,
+      difficulty: document.querySelector("fieldset.difficulty") ? __lc.rect(document.querySelector("fieldset.difficulty")) : null,
     };
   },
   inject() {
@@ -170,6 +171,11 @@ function problems(screen, m) {
   if (screen === "liveRed") {
     if (!m.posicao) out.push("sem o campo «Posição»");
     else if (!within(m.posicao)) out.push(`«Posição» fora da janela (${fmt(m.posicao)})`);
+  }
+  // Dificuldade C8: the level's group on screen above the clubs.
+  if (screen === "chooseClub") {
+    if (!m.difficulty) out.push("sem o grupo «Dificuldade»");
+    else if (!within(m.difficulty)) out.push(`«Dificuldade» fora da janela (${fmt(m.difficulty)})`);
   }
   if (screen === "home" || screen === "homeSave") {
     if (m.title.length < 3) out.push("título, subtítulo ou menu não encontrados");

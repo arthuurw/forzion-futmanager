@@ -2685,3 +2685,30 @@ ul.news .news-date {
   font-size: 0.8em;
   opacity: 0.7;
 }
+
+/* Dificuldade AC 1, AC 8: the level, in one line above the clubs. */
+fieldset.difficulty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+fieldset.difficulty legend {
+  padding: 0 4px;
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+fieldset.difficulty label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+fieldset.difficulty .difficulty-line {
+  flex-basis: 100%;
+  font-size: 0.8em;
+  opacity: 0.8;
+}

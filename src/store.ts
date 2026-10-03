@@ -23,7 +23,8 @@ import { takeJob } from "./engine/career";
 import { finishCupDate, startCupDate } from "./engine/cup";
 import { nextSeason as rollOver, type RolloverReport } from "./engine/rollover";
 import { findClub, finishRound, isSeasonOver, userLeague, type RoundOutcome } from "./engine/season";
-import type { Club, Finance, FormationName, GameState, MatchEvent, Posture, Training } from "./engine/types";
+import type { Club, Difficulty, Finance, FormationName, GameState, MatchEvent, Posture, Training } from "./engine/types";
+import { difficultyOf } from "./engine/difficulty";
 import { decodeSaveFile } from "./engine/saveFile";
 import { SLOT_COUNT, deleteGame, isStorageAvailable, listSaves, loadGame, saveGame, type LoadResult, type SlotEntry } from "./persistence/save";
 import { formatMoney } from "./ui/money";
@@ -48,7 +49,7 @@ export type SaveStatus = "ok" | "failed" | "unavailable";
 /** Varios-saves: what «Jogos salvos» shows of one slot. */
 export type SlotView =
   | { slot: number; kind: "empty" }
-  | { slot: number; kind: "ok"; club: string; league: string; season: number; savedAt: number }
+  | { slot: number; kind: "ok"; club: string; league: string; season: number; savedAt: number; difficulty: Difficulty }
   | { slot: number; kind: "incompatible"; version: unknown };
 
 /** Varios-saves AC 19, AC 21. */
@@ -63,7 +64,7 @@ function okView(slot: number, game: GameState, savedAt: number): SlotView {
   const id = game.userClubId;
   const league = id ? game.leagues.find((l) => l.clubs.some((c) => c.id === id)) : undefined;
   const club = league?.clubs.find((c) => c.id === id);
-  return { slot, kind: "ok", club: club?.name ?? "Sem clube", league: league?.name ?? "", season: game.season, savedAt };
+  return { slot, kind: "ok", club: club?.name ?? "Sem clube", league: league?.name ?? "", season: game.season, savedAt, difficulty: game.difficulty ?? "normal" };
 }
 
 const slotView = (entry: SlotEntry): SlotView => (entry.kind === "ok" ? okView(entry.slot, entry.state, entry.savedAt) : entry);
@@ -209,7 +210,8 @@ export interface GameStore {
   /** Door 2: takes the game from the other tab, then reads the save again and opens it. */
   useThisTab(): Promise<void>;
   newGame(seed?: number): void;
-  chooseClub(clubId: string): Promise<void>;
+  /** Dificuldade AC 2, AC 3: the level is kept in the game and sets the club's starting cash. */
+  chooseClub(clubId: string, difficulty?: Difficulty): Promise<void>;
   /** Correcoes-validacao AC 11: lineup changes are saved; each resolves once its write is done. */
   setFormation(formation: FormationName): Promise<void>;
   setPosture(posture: Posture): Promise<void>;
@@ -598,10 +600,15 @@ export const useGame = create<GameStore>()((set, get) => {
       set({ activeSlot, hasSave: false, game: generateNewGame(seed), phase: "chooseClub", lastRound: null, live: null });
     },
 
-    async chooseClub(clubId) {
+    async chooseClub(clubId, difficulty = "normal") {
       const game = get().game;
       if (!game) return;
-      const chosen = editUserClub({ ...game, userClubId: clubId }, (club) => ({ ...club, lineup: autoLineup(club, AI_FORMATION) }));
+      const cash = (c: Club) => Math.round((c.finance.cash * difficultyOf({ difficulty }).cash) / 100_000) * 100_000;
+      const chosen = editUserClub({ ...game, userClubId: clubId, difficulty }, (club) => ({
+        ...club,
+        lineup: autoLineup(club, AI_FORMATION),
+        finance: { ...club.finance, cash: cash(club) },
+      }));
       // AC 30: the board sets the goal when the manager arrives.
       const next = { ...chosen, boardGoal: userBoardGoal(chosen), cupGoal: userCupGoal(chosen) };
       set({ game: next });

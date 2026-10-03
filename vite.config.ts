@@ -1,10 +1,12 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { serviceWorkerPlugin } from "./src/pwa/build";
 
 export default defineConfig({
   // Lancamento door 3: relative paths, so the build runs under any path (GitHub Pages, a domain root).
   base: "./",
-  plugins: [react()],
+  // Offline-instalar door 1: `dist/sw.js`, written once the build is out.
+  plugins: [react(), serviceWorkerPlugin()],
   test: {
     globals: true,
     environment: "node",

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { resetInstall, watchInstall } from "../pwa/register";
 import userEvent from "@testing-library/user-event";
 import { useGame } from "../store";
 import { About } from "./About";
@@ -59,5 +60,58 @@ describe("tela Sobre (lancamento)", () => {
     render(<About />);
     await user.click(screen.getByRole("button", { name: "Voltar" }));
     expect(useGame.getState().phase).toBe("home");
+  });
+});
+
+describe("instalar em Sobre (offline-instalar)", () => {
+  const MENU = "No celular, use o menu do navegador: Adicionar à tela inicial. No iPhone: Compartilhar › Adicionar à Tela de Início.";
+  const INSTALLED = "O jogo está instalado neste aparelho.";
+  beforeAll(() => watchInstall(window));
+  afterEach(() => {
+    resetInstall();
+    vi.unstubAllGlobals();
+  });
+  /** The browser's invitation, as Chrome hands it to the page. */
+  const invite = () => {
+    const e = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), { prompt: vi.fn(() => Promise.resolve()) });
+    act(() => {
+      window.dispatchEvent(e);
+    });
+    return e;
+  };
+
+  test("seção instalar", async () => {
+    // C10 (AC 10-12, L-005, L-008): the four states.
+    // No invitation: the browser's menu, no button.
+    const none = render(<About />);
+    expect(screen.getByRole("heading", { name: "Instalar" })).toBeInTheDocument();
+    expect(screen.getByText(MENU)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Instalar o jogo" })).not.toBeInTheDocument();
+    none.unmount();
+
+    // An invitation: the button shows the browser's dialog once and goes.
+    const user = userEvent.setup();
+    render(<About />);
+    const e = invite();
+    expect(e.defaultPrevented).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Instalar o jogo" }));
+    expect(e.prompt).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Instalar o jogo" })).not.toBeInTheDocument();
+
+    // Installed: after `appinstalled`.
+    act(() => {
+      window.dispatchEvent(new Event("appinstalled"));
+    });
+    expect(screen.getByText(INSTALLED)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Instalar o jogo" })).not.toBeInTheDocument();
+    cleanup();
+    resetInstall();
+
+    // Installed: running as the installed app, even with an invitation.
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query === "(display-mode: standalone)", media: query, addEventListener() {}, removeEventListener() {} }));
+    render(<About />);
+    invite();
+    expect(screen.getByText(INSTALLED)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Instalar o jogo" })).not.toBeInTheDocument();
   });
 });

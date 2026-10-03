@@ -182,3 +182,23 @@ describe("guardas e metadados (correcoes-validacao)", () => {
     }
   });
 });
+
+describe("instalar (offline-instalar)", () => {
+  test("manifesto instalável", () => {
+    // C8 (AC 8): standalone, its own id and scope, and PNG icons of 192 and 512 px.
+    type Icon = { src: string; sizes: string; type: string };
+    const manifest = JSON.parse(read("public/manifest.webmanifest")) as { id: string; display: string; start_url: string; scope: string; icons: Icon[] };
+    expect(manifest).toMatchObject({ display: "standalone", id: "./", start_url: "./", scope: "./" });
+    expect(manifest.icons).toContainEqual({ src: "icon-192.png", sizes: "192x192", type: "image/png" });
+    expect(manifest.icons).toContainEqual({ src: "icon-512.png", sizes: "512x512", type: "image/png" });
+    // Width and height from the IHDR chunk, right after the 8-byte PNG signature.
+    const size = (file: string) => {
+      const png = readFileSync(new URL(`../public/${file}`, import.meta.url));
+      expect([...png.subarray(0, 8)], file).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+      expect(png.toString("ascii", 12, 16), file).toBe("IHDR");
+      return [png.readUInt32BE(16), png.readUInt32BE(20)];
+    };
+    expect(size("icon-192.png")).toEqual([192, 192]);
+    expect(size("icon-512.png")).toEqual([512, 512]);
+  });
+});

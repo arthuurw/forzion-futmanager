@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Correcoes-validacao AC 67: draws the share card (`public/og-image.png`, 1200 × 630) and the iOS
- * home-screen icon (`public/apple-touch-icon.png`, 180 × 180) with the installed Chrome (or Edge)
+ * home-screen icon (`public/apple-touch-icon.png`, 180 × 180) and the install icons
+ * (`public/icon-192.png`, `public/icon-512.png`, offline-instalar AC 8) with the installed Chrome (or Edge)
  * headless, from the title screen's colours, fonts and the favicon's mark. Run by hand when the
  * identity changes; the PNGs are committed.
  */
@@ -79,11 +80,11 @@ body::after {
 </div>
 </body></html>`;
 
-// iOS rounds the corners itself: the icon is full bleed.
-const ICON = `<!doctype html><html><head><meta charset="utf-8"><style>
-html, body { margin: 0; width: 180px; height: 180px; overflow: hidden; background: #07123a; }
+// iOS and Android round the corners themselves: the icons are full bleed.
+const ICON = (size) => `<!doctype html><html><head><meta charset="utf-8"><style>
+html, body { margin: 0; width: ${size}px; height: ${size}px; overflow: hidden; background: #07123a; }
 svg { display: block; }
-</style></head><body>${MARK(180, 0)}</body></html>`;
+</style></head><body>${MARK(size, 0)}</body></html>`;
 
 const exe = BROWSERS.find((p) => existsSync(p));
 if (!exe) {
@@ -95,7 +96,10 @@ const work = mkdtempSync(join(tmpdir(), "share-images-"));
 try {
   for (const [name, html, width, height] of [
     ["og-image.png", OG, 1200, 630],
-    ["apple-touch-icon.png", ICON, 180, 180],
+    ["apple-touch-icon.png", ICON(180), 180, 180],
+    // Offline-instalar AC 8: the install icons of the manifest.
+    ["icon-192.png", ICON(192), 192, 192],
+    ["icon-512.png", ICON(512), 512, 512],
   ]) {
     const page = join(work, `${name}.html`);
     writeFileSync(page, html);

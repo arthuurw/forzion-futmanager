@@ -5,10 +5,11 @@ import { findAnyClub, topScorers, userLeague } from "../engine/season";
 import { CONTINENTAL_CUP_ID } from "../engine/cup";
 import type { CareerMove, DivisionRecord, SeasonRecord } from "../engine/types";
 import { useGame, userClub } from "../store";
+import { newsDateLabel, newsText } from "./newsText";
 import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { POSITION_LABEL } from "./Squad";
 
-type HistoryTab = "scorers" | "stats" | "champions" | "career";
+type HistoryTab = "scorers" | "stats" | "champions" | "career" | "news";
 
 /** Copa-continental AC 21: null for a season closed before the continental cup existed. */
 function continentalChampion(r: SeasonRecord): string | null {
@@ -65,6 +66,7 @@ export function History() {
             { id: "stats", label: "Estatísticas" },
             { id: "champions", label: "Campeões" },
             { id: "career", label: "Carreira" },
+            { id: "news", label: "Notícias" },
           ]}
         />
       </div>
@@ -97,6 +99,24 @@ export function History() {
                   </tbody>
                 </table>
               </div>
+            )}
+          </section>
+        )}
+        {/* Noticias AC 13: every kept item, newest first. */}
+        {tab === "news" && (
+          <section aria-label="Notícias" className="panel" style={{ "--i": 0 } as React.CSSProperties}>
+            <h2 className="title-bar">Notícias</h2>
+            {(game.news ?? []).length === 0 ? (
+              <p className="empty">Nenhuma notícia ainda.</p>
+            ) : (
+              <ul className="news fill">
+                {[...(game.news ?? [])].reverse().map((n, i) => (
+                  <li key={i}>
+                    <span className="news-date">{newsDateLabel(n, game)}</span>
+                    <span>{newsText(n, game)}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         )}

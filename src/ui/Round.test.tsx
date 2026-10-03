@@ -342,3 +342,36 @@ describe("carreira na Rodada (carreira-dinamica)", () => {
     expect(saved.userClubId).toBe(b!.id);
   });
 });
+
+describe("notícias na Rodada (noticias)", () => {
+  test("notícias da data", async () => {
+    // C14 (AC 11, L-018): only the round's own news, in the kept order, then the empty state.
+    const game = seededGame(4, 2, 5);
+    const { state, ...lastRound } = playRound(game);
+    const round = lastRound.roundNumber;
+    const x = state.leagues[0]!.clubs[7]!;
+    const league = (season: number, r: number) => ({ season, date: { kind: "league" as const, round: r } });
+    state.news = [
+      { ...league(state.season - 1, round), kind: "board", warnings: 1 },
+      { ...league(state.season, round - 1), kind: "injury", playerName: "Antigo", rounds: 2 },
+      { ...league(state.season, round), kind: "injury", playerName: "Fulano", rounds: 3 },
+      { ...league(state.season, round - 2), kind: "rating", playerName: "Velho", rating: 60, delta: 1 },
+      { ...league(state.season, round), kind: "offer", playerName: "Beltrano", clubId: x.id, amount: 1_200_000 },
+    ];
+    const user = userEvent.setup();
+    useGame.setState({ phase: "round", game: state, hasSave: true, lastRound });
+    const view = render(<Round />);
+    await user.click(screen.getByRole("tab", { name: "Notícias (2)" }));
+    const panel = screen.getByRole("tabpanel", { name: "Notícias" });
+    expect(within(panel).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "Fulano se lesionou e fica fora por 3 rodadas.",
+      `${x.name} oferece R$ 1.200.000 por Beltrano.`,
+    ]);
+    view.unmount();
+
+    useGame.setState({ game: { ...state, news: state.news.filter((n) => !(n.date.kind === "league" && n.date.round === round && n.season === state.season)) } });
+    render(<Round />);
+    await user.click(screen.getByRole("tab", { name: "Notícias (0)" }));
+    expect(screen.getByRole("tabpanel", { name: "Notícias" })).toHaveTextContent("Nada de novo nesta data.");
+  });
+});

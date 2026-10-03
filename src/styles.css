@@ -196,8 +196,9 @@ main.app.on-title {
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.18fr);
 }
 
+/* Noticias AC 11: a fourth column for the date's news. */
 .round-body {
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 0.95fr);
 }
 
 .end-body {
@@ -2667,4 +2668,20 @@ button.mini {
 .loan-head {
   margin: 6px 0 2px;
   font-size: 0.85rem;
+}
+
+/* Noticias AC 11, AC 13: the date's news and the kept list. */
+ul.news {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ul.news li {
+  padding: 5px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+ul.news .news-date {
+  display: block;
+  font-size: 0.8em;
+  opacity: 0.7;
 }

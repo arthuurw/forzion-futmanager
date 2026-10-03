@@ -27,8 +27,8 @@ describe("tela Histórico", () => {
   test("artilharia top 10", async () => {
     const game = seededGame(36, 0, 8);
     const user = await openHistory(game);
-    // Carreira-dinamica (Superseded checks): the fourth tab, «Carreira».
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Artilharia", "Estatísticas", "Campeões", "Carreira"]);
+    // Carreira-dinamica (Superseded checks): the fourth tab, «Carreira». Noticias (Superseded checks): the fifth, «Notícias».
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Artilharia", "Estatísticas", "Campeões", "Carreira", "Notícias"]);
     // Written out (L-004): the Série A's scorers, goals descending, then name.
     const expected = game.leagues[0]!.clubs
       .flatMap((c) => c.players.map((p) => ({ name: p.name, club: c.name, goals: p.seasonGoals })))
@@ -279,5 +279,31 @@ describe("carreira no Histórico (carreira-dinamica)", () => {
       await again.click(screen.getByRole("tab", { name: "Carreira" }));
       expect(within(screen.getByRole("region", { name: "Carreira" })).getByText("Nenhuma troca de clube ainda.")).toBeInTheDocument();
     }
+  });
+});
+
+describe("notícias no Histórico (noticias)", () => {
+  test("aba notícias", async () => {
+    // C15 (AC 13, L-008): newest first, each with its date; then the empty state.
+    const game = seededGame(36, 0, 8);
+    const x = game.leagues[0]!.clubs[5]!;
+    game.news = [
+      { season: 1, date: { kind: "league", round: 3 }, kind: "injury", playerName: "Fulano", rounds: 2 },
+      { season: 1, date: { kind: "cup", cupId: "cup-nat", phase: 0 }, kind: "cup", cupId: "cup-nat", phase: 0, result: "advanced", opponentId: x.id },
+      { season: 1, date: { kind: "league", round: 8 }, kind: "rating", playerName: "Ciclano", rating: 70, delta: -1 },
+    ];
+    const user = await openHistory(game);
+    await user.click(screen.getByRole("tab", { name: "Notícias" }));
+    const items = within(screen.getByRole("region", { name: "Notícias" })).getAllByRole("listitem");
+    expect(items.map((li) => [...li.children].map((c) => c.textContent))).toEqual([
+      ["Temporada 1 · Rodada 8", "Ciclano caiu para 70."],
+      ["Temporada 1 · Copa Nacional · Preliminar", "Copa Nacional: classificado para 16 avos."],
+      ["Temporada 1 · Rodada 3", "Fulano se lesionou e fica fora por 2 rodadas."],
+    ]);
+    cleanup();
+    resetAll();
+    const empty = await openHistory({ ...seededGame(36, 0, 8), news: [] });
+    await empty.click(screen.getByRole("tab", { name: "Notícias" }));
+    expect(screen.getByRole("region", { name: "Notícias" })).toHaveTextContent("Nenhuma notícia ainda.");
   });
 });

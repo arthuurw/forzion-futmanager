@@ -55,7 +55,7 @@ Proof: `npx vitest run src/persistence/save.test.ts -t "notícias atravessam o s
 **C13** - `newsText(notícia, jogo)`, em tabela com os textos exatos da AC 12: lesão (3 rodadas e 1 rodada), suspensão na liga e na copa, força subindo e caindo, proposta com valor formatado, diretoria, emprego com um e com dois clubes, transferência, copa classificado, campeão e eliminado (AC 12).
 Proof: `npx vitest run src/ui/newsText.test.ts -t "texto das notícias"`
 
-**C14** - A tela Rodada aberta do IndexedDB depois de uma data com 2 notícias dela e 3 de datas anteriores mostra a aba «Notícias (2)» e, no painel «Notícias», só as 2 frases da data, na ordem guardada; uma data sem notícia mostra «Nada de novo nesta data.» (AC 11).
+**C14** - A tela Rodada de uma rodada da liga cujo jogo guarda 2 notícias dessa rodada e 3 de outras datas (2 de rodadas anteriores e 1 da mesma rodada na temporada anterior, L-018) mostra a aba «Notícias (2)» e, no painel «Notícias», só as 2 frases da rodada, na ordem guardada; sem notícia da rodada, «Notícias (0)» e «Nada de novo nesta data.» (AC 11). A tela Rodada só abre do IndexedDB por uma data pendente, cujas notícias o motor decide; o jogo vai pela store.
 Proof: `npx vitest run src/ui/Round.test.tsx -t "notícias da data"`
 
 **C15** - A aba «Notícias» do Histórico mostra as notícias da mais nova para a mais velha, cada uma com «Temporada <n> · Rodada <r>» ou «Temporada <n> · <copa> · <fase>» e a frase; sem notícia, «Nenhuma notícia ainda.» (AC 13).
@@ -65,6 +65,10 @@ Proof: `npx vitest run src/ui/History.test.tsx -t "aba notícias"`
 
 **C16** - `npm run check:layout` (seed 1) sai 0 e mede 23 telas: as 21 de hoje, `roundNews` (a tela Rodada com a aba «Notícias» aberta e ao menos uma frase) e `historyNews` (o Histórico na aba «Notícias» com ao menos uma linha), cada uma em 400 × 700 sem rolagem; a última linha é «layout: as 23 telas cabem em 400 × 700 px» (AC 14).
 Proof: `npm run check:layout`
+
+## Superseded checks
+
+- `src/ui/History.test.tsx` «artilharia top 10» (carreira-dinamica) afirmava as 4 abas do Histórico; passa a afirmar as 5, com «Notícias» no fim (AC 13). A lista só ganha um item.
 
 ## Coverage
 
@@ -96,4 +100,5 @@ Proof: `npm run check:layout`
 ## Handoff
 
 - S1 = `src/engine/news.ts` (novo, ~8 KB) + `news.test.ts` (novo, ~15 KB) + `season.ts` 11 KB + `cup.ts` 16 KB + `types.ts` 12 KB + `saveFile.test.ts` 9 KB + trecho de `store.test.ts` (49 KB) ≈ 120 KB / 4 ≈ 30k; S2 entra nas telas (`Round.tsx` 8 KB, `Round.test.tsx` 15 KB, `History.tsx` 8 KB, `History.test.tsx` 10 KB, `newsText.ts` novo, `styles.css` 54 KB) a ~55k; S3 entra no `layout-check.mjs` (26 KB) a ~62k, abaixo do budget de 150k - one builder
+- **Settled mid-build:** antes dos testes, C14 deixou de dizer «aberta do IndexedDB» (a tela Rodada só abre do IndexedDB pela data pendente, e então o motor decide as notícias) e ganhou a notícia da mesma rodada na temporada anterior
 - **Settled mid-build:** antes dos testes, C4 ganhou o caso da data de copa (as propostas da rodada continuam na lista até a rodada seguinte fechar e seriam repetidas) e C8 foi separado em uma rodada da liga e uma data de copa (copa e transferência nunca caem na mesma data)

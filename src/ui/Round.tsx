@@ -10,10 +10,11 @@ import { cupPhaseTitle, nextDateLabel, scoreText } from "./Cup";
 import { Flag } from "./Flag";
 import { missingStartersText } from "./lineupText";
 import { formatMoney, formatNumber } from "./money";
+import { newsText } from "./newsText";
 import { ScreenTabs, tabPanel } from "./ScreenTabs";
 import { DivisionTable } from "./Table";
 
-type RoundTab = "match" | "results" | "table";
+type RoundTab = "match" | "results" | "table" | "news";
 
 /**
  * AC 18, AC 28: the round just played, the user's match narrated, every other score, the table.
@@ -43,6 +44,12 @@ export function Round() {
   const nextPhase = cup && cupDate ? cup.phases[cupDate.phase + 1] : undefined;
   const champion = cup ? cupChampion(cup) : null;
   const panelClass = (id: RoundTab) => `panel${tab === id ? " m-active" : ""}`;
+  // Noticias AC 11: the news of the date on screen, in the order kept.
+  const dateNews = (game.news ?? []).filter((n) =>
+    n.season === game.season && (cup && cupDate
+      ? n.date.kind === "cup" && n.date.cupId === cup.id && n.date.phase === cupDate.phase
+      : n.date.kind === "league" && n.date.round === lastRound.roundNumber),
+  );
 
   return (
     <div className="screen">
@@ -58,6 +65,7 @@ export function Round() {
             ...(mine ? [{ id: "match" as const, label: "Partida" }] : []),
             { id: "results", label: "Resultados" },
             { id: "table", label: cup ? "Próxima fase" : "Classificação" },
+            { id: "news", label: `Notícias (${dateNews.length})` },
           ]}
         />
       </div>
@@ -134,6 +142,19 @@ export function Round() {
             </div>
           </section>
         )}
+
+        <section aria-label="Notícias" {...tabPanel("round", "news", { named: true })} className={panelClass("news")} style={{ "--i": 3 } as React.CSSProperties}>
+          <h2 className="title-bar">Notícias</h2>
+          {dateNews.length === 0 ? (
+            <p className="empty">Nada de novo nesta data.</p>
+          ) : (
+            <ul className="news fill">
+              {dateNews.map((n, i) => (
+                <li key={i}>{newsText(n, game)}</li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
 
       <OfferPanel />

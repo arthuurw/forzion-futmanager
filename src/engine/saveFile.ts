@@ -1,5 +1,6 @@
 import { migrateSave } from "./migrate";
-import type { GameState } from "./types";
+import { NEWS_LIMIT } from "./news";
+import { DIFFICULTIES, type Difficulty, type GameState } from "./types";
 
 /** Door 1 of lancamento: the exported file is this envelope, forever. */
 export const SAVE_FILE_FORMAT = "forzion-futmanager-save";
@@ -64,7 +65,55 @@ function hasGameShape(state: unknown): state is GameState {
   if (typeof userClubId !== "string") return false;
   const clubs = (leagues as { clubs: Record<string, unknown>[] }[]).flatMap((l) => l.clubs);
   const user = clubs.find((c) => c.id === userClubId);
-  return user !== undefined && isObject(user.lineup) && hasJobShape(state.pendingJob, new Set(clubs.map((c) => c.id as string)), userClubId);
+  const clubIds = new Set(clubs.map((c) => c.id as string));
+  return (
+    user !== undefined &&
+    isObject(user.lineup) &&
+    hasJobShape(state.pendingJob, clubIds, userClubId) &&
+    (state.difficulty === undefined || DIFFICULTIES.includes(state.difficulty as Difficulty)) &&
+    optionalList(state.career, Infinity, (m) => isCareerMove(m, clubIds)) &&
+    optionalList(state.news, NEWS_LIMIT, (n) => isNewsItem(n, clubIds))
+  );
+}
+
+/** Validacao-importacao: an optional list is absent, or at most `max` items that each pass. */
+function optionalList(list: unknown, max: number, isItem: (item: Record<string, unknown>) => boolean): boolean {
+  return list === undefined || (Array.isArray(list) && list.length <= max && list.every((item) => isObject(item) && isItem(item)));
+}
+
+/** Validacao-importacao C2: a club change between two clubs of the game. */
+function isCareerMove(m: Record<string, unknown>, clubIds: ReadonlySet<string>): boolean {
+  const isClubId = (id: unknown) => typeof id === "string" && clubIds.has(id);
+  return Number.isInteger(m.season) && Number.isInteger(m.round) && isClubId(m.fromId) && isClubId(m.toId) && (m.reason === "fired" || m.reason === "offer");
+}
+
+/** Validacao-importacao C3: the fields of the news kind the screens read; clubs must be of the game. */
+function isNewsItem(n: Record<string, unknown>, clubIds: ReadonlySet<string>): boolean {
+  const isClubId = (id: unknown) => typeof id === "string" && clubIds.has(id);
+  const isName = typeof n.playerName === "string";
+  const d = n.date;
+  const date = isObject(d) && (d.kind === "league" ? Number.isInteger(d.round) : d.kind === "cup" && typeof d.cupId === "string" && Number.isInteger(d.phase));
+  if (!Number.isInteger(n.season) || !date) return false;
+  switch (n.kind) {
+    case "injury":
+      return isName && Number.isInteger(n.rounds);
+    case "suspension":
+      return isName && Number.isInteger(n.rounds) && (n.cupId === undefined || typeof n.cupId === "string");
+    case "rating":
+      return isName && Number.isInteger(n.rating) && (n.delta === 1 || n.delta === -1);
+    case "offer":
+      return isName && isClubId(n.clubId) && Number.isFinite(n.amount);
+    case "transfer":
+      return isName && isClubId(n.fromId) && isClubId(n.toId) && Number.isFinite(n.amount);
+    case "board":
+      return Number.isInteger(n.warnings);
+    case "job":
+      return Array.isArray(n.clubIds) && n.clubIds.length > 0 && n.clubIds.every(isClubId);
+    case "cup":
+      return typeof n.cupId === "string" && Number.isInteger(n.phase) && ["advanced", "champion", "out"].includes(n.result as string) && isClubId(n.opponentId);
+    default:
+      return false;
+  }
 }
 
 /** Carreira-dinamica AC 26: a pending offer names other clubs of the game, or is absent. */

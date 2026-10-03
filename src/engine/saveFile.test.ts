@@ -166,6 +166,32 @@ describe("carreira no arquivo (carreira-dinamica)", () => {
     expect("pendingJob" in game).toBe(false);
     expect(decodeSaveFile(envelope(game)).kind).toBe("ok");
   });
+
+  test("carreira no arquivo", () => {
+    // C2: absent and two moves import unchanged; one wrong field at a time is refused.
+    const g = withClub(3);
+    expect("career" in g).toBe(false);
+    expect(decodeSaveFile(encodeSaveFile(g, ISO))).toEqual({ kind: "ok", state: g });
+    const [me, x, y] = [g.userClubId!, g.leagues[0]!.clubs[6]!.id, g.leagues[1]!.clubs[1]!.id];
+    const moves: NonNullable<GameState["career"]> = [
+      { season: 1, round: 14, fromId: y, toId: x, reason: "fired" },
+      { season: 2, round: 38, fromId: x, toId: me, reason: "offer" },
+    ];
+    const s = { ...g, career: moves };
+    expect(decodeSaveFile(encodeSaveFile(s, ISO))).toEqual({ kind: "ok", state: s });
+    const edit = (change: Record<string, unknown>) => [moves[0], { ...moves[1], ...change }];
+    const cases: [string, unknown][] = [
+      ["career objeto", { 0: moves[0] }],
+      ["item null", [moves[0], null]],
+      ["season 1.5", edit({ season: 1.5 })],
+      ["round texto", edit({ round: "3" })],
+      ["fromId inexistente", edit({ fromId: "no-such-club" })],
+      ["toId inexistente", edit({ toId: "no-such-club" })],
+      ["reason quit", edit({ reason: "quit" })],
+    ];
+    expect(cases).toHaveLength(7);
+    for (const [name, career] of cases) expect(decodeSaveFile(envelope({ ...g, career })), name).toEqual({ kind: "malformed" });
+  });
 });
 
 describe("empréstimo no arquivo (emprestimos)", () => {
@@ -186,15 +212,93 @@ describe("empréstimo no arquivo (emprestimos)", () => {
 });
 
 describe("notícias no arquivo (noticias)", () => {
-  test("notícias atravessam o arquivo", () => {
-    // C12 (door 1): a league and a cup item, export and import unchanged.
-    const g = withClub(6);
-    const x = g.leagues[0]!.clubs[4]!.id;
-    g.news = [
-      { season: 1, date: { kind: "league", round: 3 }, kind: "offer", playerName: "Fulano", clubId: x, amount: 900_000 },
-      { season: 1, date: { kind: "cup", cupId: "cup-nat", phase: 0 }, kind: "cup", cupId: "cup-nat", phase: 0, result: "advanced", opponentId: x },
+  /** One item of each of the 8 kinds, league and cup dates, clubs from both leagues and the user's. */
+  function newsOfEveryKind(g: GameState): NonNullable<GameState["news"]> {
+    const [me, x, y] = [g.userClubId!, g.leagues[0]!.clubs[4]!.id, g.leagues[1]!.clubs[2]!.id];
+    const league = { kind: "league", round: 3 } as const;
+    const cup = { kind: "cup", cupId: "cup-nat", phase: 0 } as const;
+    return [
+      { season: 1, date: league, kind: "injury", playerName: "Fulano", rounds: 2 },
+      { season: 1, date: league, kind: "suspension", playerName: "Beltrano", rounds: 1 },
+      { season: 1, date: cup, kind: "suspension", playerName: "Beltrano", rounds: 1, cupId: "cup-nat" },
+      { season: 1, date: league, kind: "rating", playerName: "Ciclano", rating: 71, delta: 1 },
+      { season: 1, date: league, kind: "rating", playerName: "Ciclano", rating: 70, delta: -1 },
+      { season: 1, date: league, kind: "offer", playerName: "Fulano", clubId: x, amount: 900_000 },
+      { season: 1, date: league, kind: "transfer", playerName: "Fulano", fromId: me, toId: y, amount: 1_200_000 },
+      { season: 1, date: league, kind: "board", warnings: 2 },
+      { season: 2, date: league, kind: "job", clubIds: [x, y] },
+      { season: 2, date: cup, kind: "cup", cupId: "cup-nat", phase: 0, result: "advanced", opponentId: x },
+      { season: 2, date: cup, kind: "cup", cupId: "cup-nat", phase: 1, result: "champion", opponentId: y },
+      { season: 2, date: cup, kind: "cup", cupId: "cup-nat", phase: 0, result: "out", opponentId: y },
     ];
-    const r = decodeSaveFile(encodeSaveFile(g, ISO));
-    expect(r).toEqual({ kind: "ok", state: g });
+  }
+
+  test("notícias atravessam o arquivo", () => {
+    // C12 of noticias (door 1) and C3: every kind, both dates, export and import unchanged.
+    const g = withClub(6);
+    g.news = newsOfEveryKind(g);
+    expect(new Set(g.news.map((n) => n.kind)).size).toBe(8);
+    expect(decodeSaveFile(encodeSaveFile(g, ISO))).toEqual({ kind: "ok", state: g });
+    // C3: the engine keeps at most 60, and 60 is accepted.
+    const full = withClub(6);
+    full.news = Array.from({ length: 60 }, (_, i) => ({ season: 1, date: { kind: "league", round: i + 1 }, kind: "board", warnings: 1 }) as const);
+    expect(decodeSaveFile(encodeSaveFile(full, ISO))).toEqual({ kind: "ok", state: full });
+    // C3: a save from before the news has none, and imports.
+    const before = withClub(6);
+    expect("news" in before).toBe(false);
+    expect(decodeSaveFile(encodeSaveFile(before, ISO))).toEqual({ kind: "ok", state: before });
+  });
+
+  test("notícias no arquivo recusa a forma errada", () => {
+    // C3 (L-005, L-007): one wrong field at a time over a valid list; ids refused are not of the game.
+    const g = withClub(6);
+    const valid = newsOfEveryKind(g);
+    const at = (kind: string) => valid.findIndex((n) => n.kind === kind);
+    const edit = (i: number, change: Record<string, unknown>) => valid.map((n, j) => (j === i ? { ...n, ...change } : n));
+    const cases: [string, unknown][] = [
+      ["news objeto", { 0: valid[0] }],
+      ["61 itens", Array.from({ length: 61 }, (_, i) => ({ season: 1, date: { kind: "league", round: i + 1 }, kind: "board", warnings: 1 }))],
+      ["item null", [...valid, null]],
+      ["kind goal", edit(0, { kind: "goal" })],
+      ["season texto", edit(0, { season: "1" })],
+      ["date.kind week", edit(0, { date: { kind: "week", round: 3 } })],
+      ["data de liga round 1.5", edit(0, { date: { kind: "league", round: 1.5 } })],
+      ["data de copa cupId número", edit(0, { date: { kind: "cup", cupId: 7, phase: 0 } })],
+      ["data de copa phase texto", edit(0, { date: { kind: "cup", cupId: "cup-nat", phase: "0" } })],
+      ["injury rounds texto", edit(at("injury"), { rounds: "2" })],
+      ["injury sem playerName", valid.map((n, j) => (j === at("injury") ? { season: 1, date: n.date, kind: "injury", rounds: 2 } : n))],
+      ["suspension cupId número", edit(at("suspension"), { cupId: 7 })],
+      ["rating delta 2", edit(at("rating"), { delta: 2 })],
+      ["rating rating texto", edit(at("rating"), { rating: "70" })],
+      ["offer clubId inexistente", edit(at("offer"), { clubId: "no-such-club" })],
+      ["offer amount texto", edit(at("offer"), { amount: "900000" })],
+      ["transfer fromId inexistente", edit(at("transfer"), { fromId: "no-such-club" })],
+      ["transfer toId inexistente", edit(at("transfer"), { toId: "no-such-club" })],
+      ["board warnings texto", edit(at("board"), { warnings: "1" })],
+      ["job clubIds vazio", edit(at("job"), { clubIds: [] })],
+      ["job clubIds inexistente", edit(at("job"), { clubIds: [g.leagues[0]!.clubs[4]!.id, "no-such-club"] })],
+      ["cup result lost", edit(at("cup"), { result: "lost" })],
+      ["cup opponentId inexistente", edit(at("cup"), { opponentId: "no-such-club" })],
+      ["cup phase texto", edit(at("cup"), { phase: "0" })],
+    ];
+    expect(cases).toHaveLength(24);
+    for (const [name, news] of cases) expect(decodeSaveFile(envelope({ ...g, news })), name).toEqual({ kind: "malformed" });
+    expect(decodeSaveFile(envelope({ ...g, news: valid })).kind).toBe("ok");
+  });
+});
+
+describe("dificuldade no arquivo (dificuldade)", () => {
+  test("dificuldade no arquivo", () => {
+    // C1: the three levels and absent import unchanged; anything else is refused.
+    const g = withClub(7);
+    expect("difficulty" in g).toBe(false);
+    expect(decodeSaveFile(encodeSaveFile(g, ISO))).toEqual({ kind: "ok", state: g });
+    for (const difficulty of ["easy", "normal", "hard"] as const) {
+      const s = { ...g, difficulty };
+      expect(decodeSaveFile(encodeSaveFile(s, ISO)), difficulty).toEqual({ kind: "ok", state: s });
+    }
+    for (const difficulty of ["medio", 1, null]) {
+      expect(decodeSaveFile(envelope({ ...g, difficulty })), String(difficulty)).toEqual({ kind: "malformed" });
+    }
   });
 });

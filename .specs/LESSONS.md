@@ -45,10 +45,10 @@ Corroborated across multiple features. Safe to apply as guidance.
 - last seen: 2026-09-27T01:23:53Z
 
 ### L-030 - When checks close weak proofs over code that is already correct, run each new proof on the pre-fix code before writing the checks and declare every one that passes there as pinning existing behaviour.
-- signal: `spec_precision_gap` · recurrence: 2 feature(s) · scope: `checks` · harmful: 0
-- features: ajustes-saves, emprestimos
-- evidence: checks.md Lições aplicadas / C2-C4 (checks) (+1 more)
-- last seen: 2026-10-02T22:30:05Z
+- signal: `spec_precision_gap` · recurrence: 3 feature(s) · scope: `checks` · harmful: 0
+- features: ajustes-saves, emprestimos, noticias
+- evidence: checks.md Lições aplicadas / C2-C4 (checks) (+2 more)
+- last seen: 2026-10-03T01:12:21Z
 
 ## Candidates (under observation - do NOT load as guidance yet)
 

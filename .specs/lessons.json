@@ -548,16 +548,18 @@
       "status": "confirmed",
       "features": [
         "ajustes-saves",
-        "emprestimos"
+        "emprestimos",
+        "noticias"
       ],
-      "recurrence": 2,
+      "recurrence": 3,
       "harmful": 0,
       "evidence": [
         "checks.md Lições aplicadas / C2-C4 (checks)",
-        "checks.md Lições aplicadas / C16 (checks)"
+        "checks.md Lições aplicadas / C16 (checks)",
+        "checks.md Lições aplicadas / C12 (checks)"
       ],
       "created": "2026-10-02T21:23:31Z",
-      "last_seen": "2026-10-02T22:30:05Z"
+      "last_seen": "2026-10-03T01:12:21Z"
     },
     {
       "id": "L-031",

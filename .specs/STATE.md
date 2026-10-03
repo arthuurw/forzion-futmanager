@@ -45,10 +45,10 @@ Candidatas propostas em 02/10/2026 e não escolhidas ainda (o autor escolheu as 
 
 ## Handoff
 
-**Feature**: offline-instalar verificada (PASS round 1, 11/11, 4f84454..184db13, profile light; AD-027): service worker gerado no build, jogo abre e joga sem rede depois da primeira visita (`npm run check:offline`), manifesto instalável com ícones de 192 e 512 px, seção «Instalar» em «Sobre». Em andamento a sequência pedida pelo autor em 02/10/2026: offline-instalar → noticias → dificuldade
-**Where**: `main` local, à frente de `origin` (não publicada; o deploy pede o ok do autor)
-**In progress**: noticias (plano e checks escritos)
-**Next step**: construir noticias, depois dificuldade. Pontos fracos não bloqueantes do Verifier de offline-instalar: o `ignoreVary` só é provado pelo `check:offline` (o cache falso de `src/pwa/sw.test.ts` ignora opções, L-033); ninguém afirma a ausência de `skipWaiting`; o estado da seção «Instalar» com o texto do menu (Safari e Firefox) só foi medido à mão; apagar a versão velha do cache e trocar de versão não roda num navegador de verdade; o caminho do arquivo no hash não é afirmado; o `import.meta.env.PROD` de `src/main.tsx` não é testado; o Vite avisa sobre o import sem extensão em `vite.config.ts:3`; `app.test.tsx` «fim da rodada ao vivo grava e mostra resultados» estourou 30 s uma vez sob carga (passou ao repetir)
+**Feature**: noticias verificada (PASS round 1, 16/16, 98a1911..6992c12, profile light; AD-028): notícias do clube do usuário geradas a cada data, painel «Notícias» na Rodada, aba «Notícias» no Histórico. Antes: offline-instalar (PASS 11/11). Sequência pedida pelo autor em 02/10/2026: offline-instalar → noticias → dificuldade
+**Where**: `main` local, à frente de `origin` (offline-instalar e noticias não publicadas; o deploy pede o ok do autor)
+**In progress**: dificuldade (plano e checks escritos)
+**Next step**: construir dificuldade. Pontos fracos não bloqueantes do Verifier de noticias: C12 passa no código de antes e não foi declarado (L-030 de novo); notícia de data de copa não é provada pela store nem pela tela Rodada (filtro de copa de `src/ui/Round.tsx`); o layout de 4 colunas da Rodada no desktop não é medido; um arquivo importado com `news` malformado passa no `hasGameShape` (`src/engine/saveFile.ts`) e quebraria a Rodada ou o Histórico (o mesmo vale para `career`) - vale validar; C10 não afirma `result` e `opponentId` da notícia de copa; `roundNews` e `historyNews` não têm regra de geometria própria. Pontos de offline-instalar: o `ignoreVary` só é provado pelo `check:offline` (L-033); ausência de `skipWaiting` sem prova; estado «texto do menu» de «Sobre» medido à mão; troca de versão do cache não roda num navegador; aviso do Vite sobre o import sem extensão em `vite.config.ts:3`; `app.test.tsx` «fim da rodada ao vivo grava e mostra resultados» estoura 30 s às vezes sob carga
 **Blockers**: none
 **Uncommitted**: nenhum
 **Branch**: main
